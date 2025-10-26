@@ -1,0 +1,29 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+*.sqlite3
+*.log
+
+# Environments
+.env
+.venv/
+env/
+venv/
+
+# Jupyter
+.ipynb_checkpoints/
+
+# Docker
+*.pid
+*.sock
+/logs/
+/data/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Cache
+.cache/
