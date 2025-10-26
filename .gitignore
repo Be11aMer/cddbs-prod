@@ -27,3 +27,7 @@ Thumbs.db
 
 # Cache
 .cache/
+
+# JetBrains IDE
+.idea/*
+*.iml
