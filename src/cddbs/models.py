@@ -17,6 +17,7 @@ class Article(Base):
     __table_args__ = {'extend_existing': True}
     id = Column(Integer, primary_key=True, index=True)
     outlet_id = Column(Integer, ForeignKey("outlets.id"))
+    report_id = Column(Integer, ForeignKey("reports.id"), nullable=True)
     title = Column(String, nullable=False)
     link = Column(String, nullable=True)
     snippet = Column(Text, nullable=True)
@@ -26,6 +27,7 @@ class Article(Base):
     created_at = Column(DateTime, default=datetime.utcnow)
 
     outlet = relationship("Outlet", back_populates="articles")
+    report = relationship("Report", back_populates="articles")
 
 class Report(Base):
     __tablename__ = "reports"
@@ -34,5 +36,8 @@ class Report(Base):
     outlet = Column(String, nullable=False)
     country = Column(String, nullable=True)
     final_report = Column(Text, nullable=True)
+    raw_response = Column(Text, nullable=True)
     data = Column(JSON, nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow)
+
+    articles = relationship("Article", back_populates="report")

@@ -13,10 +13,9 @@ def call_gemini(prompt: str) -> str:
         config=types.GenerateContentConfig(
             system_instruction=get_system_prompt(),
             temperature=0.1,
-            thinking_config=types.ThinkingConfig(thinking_budget=-1)
         ),
         contents=prompt,
     )
-        return str(response)
+        return response.text
     except Exception as e:
         return f"[Gemini error: {e}]"
