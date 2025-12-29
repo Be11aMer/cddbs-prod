@@ -39,7 +39,15 @@ export const NewAnalysisDialog = ({ open, onClose, onCreated }: Props) => {
   });
 
   const mutation = useMutation({
-    mutationFn: createAnalysisRun,
+    mutationFn: (payload: CreateRunPayload) => {
+      const serpapiKey = localStorage.getItem("SERPAPI_KEY");
+      const googleApiKey = localStorage.getItem("GOOGLE_API_KEY");
+      return createAnalysisRun({
+        ...payload,
+        serpapi_key: serpapiKey || undefined,
+        google_api_key: googleApiKey || undefined,
+      });
+    },
     onSuccess: () => {
       showSuccess("Analysis started successfully! Check the runs table for progress.");
       onCreated();

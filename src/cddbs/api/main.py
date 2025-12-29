@@ -1,5 +1,5 @@
 from datetime import datetime
-from typing import List, Optional
+from typing import List, Optional, Tuple
 
 from fastapi import BackgroundTasks, Depends, FastAPI, HTTPException
 from pydantic import BaseModel, Field
@@ -63,6 +63,8 @@ class ReportResponse(BaseModel):
     created_at: datetime
     meta: Optional[ReportData] = None
     final_report: Optional[str] = None
+    status: str
+    message: Optional[str] = None
     articles: List[ArticleSummary] = Field(default_factory=list)
 
 
@@ -71,6 +73,8 @@ class RunCreateRequest(BaseModel):
     url: str
     country: str
     num_articles: int = Field(5, ge=1, le=20)
+    serpapi_key: Optional[str] = None
+    google_api_key: Optional[str] = None
 
 
 class RunStatusResponse(BaseModel):
@@ -85,6 +89,22 @@ class RunStatusResponse(BaseModel):
 # ---------------------------------------------------------------------------
 # Internal helpers
 # ---------------------------------------------------------------------------
+
+
+def _get_report_status(report: Report) -> Tuple[str, Optional[str]]:
+    """Helper to determine the high-level status of a report."""
+    status = "completed"
+    msg = None
+    data = report.data or {}
+    errors = data.get("errors") if isinstance(data, dict) else None
+    
+    if errors:
+        status = "failed"
+        msg = "; ".join(map(str, errors))
+    elif not report.final_report:
+        status = "running"
+        
+    return status, msg
 
 
 def _get_or_create_outlet(db: Session, name: str, url: str) -> Outlet:
@@ -110,7 +130,9 @@ def _run_analysis_job(
     outlet: str,
     url: str,
     country: str,
-    num_articles: int = 5
+    num_articles: int = 5,
+    serpapi_key: Optional[str] = None,
+    google_api_key: Optional[str] = None
 ):
     """
     Background job that executes the analysis pipeline and persists results.
@@ -118,7 +140,15 @@ def _run_analysis_job(
     db = SessionLocal()
     try:
         # handle updating the report and articles
-        run_pipeline(outlet, country, report_id=report_id, num_articles=num_articles, url=url)
+        run_pipeline(
+            outlet, 
+            country, 
+            report_id=report_id, 
+            num_articles=num_articles, 
+            url=url,
+            serpapi_key=serpapi_key,
+            google_api_key=google_api_key
+        )
 
     except Exception as exc:  # noqa: BLE001
         # If something fails, we still want the report row to exist; we just
@@ -179,7 +209,9 @@ def create_analysis_run(
         outlet=payload.outlet,
         url=payload.url,
         country=payload.country,
-        num_articles=payload.num_articles
+        num_articles=payload.num_articles,
+        serpapi_key=payload.serpapi_key,
+        google_api_key=payload.google_api_key
     )
 
     return RunStatusResponse(
@@ -199,16 +231,7 @@ def list_analysis_runs(db: Session = Depends(get_db)):
     response: List[RunStatusResponse] = []
 
     for r in reports:
-        status = "completed"
-        msg = None
-        data = r.data or {}
-        errors = data.get("errors") if isinstance(data, dict) else None
-        if errors:
-            status = "failed"
-            msg = "; ".join(map(str, errors))
-        elif not r.final_report:
-            status = "running"
-
+        status, msg = _get_report_status(r)
         response.append(
             RunStatusResponse(
                 id=r.id,
@@ -256,6 +279,8 @@ def get_analysis_run(report_id: int, db: Session = Depends(get_db)):
         ArticleSummary.from_orm(a) for a in report.articles
     ]
 
+    status, msg = _get_report_status(report)
+
     return ReportResponse(
         id=report.id,
         outlet=report.outlet,
@@ -263,6 +288,8 @@ def get_analysis_run(report_id: int, db: Session = Depends(get_db)):
         created_at=report.created_at,
         meta=meta,
         final_report=report.final_report,
+        status=status,
+        message=msg,
         articles=article_summaries,
     )
 

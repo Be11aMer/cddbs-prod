@@ -23,9 +23,10 @@ import { DetailSkeleton } from "./Skeletons";
 
 interface Props {
   runId: number | null;
+  onOpenReport?: (id: number) => void;
 }
 
-export const RunDetail = ({ runId }: Props) => {
+export const RunDetail = ({ runId, onOpenReport }: Props) => {
   const { showSuccess, showError } = useNotification();
 
   const { data, isLoading } = useQuery({
@@ -204,84 +205,39 @@ export const RunDetail = ({ runId }: Props) => {
 
             <Box sx={{ mb: 2 }}>
               <Typography variant="caption" color="text.secondary" sx={{ textTransform: "uppercase", letterSpacing: "0.05em", fontWeight: 600, display: "block", mb: 1.5 }}>
-                Intelligence Briefing
+                Status Summary
               </Typography>
 
-              {data.final_report ? (
-                <Box
-                  sx={{
-                    "& p": {
-                      marginBottom: "1rem",
-                      lineHeight: 1.7,
-                      fontSize: "0.9375rem",
-                    },
-                    "& h1, & h2, & h3, & h4, & h5, & h6": {
-                      marginTop: "1.5rem",
-                      marginBottom: "0.75rem",
-                      fontWeight: 700,
-                      color: "primary.light",
-                    },
-                    "& ul, & ol": {
-                      marginBottom: "1rem",
-                      paddingLeft: "1.5rem",
-                    },
-                    "& li": {
-                      marginBottom: "0.5rem",
-                      lineHeight: 1.6,
-                    },
-                  }}
-                >
-                  <ReactMarkdown
-                    components={{
-                      code({
-                        inline,
-                        className,
-                        children,
-                        ...props
-                      }: {
-                        inline?: boolean;
-                        className?: string;
-                        children?: React.ReactNode;
-                        [key: string]: any;
-                      }) {
-                        const match = /language-(\w+)/.exec(className || "");
-                        return !inline && match ? (
-                          <SyntaxHighlighter
-                            style={vscDarkPlus}
-                            language={match[1]}
-                            PreTag="div"
-                            {...props}
-                          >
-                            {String(children).replace(/\n$/, "")}
-                          </SyntaxHighlighter>
-                        ) : (
-                          <code className={className} style={{
-                            backgroundColor: "rgba(59, 130, 246, 0.1)",
-                            padding: "2px 6px",
-                            borderRadius: "4px",
-                            fontSize: "0.85em",
-                            fontFamily: "monospace",
-                          }} {...props}>
-                            {children}
-                          </code>
-                        );
-                      },
-                    }}
-                  >
-                    {data.final_report}
-                  </ReactMarkdown>
-                </Box>
-              ) : (
-                <Box sx={{ py: 6, px: 3, textAlign: "center", backgroundColor: "rgba(148, 163, 184, 0.03)", borderRadius: 3, border: "1px dashed rgba(148, 163, 184, 0.3)" }}>
-                  <CircularProgress size={28} sx={{ mb: 2, color: "primary.main" }} />
-                  <Typography variant="body2" fontWeight={700} gutterBottom>
-                    Analysis in Progress
-                  </Typography>
-                  <Typography variant="caption" color="text.secondary" sx={{ display: "block", maxWidth: 300, mx: "auto" }}>
-                    Advanced patterns are being analyzed and the intelligence briefing is being synthesized. This usually takes 2-4 minutes.
-                  </Typography>
-                </Box>
-              )}
+              <Alert
+                severity={data.status === "failed" ? "error" : (data.final_report ? "success" : "info")}
+                sx={{
+                  borderRadius: 2,
+                  border: "1px solid",
+                  borderColor: data.status === "failed" ? "error.light" : (data.final_report ? "success.light" : "info.light")
+                }}
+              >
+                {data.status === "failed"
+                  ? `Analysis Failed: ${data.message || "Unknown error"}`
+                  : (data.final_report ? "Analysis complete. Detailed intelligence briefing is ready for review." : "Analysis in progress. Fetching and analyzing narratives...")
+                }
+              </Alert>
+
+              <Button
+                fullWidth
+                variant="contained"
+                onClick={() => onOpenReport?.(data.id)}
+                disabled={data.status !== "completed" && data.status !== "failed"}
+                sx={{
+                  mt: 3,
+                  borderRadius: 2,
+                  py: 1.2,
+                  textTransform: "none",
+                  fontWeight: 700,
+                  boxShadow: "0 4px 12px rgba(59, 130, 246, 0.25)"
+                }}
+              >
+                Open Briefing Details
+              </Button>
             </Box>
           </Box>
         )

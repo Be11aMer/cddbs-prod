@@ -31,14 +31,34 @@ import { KeyboardShortcutsDialog } from "./components/KeyboardShortcutsDialog";
 import { useKeyboardShortcuts } from "./hooks/useKeyboardShortcuts";
 import { useNotification } from "./contexts/NotificationContext";
 import { MetricCardSkeleton } from "./components/Skeletons";
+import { SettingsDialog } from "./components/SettingsDialog";
+import { ReportViewDialog } from "./components/ReportViewDialog";
+import SettingsIcon from "@mui/icons-material/Settings";
+import { IconButton } from "@mui/material";
+import { setSelectedRunId } from "./slices/runsSlice";
+import { useAppDispatch } from "./hooks";
 
 const drawerWidth = 240;
 
 export const App = () => {
+  const dispatch = useAppDispatch();
   const [newAnalysisOpen, setNewAnalysisOpen] = useState(false);
   const [shortcutsHelpOpen, setShortcutsHelpOpen] = useState(false);
+  const [settingsOpen, setSettingsOpen] = useState(false);
+  const [isFirstLaunch, setIsFirstLaunch] = useState(false);
+  const [reportViewOpen, setReportViewOpen] = useState(false);
   const selectedRunId = useAppSelector((s) => s.runs.selectedRunId);
   const { showInfo } = useNotification();
+
+  // Check for API keys on first launch
+  useEffect(() => {
+    const hasSerpKey = localStorage.getItem("SERPAPI_KEY");
+    const hasGeminiKey = localStorage.getItem("GOOGLE_API_KEY");
+    if (!hasSerpKey || !hasGeminiKey) {
+      setIsFirstLaunch(true);
+      setSettingsOpen(true);
+    }
+  }, []);
 
   const { data: runs, refetch, isLoading } = useQuery<RunStatus[]>({
     queryKey: ["runs"],
@@ -132,14 +152,35 @@ export const App = () => {
           <Typography variant="h6" noWrap>
             Cybersecurity Disinformation Detection Briefing System
           </Typography>
-          <Button
-            variant="contained"
-            color="primary"
-            onClick={() => setNewAnalysisOpen(true)}
-            sx={{ fontWeight: 700, textTransform: "none", px: 3 }}
-          >
-            New Analysis <Box component="span" sx={{ ml: 1, px: 0.6, py: 0.2, borderRadius: 0.5, backgroundColor: "rgba(255,255,255,0.2)", fontSize: "0.7rem" }}>N</Box>
-          </Button>
+          <Stack direction="row" spacing={2} alignItems="center">
+            <Button
+              variant="contained"
+              color="primary"
+              onClick={() => setNewAnalysisOpen(true)}
+              sx={{ fontWeight: 700, textTransform: "none", px: 3 }}
+            >
+              New Analysis{" "}
+              <Box
+                component="span"
+                sx={{
+                  ml: 1,
+                  px: 0.6,
+                  py: 0.2,
+                  borderRadius: 0.5,
+                  backgroundColor: "rgba(255,255,255,0.2)",
+                  fontSize: "0.7rem",
+                }}
+              >
+                N
+              </Box>
+            </Button>
+            <IconButton
+              onClick={() => setSettingsOpen(true)}
+              sx={{ color: "white", backgroundColor: "rgba(255,255,255,0.1)", "&:hover": { backgroundColor: "rgba(255,255,255,0.2)" } }}
+            >
+              <SettingsIcon />
+            </IconButton>
+          </Stack>
         </Toolbar>
       </AppBar>
 
@@ -288,6 +329,10 @@ export const App = () => {
                 runs={runs ?? []}
                 onRefresh={refetch}
                 isLoading={isLoading && !runs}
+                onOpenReport={(id) => {
+                  dispatch(setSelectedRunId(id));
+                  setReportViewOpen(true);
+                }}
               />
             </Grid>
             <Grid item xs={12} md={4}>
@@ -300,7 +345,13 @@ export const App = () => {
                     { status: "queued", count: runs?.filter(r => r.status === "queued").length || 0, color: "#94a3b8" },
                   ]}
                 />
-                <RunDetail runId={selectedRunId} />
+                <RunDetail
+                  runId={selectedRunId}
+                  onOpenReport={(id) => {
+                    dispatch(setSelectedRunId(id));
+                    setReportViewOpen(true);
+                  }}
+                />
               </Stack>
             </Grid>
           </Grid>
@@ -314,6 +365,25 @@ export const App = () => {
           setNewAnalysisOpen(false);
           refetch();
         }}
+      />
+
+      <SettingsDialog
+        open={settingsOpen}
+        onClose={() => {
+          setSettingsOpen(false);
+          setIsFirstLaunch(false);
+        }}
+        isFirstLaunch={isFirstLaunch}
+      />
+
+      <ReportViewDialog
+        open={reportViewOpen}
+        onClose={() => {
+          setReportViewOpen(false);
+          // Wait for transition to end before clearing selection
+          setTimeout(() => dispatch(setSelectedRunId(null)), 300);
+        }}
+        runId={selectedRunId}
       />
 
       <KeyboardShortcutsDialog

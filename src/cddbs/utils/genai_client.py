@@ -1,11 +1,17 @@
 from google import genai
 from google.genai import types
+
+from src.cddbs import settings
 from src.cddbs.utils.system_prompt import get_system_prompt
 
 
-def call_gemini(prompt: str) -> str:
+def call_gemini(prompt: str, api_key: str = None) -> str:
     """Generic Gemini prompt wrapper."""
-    client = genai.Client()
+    gemini_key = api_key or settings.GOOGLE_API_KEY
+    if not gemini_key:
+        return "[Gemini error: No Google API key provided]"
+        
+    client = genai.Client(api_key=gemini_key)
 
     try:
         response = client.models.generate_content(

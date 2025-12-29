@@ -24,8 +24,9 @@ def normalize_gl(country: str) -> str:
     # SAFE DEFAULT
     return "us"
 
-def fetch_articles(outlet: str, country: str, num_articles: int = None, url: str = None) -> List[Dict]:
-    if not settings.SERPAPI_KEY:
+def fetch_articles(outlet: str, country: str, num_articles: int = None, url: str = None, api_key: str = None) -> List[Dict]:
+    serpapi_key = api_key or settings.SERPAPI_KEY
+    if not serpapi_key:
         # fallback mock for offline/testing
         print("DEBUG: No SerpAPI key found, using mock articles.")
         return [{
@@ -56,7 +57,7 @@ def fetch_articles(outlet: str, country: str, num_articles: int = None, url: str
         "engine": "google_news",
         "q": query,
         "gl": gl_code,
-        "api_key": settings.SERPAPI_KEY
+        "api_key": serpapi_key
     }
     print(f"DEBUG: fetch_articles calling SerpAPI with query: '{query}' and gl: '{gl_code}'")
     try:

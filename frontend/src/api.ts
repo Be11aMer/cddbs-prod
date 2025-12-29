@@ -9,6 +9,8 @@ export interface CreateRunPayload {
   url: string;
   country: string;
   num_articles?: number;
+  serpapi_key?: string;
+  google_api_key?: string;
 }
 
 export interface RunStatus {
@@ -41,6 +43,8 @@ export interface ReportResponse {
   outlet: string;
   country?: string | null;
   created_at: string;
+  status: string;
+  message?: string | null;
   meta?: ReportMeta | null;
   final_report?: string | null;
   articles: ArticleSummary[];

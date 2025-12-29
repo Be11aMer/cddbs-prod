@@ -1,0 +1,280 @@
+import {
+    Box,
+    Dialog,
+    DialogContent,
+    DialogTitle,
+    IconButton,
+    Typography,
+    Divider,
+    Stack,
+    Button,
+    AppBar,
+    Toolbar,
+    Slide,
+    CircularProgress,
+    Link as MuiLink,
+    Chip,
+    Paper,
+    Grid,
+    Alert,
+    Tooltip,
+} from "@mui/material";
+import CloseIcon from "@mui/icons-material/Close";
+import ContentCopyIcon from "@mui/icons-material/ContentCopy";
+import DownloadIcon from "@mui/icons-material/Download";
+import ShareIcon from "@mui/icons-material/Share";
+import ArticleIcon from "@mui/icons-material/Article";
+import { forwardRef, ReactElement, Ref } from "react";
+import { TransitionProps } from "@mui/material/transitions";
+import { useQuery } from "@tanstack/react-query";
+import { fetchRun } from "../api";
+import ReactMarkdown from "react-markdown";
+import { Prism as SyntaxHighlighter } from "react-syntax-highlighter";
+import { vscDarkPlus } from "react-syntax-highlighter/dist/esm/styles/prism";
+import { useNotification } from "../contexts/NotificationContext";
+
+const Transition = forwardRef(function Transition(
+    props: TransitionProps & {
+        children: ReactElement;
+    },
+    ref: Ref<unknown>
+) {
+    return <Slide direction="up" ref={ref} {...props} />;
+});
+
+interface Props {
+    open: boolean;
+    onClose: () => void;
+    runId: number | null;
+}
+
+export const ReportViewDialog = ({ open, onClose, runId }: Props) => {
+    const { showSuccess, showError } = useNotification();
+
+    const { data, isLoading } = useQuery({
+        queryKey: ["run", runId],
+        queryFn: () => fetchRun(runId as number),
+        enabled: !!runId && open,
+        refetchInterval: (query) => {
+            const data = query.state.data;
+            return data && !data.final_report ? 3000 : false;
+        },
+    });
+
+    const handleCopyToClipboard = async () => {
+        if (!data?.final_report) return;
+        try {
+            await navigator.clipboard.writeText(data.final_report);
+            showSuccess("Briefing copied to clipboard!");
+        } catch (error) {
+            showError("Failed to copy to clipboard");
+        }
+    };
+
+    const handleDownloadMarkdown = () => {
+        if (!data?.final_report) return;
+        const blob = new Blob([data.final_report], { type: "text/markdown" });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = `briefing-${data.outlet}-${data.id}.md`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+        showSuccess("Briefing downloaded successfully!");
+    };
+
+    const handleShare = () => {
+        // For now, just copy the URL
+        navigator.clipboard.writeText(window.location.href);
+        showSuccess("Link copied to clipboard! (Note: Localhost links only work for you)");
+    };
+
+    return (
+        <Dialog
+            fullScreen
+            open={open}
+            onClose={onClose}
+            TransitionComponent={Transition}
+            sx={{
+                "& .MuiDialog-paper": {
+                    backgroundColor: "#020617",
+                    backgroundImage: "radial-gradient(circle at 50% 50%, rgba(15, 23, 42, 1) 0%, rgba(2, 6, 23, 1) 100%)",
+                },
+            }}
+        >
+            <AppBar sx={{ position: "relative", backgroundColor: "rgba(15, 23, 42, 0.8)", backdropFilter: "blur(12px)", borderBottom: "1px solid rgba(148,163,184,0.1)" }}>
+                <Toolbar>
+                    <IconButton edge="start" color="inherit" onClick={onClose} aria-label="close">
+                        <CloseIcon />
+                    </IconButton>
+                    <Typography sx={{ ml: 2, flex: 1 }} variant="h6" component="div" fontWeight={700}>
+                        Intelligence Briefing: {data?.outlet || "Loading..."}
+                    </Typography>
+                    <Stack direction="row" spacing={1}>
+                        <Button
+                            color="inherit"
+                            startIcon={<ContentCopyIcon />}
+                            onClick={handleCopyToClipboard}
+                            disabled={!data?.final_report}
+                            sx={{ textTransform: "none", borderRadius: 2 }}
+                        >
+                            Copy
+                        </Button>
+                        <Button
+                            color="inherit"
+                            startIcon={<DownloadIcon />}
+                            onClick={handleDownloadMarkdown}
+                            disabled={!data?.final_report}
+                            sx={{ textTransform: "none", borderRadius: 2 }}
+                        >
+                            Download
+                        </Button>
+                        <Button
+                            color="inherit"
+                            startIcon={<ShareIcon />}
+                            onClick={handleShare}
+                            sx={{ textTransform: "none", borderRadius: 2 }}
+                        >
+                            Share
+                        </Button>
+                    </Stack>
+                </Toolbar>
+            </AppBar>
+            <DialogContent sx={{ p: 4 }}>
+                <Box sx={{ maxWidth: 1000, mx: "auto" }}>
+                    {isLoading ? (
+                        <Box sx={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", minHeight: "50vh" }}>
+                            <CircularProgress size={48} />
+                            <Typography sx={{ mt: 2 }} color="text.secondary">Fetching intelligence data...</Typography>
+                        </Box>
+                    ) : data ? (
+                        <Grid container spacing={4}>
+                            <Grid item xs={12} md={4}>
+                                <Stack spacing={3}>
+                                    <Paper sx={{ p: 3, borderRadius: 4, border: "1px solid rgba(148,163,184,0.1)", backgroundColor: "rgba(148, 163, 184, 0.03)" }}>
+                                        <Typography variant="overline" color="text.secondary" fontWeight={700}>Source Information</Typography>
+                                        <Typography variant="h5" fontWeight={800} sx={{ mt: 1 }}>{data.outlet}</Typography>
+                                        <Typography variant="body2" color="text.secondary" gutterBottom>{data.country || "Global Region"}</Typography>
+
+                                        {data.meta?.url && (
+                                            <Box sx={{ mt: 2 }}>
+                                                <Typography variant="caption" color="text.secondary" display="block">Website</Typography>
+                                                <MuiLink href={data.meta.url} target="_blank" color="primary" sx={{ wordBreak: "break-all", fontSize: "0.875rem" }}>
+                                                    {data.meta.url}
+                                                </MuiLink>
+                                            </Box>
+                                        )}
+                                    </Paper>
+
+                                    <Paper sx={{ p: 3, borderRadius: 4, border: "1px solid rgba(148,163,184,0.1)", backgroundColor: "rgba(148, 163, 184, 0.03)" }}>
+                                        <Typography variant="overline" color="text.secondary" fontWeight={700}>Data Footprint</Typography>
+                                        <Typography variant="h6" fontWeight={700} sx={{ mt: 1 }}>{data.articles.length} Articles</Typography>
+                                        <Typography variant="caption" color="text.secondary" display="block" sx={{ mb: 2 }}>Analyzing patterns across {data.articles.length} sources</Typography>
+
+                                        <Stack spacing={2}>
+                                            {data.articles.map((article) => (
+                                                <Box key={article.id} sx={{ borderLeft: "2px solid", borderColor: "primary.main", pl: 2, py: 0.5 }}>
+                                                    <Tooltip title={article.title}>
+                                                        <Typography variant="body2" fontWeight={600} noWrap>{article.title}</Typography>
+                                                    </Tooltip>
+                                                    {article.link && (
+                                                        <MuiLink href={article.link} target="_blank" variant="caption" color="text.secondary" noWrap display="block">
+                                                            {new URL(article.link).hostname}
+                                                        </MuiLink>
+                                                    )}
+                                                </Box>
+                                            ))}
+                                        </Stack>
+                                    </Paper>
+                                </Stack>
+                            </Grid>
+
+                            <Grid item xs={12} md={8}>
+                                <Paper sx={{ p: 4, borderRadius: 4, border: "1px solid rgba(148,163,184,0.1)", backgroundColor: "rgba(148, 163, 184, 0.02)" }}>
+                                    {data.final_report ? (
+                                        <Box sx={{
+                                            "& p": { marginBottom: "1.2rem", lineHeight: 1.8, fontSize: "1.05rem" },
+                                            "& h1, & h2, & h3": { mt: 4, mb: 2, fontWeight: 800, color: "primary.light" },
+                                            "& ul, & ol": { mb: 2, pl: 3 },
+                                            "& li": { mb: 1, lineHeight: 1.7 }
+                                        }}>
+                                            <ReactMarkdown
+                                                components={{
+                                                    code({ inline, className, children, ...props }: any) {
+                                                        const match = /language-(\w+)/.exec(className || "");
+                                                        return !inline && match ? (
+                                                            <SyntaxHighlighter style={vscDarkPlus} language={match[1]} PreTag="div" {...props}>
+                                                                {String(children).replace(/\n$/, "")}
+                                                            </SyntaxHighlighter>
+                                                        ) : (
+                                                            <code className={className} style={{
+                                                                backgroundColor: "rgba(59, 130, 246, 0.1)",
+                                                                padding: "2px 6px",
+                                                                borderRadius: "4px",
+                                                                fontSize: "0.85em",
+                                                                fontFamily: "monospace",
+                                                            }} {...props}>
+                                                                {children}
+                                                            </code>
+                                                        );
+                                                    },
+                                                }}
+                                            >
+                                                {data.final_report}
+                                            </ReactMarkdown>
+                                        </Box>
+                                    ) : data.status === "failed" ? (
+                                        <Box sx={{ py: 6, px: 3 }}>
+                                            <Alert
+                                                severity="error"
+                                                variant="outlined"
+                                                sx={{ borderRadius: 3, mb: 4, backgroundColor: "rgba(239, 68, 68, 0.05)" }}
+                                            >
+                                                <Typography variant="h6" fontWeight={700} gutterBottom>Analysis Failed</Typography>
+                                                <Typography variant="body2">{data.message || "An unexpected error occurred during the analysis pipeline."}</Typography>
+                                            </Alert>
+
+                                            <Typography variant="subtitle1" fontWeight={700} gutterBottom sx={{ color: "primary.light" }}>
+                                                Troubleshooting Guidance
+                                            </Typography>
+                                            <Stack spacing={2} sx={{ mt: 2 }}>
+                                                <Box sx={{ p: 2, borderRadius: 2, backgroundColor: "rgba(148, 163, 184, 0.05)", border: "1px solid rgba(148, 163, 184, 0.1)" }}>
+                                                    <Typography variant="body2" fontWeight={600} gutterBottom>1. Verify API Keys</Typography>
+                                                    <Typography variant="caption" color="text.secondary">
+                                                        Most failures are caused by invalid or expired API keys. Open **Settings** (gear icon) and ensure both SerpAPI and Google Gemini keys are correct.
+                                                    </Typography>
+                                                </Box>
+                                                <Box sx={{ p: 2, borderRadius: 2, backgroundColor: "rgba(148, 163, 184, 0.05)", border: "1px solid rgba(148, 163, 184, 0.1)" }}>
+                                                    <Typography variant="body2" fontWeight={600} gutterBottom>2. Check Source URL</Typography>
+                                                    <Typography variant="caption" color="text.secondary">
+                                                        Ensure the domain (e.g., rt.com) is accessible and SerpAPI can fetch results for it in the specified country.
+                                                    </Typography>
+                                                </Box>
+                                                <Box sx={{ p: 2, borderRadius: 2, backgroundColor: "rgba(148, 163, 184, 0.05)", border: "1px solid rgba(148, 163, 184, 0.1)" }}>
+                                                    <Typography variant="body2" fontWeight={600} gutterBottom>3. Network Issues</Typography>
+                                                    <Typography variant="caption" color="text.secondary">
+                                                        The backend may have encountered a temporary timeout. You can try running the analysis again in a few moments.
+                                                    </Typography>
+                                                </Box>
+                                            </Stack>
+                                        </Box>
+                                    ) : (
+                                        <Box sx={{ py: 10, textAlign: "center" }}>
+                                            <CircularProgress size={40} sx={{ mb: 3 }} />
+                                            <Typography variant="h6" fontWeight={700}>Synthesizing Intelligence...</Typography>
+                                            <Typography color="text.secondary" sx={{ mt: 1, maxWidth: 400, mx: "auto" }}>
+                                                Our models are processing the narratives and drafting your detailed briefing.
+                                            </Typography>
+                                        </Box>
+                                    )}
+                                </Paper>
+                            </Grid>
+                        </Grid>
+                    ) : null}
+                </Box>
+            </DialogContent>
+        </Dialog>
+    );
+};

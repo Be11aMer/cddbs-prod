@@ -7,13 +7,22 @@ from src.cddbs.utils.genai_client import call_gemini
 from src.cddbs.pipeline.prompt_templates import get_consolidated_prompt
 
 
-def run_pipeline(outlet: str, country: str, report_id: int = None, num_articles: int = None, url: str = None):
+def run_pipeline(
+    outlet: str, 
+    country: str, 
+    report_id: int = None, 
+    num_articles: int = None, 
+    url: str = None,
+    serpapi_key: str = None,
+    google_api_key: str = None
+):
     print(f"DEBUG: run_pipeline started for outlet={outlet}, country={country}, report_id={report_id}, num_articles={num_articles}, url={url}")
-    articles = fetch_articles(outlet, country, num_articles=num_articles, url=url)
+    articles = fetch_articles(outlet, country, num_articles=num_articles, url=url, api_key=serpapi_key)
     print(f"DEBUG: fetch_articles returned {len(articles)} articles")
     
     session = SessionLocal()
     try:
+        # ... (rest of the logic remains same until call_gemini)
         out = session.query(models.Outlet).filter(models.Outlet.name == outlet).one_or_none()
         if not out:
             print(f"DEBUG: Creating new outlet for {outlet}")
@@ -37,7 +46,7 @@ def run_pipeline(outlet: str, country: str, report_id: int = None, num_articles:
         
         # Single Gemini call
         print("DEBUG: Calling Gemini...")
-        raw_response = call_gemini(prompt)
+        raw_response = call_gemini(prompt, api_key=google_api_key)
         print(f"DEBUG: Gemini raw response length: {len(raw_response)}")
         
         # Try to parse JSON from response

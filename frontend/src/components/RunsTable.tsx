@@ -23,6 +23,7 @@ import RefreshIcon from "@mui/icons-material/Refresh";
 import SearchIcon from "@mui/icons-material/Search";
 import ArrowUpwardIcon from "@mui/icons-material/ArrowUpward";
 import ArrowDownwardIcon from "@mui/icons-material/ArrowDownward";
+import VisibilityIcon from "@mui/icons-material/Visibility";
 import type { RunStatus } from "../api";
 import { useAppDispatch } from "../hooks";
 import { setSelectedRunId } from "../slices/runsSlice";
@@ -32,6 +33,7 @@ import { TableSkeleton } from "./Skeletons";
 interface Props {
   runs: RunStatus[];
   onRefresh: () => void;
+  onOpenReport?: (id: number) => void;
   isLoading?: boolean;
 }
 
@@ -81,7 +83,7 @@ const getStatusStyles = (status: string) => {
   }
 };
 
-export const RunsTable = ({ runs, onRefresh, isLoading }: Props) => {
+export const RunsTable = ({ runs, onRefresh, onOpenReport, isLoading }: Props) => {
   const dispatch = useAppDispatch();
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("all");
@@ -307,6 +309,7 @@ export const RunsTable = ({ runs, onRefresh, isLoading }: Props) => {
                 </Box>
               </TableCell>
               <TableCell>Status</TableCell>
+              <TableCell align="right">Details</TableCell>
             </TableRow>
           </TableHead>
           <TableBody>
@@ -359,6 +362,26 @@ export const RunsTable = ({ runs, onRefresh, isLoading }: Props) => {
                       </Box>
                     )}
                   </Box>
+                </TableCell>
+                <TableCell align="right">
+                  <Tooltip title="View Detailed Briefing">
+                    <IconButton
+                      size="small"
+                      color="primary"
+                      disabled={run.status !== "completed" && run.status !== "failed"}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        if (onOpenReport) onOpenReport(run.id);
+                        dispatch(setSelectedRunId(run.id));
+                      }}
+                      sx={{
+                        backgroundColor: "rgba(59, 130, 246, 0.05)",
+                        "&:hover": { backgroundColor: "rgba(59, 130, 246, 0.15)" }
+                      }}
+                    >
+                      <VisibilityIcon fontSize="small" />
+                    </IconButton>
+                  </Tooltip>
                 </TableCell>
               </TableRow>
             ))}
