@@ -81,28 +81,32 @@ export const MetricCard = ({ title, value, icon, color = "primary", trend, toolt
                 }}
             >
                 <Box sx={{ display: "flex", alignItems: "center", justifyContent: "space-between", position: "relative", zIndex: 1 }}>
-                    <Box>
+                    <Box sx={{ minWidth: 0, flex: 1 }}>
                         <Typography variant="caption" color="text.secondary" sx={{ textTransform: "uppercase", letterSpacing: "0.1em", fontWeight: 600 }}>
                             {title}
                         </Typography>
                         <Typography variant="h4" fontWeight={800} sx={{ mt: 0.5, letterSpacing: "-0.02em" }}>
                             {value}
                         </Typography>
-                        {trend && (
-                            <Box sx={{ display: "flex", alignItems: "center", mt: 0.5, gap: 0.5 }}>
-                                {trend.value > 0 ? (
-                                    <TrendingUpIcon sx={{ fontSize: 16, color: "#10b981" }} />
-                                ) : (
-                                    <TrendingDownIcon sx={{ fontSize: 16, color: "#ef4444" }} />
-                                )}
-                                <Typography variant="caption" sx={{ color: trend.value > 0 ? "#10b981" : "#ef4444", fontWeight: 700 }}>
-                                    {trend.value > 0 ? "+" : ""}{trend.value}%
-                                </Typography>
-                                <Typography variant="caption" color="text.secondary">
-                                    {trend.label}
-                                </Typography>
-                            </Box>
-                        )}
+                        <Box sx={{ height: 24, mt: 0.5, display: "flex", alignItems: "center" }}>
+                            {trend ? (
+                                <Box sx={{ display: "flex", alignItems: "center", gap: 0.5 }}>
+                                    {trend.value > 0 ? (
+                                        <TrendingUpIcon sx={{ fontSize: 16, color: "#10b981" }} />
+                                    ) : (
+                                        <TrendingDownIcon sx={{ fontSize: 16, color: "#ef4444" }} />
+                                    )}
+                                    <Typography variant="caption" sx={{ color: trend.value > 0 ? "#10b981" : "#ef4444", fontWeight: 700 }}>
+                                        {trend.value > 0 ? "+" : ""}{trend.value}%
+                                    </Typography>
+                                    <Typography variant="caption" color="text.secondary">
+                                        {trend.label}
+                                    </Typography>
+                                </Box>
+                            ) : (
+                                <Box sx={{ height: 16 }} /> /* Spacer for alignment */
+                            )}
+                        </Box>
                     </Box>
                     <Box
                         sx={{
