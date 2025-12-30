@@ -1,5 +1,5 @@
 import json
-from datetime import datetime
+from datetime import datetime, UTC
 from src.cddbs.database import SessionLocal
 from src.cddbs.pipeline.fetch import fetch_articles
 from src.cddbs import models
@@ -101,7 +101,7 @@ def run_pipeline(
             "parsing_successful": "individual_analyses" in payload,
             "url": url or current_data.get("url"),
             "status": "completed",
-            "analysis_date": datetime.utcnow().isoformat(),
+            "analysis_date": datetime.now(UTC).isoformat(),
         }
         
         # Update outlet URL if provided and not already set

@@ -1,6 +1,6 @@
 from sqlalchemy import Column, Integer, String, Text, DateTime, JSON, ForeignKey
 from sqlalchemy.orm import relationship
-from datetime import datetime
+from datetime import datetime, UTC
 from src.cddbs.database import Base
 
 class Outlet(Base):
@@ -24,7 +24,7 @@ class Article(Base):
     date = Column(String, nullable=True)
     meta = Column(JSON, nullable=True)
     full_text = Column(Text, nullable=True)
-    created_at = Column(DateTime, default=datetime.utcnow)
+    created_at = Column(DateTime, default=lambda: datetime.now(UTC))
 
     outlet = relationship("Outlet", back_populates="articles")
     report = relationship("Report", back_populates="articles")
@@ -38,6 +38,6 @@ class Report(Base):
     final_report = Column(Text, nullable=True)
     raw_response = Column(Text, nullable=True)
     data = Column(JSON, nullable=True)
-    created_at = Column(DateTime, default=datetime.utcnow)
+    created_at = Column(DateTime, default=lambda: datetime.now(UTC))
 
     articles = relationship("Article", back_populates="report")

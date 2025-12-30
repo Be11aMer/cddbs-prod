@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import datetime, UTC
 from typing import List, Optional, Tuple
 
 from fastapi import BackgroundTasks, Depends, FastAPI, HTTPException
@@ -10,7 +10,15 @@ from src.cddbs.models import Article, Outlet, Report
 from src.cddbs.pipeline.orchestrator import run_pipeline
 
 
-app = FastAPI(title="CDDBS API")
+from contextlib import asynccontextmanager
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    # Ensure tables exist on startup
+    init_db()
+    yield
+
+app = FastAPI(title="CDDBS API", lifespan=lifespan)
 
 
 def get_db():
@@ -22,10 +30,6 @@ def get_db():
         db.close()
 
 
-@app.on_event("startup")
-def startup_event():
-    # Ensure tables exist on startup
-    init_db()
 
 @app.get("/")
 def root():
@@ -44,8 +48,9 @@ class ArticleSummary(BaseModel):
     snippet: Optional[str] = None
     date: Optional[str] = None
 
-    class Config:
-        from_attributes = True
+    model_config = {
+        "from_attributes": True
+    }
 
 
 class ReportData(BaseModel):
@@ -159,7 +164,7 @@ def _run_analysis_job(
                 "outlet": outlet,
                 "url": url,
                 "country": country,
-                "analysis_date": datetime.utcnow().isoformat(),
+                "analysis_date": datetime.now(UTC).isoformat(),
                 "articles_analyzed": 0,
                 "errors": [str(exc)],
             }
@@ -194,7 +199,7 @@ def create_analysis_run(
             "outlet": payload.outlet,
             "url": payload.url,
             "country": payload.country,
-            "analysis_date": datetime.utcnow().isoformat(),
+            "analysis_date": datetime.now(UTC).isoformat(),
             "articles_analyzed": 0,
             "status": "pending",
         },
@@ -267,7 +272,7 @@ def get_analysis_run(report_id: int, db: Session = Depends(get_db)):
                 url=data.get("url", ""),
                 country=data.get("country", report.country or ""),
                 analysis_date=datetime.fromisoformat(
-                    data.get("analysis_date", datetime.utcnow().isoformat())
+                    data.get("analysis_date", datetime.now(UTC).isoformat())
                 ),
                 articles_analyzed=data.get("articles_analyzed", 0),
             )
@@ -276,7 +281,7 @@ def get_analysis_run(report_id: int, db: Session = Depends(get_db)):
 
     # Return articles linked to this specific report
     article_summaries: List[ArticleSummary] = [
-        ArticleSummary.from_orm(a) for a in report.articles
+        ArticleSummary.model_validate(a) for a in report.articles
     ]
 
     status, msg = _get_report_status(report)
