@@ -104,10 +104,11 @@ Tests use `monkeypatch` and `unittest.mock` to:
 
 ## Test Environment
 
-Tests require:
-- PostgreSQL database (configured via `DATABASE_URL` in `.env`)
-- Python dependencies from `requirements.txt`
-- No actual API keys needed (tests use mocks)
+### Database Isolation
+Tests automatically use a dedicated database named `cddbs_test`. 
+- The suite will attempt to create this database if it doesn't exist.
+- This prevents tests from affecting your primary database (e.g., `cddbs`).
+- Environment: Configured via `DATABASE_URL` in `.env` (the suite overrides the database name).
 
 ## Notes
 
