@@ -9,3 +9,4 @@ pytest
 httpx
 google
 google-genai
+pytest-cov
