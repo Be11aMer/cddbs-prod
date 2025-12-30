@@ -22,7 +22,6 @@ def run_pipeline(
     
     session = SessionLocal()
     try:
-        # ... (rest of the logic remains same until call_gemini)
         out = session.query(models.Outlet).filter(models.Outlet.name == outlet).one_or_none()
         if not out:
             print(f"DEBUG: Creating new outlet for {outlet}")
@@ -51,16 +50,25 @@ def run_pipeline(
         
         # Try to parse JSON from response
         try:
-            # Handle potential markdown code blocks in Gemini response
-            clean_response = raw_response.strip()
-            if "```json" in clean_response:
-                clean_response = clean_response.split("```json")[1].split("```")[0].strip()
-            elif "```" in clean_response:
-                clean_response = clean_response.split("```")[1].split("```")[0].strip()
+            import re
+            
+            # 1. Try to find content within markdown code blocks (```json ... ``` or ``` ... ```)
+            json_match = re.search(r'```(?:json)?\s*(\{.*?\})\s*```', raw_response, re.DOTALL)
+            
+            if json_match:
+                clean_response = json_match.group(1).strip()
+            else:
+                # 2. If no code blocks, try to find the first '{' and last '}'
+                json_match = re.search(r'(\{.*\})', raw_response, re.DOTALL)
+                if json_match:
+                    clean_response = json_match.group(1).strip()
+                else:
+                    # 3. Fallback to just stripping the whole thing
+                    clean_response = raw_response.strip()
             
             payload = json.loads(clean_response)
         except Exception as e:
-            print(f"DEBUG: JSON parsing failed: {e}")
+            print(f"DEBUG: JSON parsing failed: {e}. Final fallback to raw_response.")
             payload = {"individual_analyses": [], "final_briefing": raw_response}
 
         final_report = payload.get("final_briefing", raw_response)

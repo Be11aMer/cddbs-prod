@@ -19,6 +19,7 @@ def call_gemini(prompt: str, api_key: str = None) -> str:
         config=types.GenerateContentConfig(
             system_instruction=get_system_prompt(),
             temperature=0.1,
+            response_mime_type="application/json",
         ),
         contents=prompt,
     )
