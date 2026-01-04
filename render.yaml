@@ -1,7 +1,7 @@
 services:
   # Backend API Service
   - type: web
-    name: web
+    name: cddbs-api
     env: docker
     dockerContext: .
     dockerfilePath: Dockerfile
@@ -15,7 +15,7 @@ services:
       - key: PYTHONPATH
         value: /app
       - key: ALLOWED_ORIGINS
-        value: "*" # To be updated in Render dashboard with actual frontend URL
+        value: "*" # This allows the frontend to communicate with the API
 
   # Frontend UI Service (with Nginx Proxy)
   - type: web
@@ -24,12 +24,6 @@ services:
     dockerContext: frontend
     dockerfilePath: frontend/Dockerfile
     plan: free
-    envVars:
-      - key: RENDER_EXTERNAL_URL
-        fromService:
-          type: web
-          name: web
-          property: host
 
 databases:
   - name: cddbs-db

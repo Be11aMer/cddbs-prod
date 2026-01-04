@@ -70,10 +70,10 @@ export const App = () => {
     queryKey: ["runs"],
     queryFn: fetchRuns,
     refetchInterval: (query) => {
-      // Auto-refresh every 5 seconds if there are running analyses
+      // Auto-refresh every 10 seconds if there are running analyses
       const data = query.state.data;
       const hasRunning = data?.some((r) => r.status === "running" || r.status === "queued");
-      return hasRunning ? 5000 : false;
+      return hasRunning ? 10000 : false;
     },
   });
 

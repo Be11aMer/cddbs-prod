@@ -13,11 +13,11 @@ export function ColdStartNotice() {
                 if (response.ok && mounted) {
                     setIsWaking(false);
                 } else if (mounted) {
-                    setTimeout(checkHealth, 2000);
+                    setTimeout(checkHealth, 60000);
                 }
             } catch {
                 if (mounted) {
-                    setTimeout(checkHealth, 2000);
+                    setTimeout(checkHealth, 60000);
                 }
             }
         };
