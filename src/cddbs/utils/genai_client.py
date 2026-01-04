@@ -15,14 +15,15 @@ def call_gemini(prompt: str, api_key: str = None) -> str:
 
     try:
         response = client.models.generate_content(
-        model="gemini-2.5-flash",
-        config=types.GenerateContentConfig(
-            system_instruction=get_system_prompt(),
-            temperature=0.1,
-            response_mime_type="application/json",
-        ),
-        contents=prompt,
-    )
+            model="gemini-2.5-flash",
+            config=types.GenerateContentConfig(
+                system_instruction=get_system_prompt(),
+                temperature=0.1,
+                response_mime_type="application/json",
+            ),
+            contents=prompt,
+        )
         return response.text
     except Exception as e:
+        print(f"ERROR: Gemini API call failed: {e}")
         return f"[Gemini error: {e}]"

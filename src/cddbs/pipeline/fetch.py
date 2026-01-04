@@ -61,7 +61,7 @@ def fetch_articles(outlet: str, country: str, num_articles: int = None, url: str
     }
     print(f"DEBUG: fetch_articles calling SerpAPI with query: '{query}' and gl: '{gl_code}'")
     try:
-        res = requests.get("https://serpapi.com/search.json", params=params, timeout=30)
+        res = requests.get("https://serpapi.com/search.json", params=params, timeout=20)
         res.raise_for_status()
         data = res.json()
         results = data.get("news_results", [])

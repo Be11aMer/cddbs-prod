@@ -16,6 +16,10 @@ services:
         value: /app
       - key: ALLOWED_ORIGINS
         value: "*" # This allows the frontend to communicate with the API
+      - key: DB_POOL_SIZE
+        value: "2"  # Reduced for Render free tier
+      - key: DB_MAX_OVERFLOW
+        value: "3"  # Limited burst capacity
 
   # Frontend UI Service (with Nginx Proxy)
   - type: web
