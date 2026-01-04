@@ -22,7 +22,7 @@ services:
     name: cddbs-frontend
     env: docker
     dockerContext: frontend
-    dockerfilePath: Dockerfile
+    dockerfilePath: frontend/Dockerfile
     plan: free
     envVars:
       - key: RENDER_EXTERNAL_URL
