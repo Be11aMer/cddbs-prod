@@ -28,7 +28,7 @@ services:
       - key: RENDER_EXTERNAL_URL
         fromService:
           type: web
-          name: cddbs-frontend
+          name: web
           property: host
 
 databases:
