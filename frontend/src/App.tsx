@@ -20,11 +20,12 @@ import CheckCircleIcon from "@mui/icons-material/CheckCircle";
 import TrendingUpIcon from "@mui/icons-material/TrendingUp";
 import { useState, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { fetchRuns, type RunStatus } from "./api";
+import { fetchRuns, wakeUpBackend, type RunStatus } from "./api";
 import { RunsTable } from "./components/RunsTable";
 import { RunDetail } from "./components/RunDetail";
 import { NewAnalysisDialog } from "./components/NewAnalysisDialog";
 import { StatusDistributionChart } from "./components/StatusDistributionChart";
+import { ColdStartNotice } from "./components/ColdStartNotice";
 import { useAppSelector } from "./hooks";
 import { MetricCard } from "./components/MetricCard";
 import { KeyboardShortcutsDialog } from "./components/KeyboardShortcutsDialog";
@@ -58,6 +59,11 @@ export const App = () => {
       setIsFirstLaunch(true);
       setSettingsOpen(true);
     }
+  }, []);
+
+  // Wake up backend on mount
+  useEffect(() => {
+    wakeUpBackend();
   }, []);
 
   const { data: runs, refetch, isLoading } = useQuery<RunStatus[]>({
@@ -264,6 +270,7 @@ export const App = () => {
       >
         <Toolbar />
         <Container maxWidth="xl">
+          <ColdStartNotice />
           {/* Dashboard Summary Cards */}
           <Grid container spacing={2} sx={{ mb: 3 }}>
             <Grid item xs={12} sm={6} md={3}>

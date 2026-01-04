@@ -1,8 +1,22 @@
 import axios from "axios";
 
+export const API_URL = "/api";
+
 export const api = axios.create({
-  baseURL: "/api",
+  baseURL: API_URL,
 });
+
+export async function wakeUpBackend() {
+  try {
+    // Ping health endpoint to wake up service
+    await fetch(`${API_URL}/health`, {
+      method: "GET",
+      signal: AbortSignal.timeout(30000), // 30s timeout
+    });
+  } catch (error) {
+    console.log("Backend waking up from cold start...", error);
+  }
+}
 
 export interface CreateRunPayload {
   outlet: string;

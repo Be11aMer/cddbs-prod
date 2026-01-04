@@ -2,9 +2,11 @@ from datetime import datetime, UTC
 from typing import List, Optional, Tuple
 
 from fastapi import BackgroundTasks, Depends, FastAPI, HTTPException
+from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 
+from src.cddbs.config import settings
 from src.cddbs.database import SessionLocal, init_db
 from src.cddbs.models import Article, Outlet, Report
 from src.cddbs.pipeline.orchestrator import run_pipeline
@@ -19,6 +21,14 @@ async def lifespan(app: FastAPI):
     yield
 
 app = FastAPI(title="CDDBS API", lifespan=lifespan)
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=settings.ALLOWED_ORIGINS,
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 
 def get_db():
