@@ -32,6 +32,7 @@ def get_consolidated_prompt(outlet: str, country: str, articles_data: str) -> st
           "analysis_notes": "Brief analytical notes"
         }}
       ],
+      "tldr_summary": "A 2-3 sentence high-level executive summary of the findings.",
       "final_briefing": "A structured intelligence briefing text incorporating all articles. Follow these sections:\\n1. Outlet and Source URL\\n2. Main Narrative/Claims\\n3. Analysis (patterns, tone, framing)\\n4. Credibility Notes"
     }}
 
