@@ -25,7 +25,7 @@ import ArrowUpwardIcon from "@mui/icons-material/ArrowUpward";
 import ArrowDownwardIcon from "@mui/icons-material/ArrowDownward";
 import VisibilityIcon from "@mui/icons-material/Visibility";
 import type { RunStatus } from "../api";
-import { useAppDispatch } from "../hooks";
+import { useAppDispatch, useAppSelector } from "../hooks";
 import { setSelectedRunId } from "../slices/runsSlice";
 import { useState, useMemo } from "react";
 import { TableSkeleton } from "./Skeletons";
@@ -85,6 +85,7 @@ const getStatusStyles = (status: string) => {
 
 export const RunsTable = ({ runs, onRefresh, onOpenReport, isLoading }: Props) => {
   const dispatch = useAppDispatch();
+  const selectedRunId = useAppSelector((s) => s.runs.selectedRunId);
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [dateFilter, setDateFilter] = useState<string>("all");
@@ -320,9 +321,13 @@ export const RunsTable = ({ runs, onRefresh, onOpenReport, isLoading }: Props) =
                 sx={{
                   cursor: "pointer",
                   transition: "all 0.2s ease-in-out",
+                  backgroundColor: selectedRunId === run.id ? "rgba(59, 130, 246, 0.08)" : "transparent",
+                  borderLeft: selectedRunId === run.id ? "4px solid #3b82f6" : "0px solid transparent",
                   "&:hover": {
                     transform: "translateX(4px)",
-                    boxShadow: "inset 3px 0 0 #3b82f6",
+                    boxShadow: selectedRunId === run.id
+                      ? "none"
+                      : "inset 3px 0 0 #3b82f6",
                   },
                 }}
                 onClick={() => dispatch(setSelectedRunId(run.id))}

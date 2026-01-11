@@ -61,6 +61,7 @@ export interface ReportResponse {
   message?: string | null;
   meta?: ReportMeta | null;
   final_report?: string | null;
+  tldr_summary?: string | null;
   articles: ArticleSummary[];
 }
 
