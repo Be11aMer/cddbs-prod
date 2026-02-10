@@ -90,6 +90,7 @@ class RunCreateRequest(BaseModel):
     num_articles: int = Field(5, ge=1, le=20)
     serpapi_key: Optional[str] = None
     google_api_key: Optional[str] = None
+    date_filter: Optional[str] = Field("m", description="Date filter for articles: h (hour), d (day), w (week), m (month), y (year)")
 
 
 class RunStatusResponse(BaseModel):
@@ -147,7 +148,8 @@ def _run_analysis_job(
     country: str,
     num_articles: int = 5,
     serpapi_key: Optional[str] = None,
-    google_api_key: Optional[str] = None
+    google_api_key: Optional[str] = None,
+    date_filter: str = "m"
 ):
     """
     Background job that executes the analysis pipeline and persists results.
@@ -162,7 +164,8 @@ def _run_analysis_job(
             num_articles=num_articles, 
             url=url,
             serpapi_key=serpapi_key,
-            google_api_key=google_api_key
+            google_api_key=google_api_key,
+            date_filter=date_filter
         )
 
     except Exception as exc:  # noqa: BLE001
@@ -226,7 +229,8 @@ def create_analysis_run(
         country=payload.country,
         num_articles=payload.num_articles,
         serpapi_key=payload.serpapi_key,
-        google_api_key=payload.google_api_key
+        google_api_key=payload.google_api_key,
+        date_filter=payload.date_filter or "m"
     )
 
     return RunStatusResponse(

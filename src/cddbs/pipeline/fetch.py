@@ -24,7 +24,7 @@ def normalize_gl(country: str) -> str:
     # SAFE DEFAULT
     return "us"
 
-def fetch_articles(outlet: str, country: str, num_articles: int = None, url: str = None, api_key: str = None) -> List[Dict]:
+def fetch_articles(outlet: str, country: str, num_articles: int = None, url: str = None, api_key: str = None, time_period: str = "m") -> List[Dict]:
     serpapi_key = api_key or settings.SERPAPI_KEY
     if not serpapi_key:
         # fallback mock for offline/testing
@@ -47,8 +47,7 @@ def fetch_articles(outlet: str, country: str, num_articles: int = None, url: str
         print(f"WARNING: Country code '{gl_code}' is longer than 2 chars, SerpAPI may fail.")
 
     query = outlet
-    # Try a more standard query for google_news engine
-    # site: works for some, but let's be safe.
+
     if url:
         clean_url = url.replace("https://", "").replace("http://", "").split("/")[0]
         query = f'"{outlet}" site:{clean_url}'
@@ -59,7 +58,13 @@ def fetch_articles(outlet: str, country: str, num_articles: int = None, url: str
         "gl": gl_code,
         "api_key": serpapi_key
     }
-    print(f"DEBUG: fetch_articles calling SerpAPI with query: '{query}' and gl: '{gl_code}'")
+    
+    # Add date filtering if provided
+    # tbs values: qdr:h (hour), qdr:d (day), qdr:w (week), qdr:m (month), qdr:y (year)
+    if time_period:
+        params["tbs"] = f"qdr:{time_period}"
+
+    print(f"DEBUG: fetch_articles calling SerpAPI with query: '{query}', gl: '{gl_code}', tbs: '{params.get('tbs')}'")
     try:
         res = requests.get("https://serpapi.com/search.json", params=params, timeout=20)
         res.raise_for_status()

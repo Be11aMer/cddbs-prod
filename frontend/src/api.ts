@@ -25,6 +25,7 @@ export interface CreateRunPayload {
   num_articles?: number;
   serpapi_key?: string;
   google_api_key?: string;
+  date_filter?: string;
 }
 
 export interface RunStatus {

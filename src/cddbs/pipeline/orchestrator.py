@@ -14,10 +14,11 @@ def run_pipeline(
     num_articles: int = None, 
     url: str = None,
     serpapi_key: str = None,
-    google_api_key: str = None
+    google_api_key: str = None,
+    date_filter: str = "m"
 ):
-    print(f"DEBUG: run_pipeline started for outlet={outlet}, country={country}, report_id={report_id}, num_articles={num_articles}, url={url}")
-    articles = fetch_articles(outlet, country, num_articles=num_articles, url=url, api_key=serpapi_key)
+    print(f"DEBUG: run_pipeline started for outlet={outlet}, country={country}, report_id={report_id}, num_articles={num_articles}, url={url}, date_filter={date_filter}")
+    articles = fetch_articles(outlet, country, num_articles=num_articles, url=url, api_key=serpapi_key, time_period=date_filter)
     print(f"DEBUG: fetch_articles returned {len(articles)} articles")
     
     session = SessionLocal()
