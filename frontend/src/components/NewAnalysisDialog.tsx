@@ -8,6 +8,10 @@ import {
   TextField,
   Grid,
   CircularProgress,
+  FormControl,
+  InputLabel,
+  Select,
+  MenuItem,
 } from "@mui/material";
 import { useState, useEffect } from "react";
 import { useMutation, useQuery } from "@tanstack/react-query";
@@ -28,6 +32,7 @@ export const NewAnalysisDialog = ({ open, onClose, onCreated }: Props) => {
     url: "rt.com",
     country: "Russia",
     num_articles: 5,
+    date_filter: "m",
   });
   const [showApiStatus, setShowApiStatus] = useState(false);
   const { showSuccess, showError } = useNotification();
@@ -121,6 +126,22 @@ export const NewAnalysisDialog = ({ open, onClose, onCreated }: Props) => {
                   handleChange("num_articles", e.target.value || "5")
                 }
               />
+            </Grid>
+            <Grid item xs={12} sm={4}>
+              <FormControl fullWidth>
+                <InputLabel>Time Period</InputLabel>
+                <Select
+                  value={form.date_filter || "m"}
+                  label="Time Period"
+                  onChange={(e) => handleChange("date_filter", e.target.value)}
+                >
+                  <MenuItem value="h">Past Hour</MenuItem>
+                  <MenuItem value="d">Past Day</MenuItem>
+                  <MenuItem value="w">Past Week</MenuItem>
+                  <MenuItem value="m">Past Month</MenuItem>
+                  <MenuItem value="y">Past Year</MenuItem>
+                </Select>
+              </FormControl>
             </Grid>
           </Grid>
         </Box>

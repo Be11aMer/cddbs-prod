@@ -18,6 +18,7 @@ import {
   MenuItem,
   FormControl,
   InputLabel,
+  Pagination,
 } from "@mui/material";
 import RefreshIcon from "@mui/icons-material/Refresh";
 import SearchIcon from "@mui/icons-material/Search";
@@ -27,8 +28,10 @@ import VisibilityIcon from "@mui/icons-material/Visibility";
 import type { RunStatus } from "../api";
 import { useAppDispatch, useAppSelector } from "../hooks";
 import { setSelectedRunId } from "../slices/runsSlice";
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { TableSkeleton } from "./Skeletons";
+
+const ROWS_PER_PAGE = 20;
 
 interface Props {
   runs: RunStatus[];
@@ -91,6 +94,12 @@ export const RunsTable = ({ runs, onRefresh, onOpenReport, isLoading }: Props) =
   const [dateFilter, setDateFilter] = useState<string>("all");
   const [sortBy, setSortBy] = useState<"id" | "outlet" | "country" | "created_at">("created_at");
   const [sortOrder, setSortOrder] = useState<"asc" | "desc">("desc");
+  const [page, setPage] = useState(1);
+
+  // Reset to first page when filters change
+  useEffect(() => {
+    setPage(1);
+  }, [searchQuery, statusFilter, dateFilter, sortBy, sortOrder]);
 
   // Filter runs based on search and filters
   const filteredRuns = useMemo(() => {
@@ -261,7 +270,7 @@ export const RunsTable = ({ runs, onRefresh, onOpenReport, isLoading }: Props) =
         </FormControl>
       </Box>
 
-      <TableContainer sx={{ flexGrow: 1 }}>
+      <TableContainer sx={{ flexGrow: 1, mb: 2 }}>
         <Table size="small">
           <TableHead>
             <TableRow>
@@ -314,85 +323,87 @@ export const RunsTable = ({ runs, onRefresh, onOpenReport, isLoading }: Props) =
             </TableRow>
           </TableHead>
           <TableBody>
-            {filteredRuns.map((run) => (
-              <TableRow
-                key={run.id}
-                hover
-                sx={{
-                  cursor: "pointer",
-                  transition: "all 0.2s ease-in-out",
-                  backgroundColor: selectedRunId === run.id ? "rgba(59, 130, 246, 0.08)" : "transparent",
-                  borderLeft: selectedRunId === run.id ? "4px solid #3b82f6" : "0px solid transparent",
-                  "&:hover": {
-                    transform: "translateX(4px)",
-                    boxShadow: selectedRunId === run.id
-                      ? "none"
-                      : "inset 3px 0 0 #3b82f6",
-                  },
-                }}
-                onClick={() => dispatch(setSelectedRunId(run.id))}
-              >
-                <TableCell>{run.id}</TableCell>
-                <TableCell>
-                  <Typography variant="body2" fontWeight={500}>
-                    {run.outlet}
-                  </Typography>
-                </TableCell>
-                <TableCell>{run.country}</TableCell>
-                <TableCell>
-                  <Typography variant="body2" color="text.secondary">
-                    {new Date(run.created_at).toLocaleString()}
-                  </Typography>
-                </TableCell>
-                <TableCell>
-                  <Box>
-                    <Tooltip title={getStatusLabel(run.status, run.message)}>
-                      <Chip
-                        size="small"
-                        label={run.status}
-                        color={statusColor[run.status] ?? "default"}
-                        variant="outlined"
-                        sx={{
-                          ...getStatusStyles(run.status),
-                          fontWeight: 600,
-                          textTransform: "capitalize",
-                        }}
-                      />
-                    </Tooltip>
-                    {run.status === "running" && (
-                      <Box sx={{ mt: 0.5 }}>
-                        <LinearProgress
-                          sx={{ height: 2, borderRadius: 1 }}
+            {filteredRuns
+              .slice((page - 1) * ROWS_PER_PAGE, page * ROWS_PER_PAGE)
+              .map((run) => (
+                <TableRow
+                  key={run.id}
+                  hover
+                  sx={{
+                    cursor: "pointer",
+                    transition: "all 0.2s ease-in-out",
+                    backgroundColor: selectedRunId === run.id ? "rgba(59, 130, 246, 0.08)" : "transparent",
+                    borderLeft: selectedRunId === run.id ? "4px solid #3b82f6" : "0px solid transparent",
+                    "&:hover": {
+                      transform: "translateX(4px)",
+                      boxShadow: selectedRunId === run.id
+                        ? "none"
+                        : "inset 3px 0 0 #3b82f6",
+                    },
+                  }}
+                  onClick={() => dispatch(setSelectedRunId(run.id))}
+                >
+                  <TableCell>{run.id}</TableCell>
+                  <TableCell>
+                    <Typography variant="body2" fontWeight={500}>
+                      {run.outlet}
+                    </Typography>
+                  </TableCell>
+                  <TableCell>{run.country}</TableCell>
+                  <TableCell>
+                    <Typography variant="body2" color="text.secondary">
+                      {new Date(run.created_at).toLocaleString()}
+                    </Typography>
+                  </TableCell>
+                  <TableCell>
+                    <Box>
+                      <Tooltip title={getStatusLabel(run.status, run.message)}>
+                        <Chip
+                          size="small"
+                          label={run.status}
+                          color={statusColor[run.status] ?? "default"}
+                          variant="outlined"
+                          sx={{
+                            ...getStatusStyles(run.status),
+                            fontWeight: 600,
+                            textTransform: "capitalize",
+                          }}
                         />
-                      </Box>
-                    )}
-                  </Box>
-                </TableCell>
-                <TableCell align="right">
-                  <Tooltip title="View Detailed Briefing">
-                    <IconButton
-                      size="small"
-                      color="primary"
-                      disabled={run.status !== "completed" && run.status !== "failed"}
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        if (onOpenReport) onOpenReport(run.id);
-                        dispatch(setSelectedRunId(run.id));
-                      }}
-                      sx={{
-                        backgroundColor: "rgba(59, 130, 246, 0.05)",
-                        "&:hover": { backgroundColor: "rgba(59, 130, 246, 0.15)" }
-                      }}
-                    >
-                      <VisibilityIcon fontSize="small" />
-                    </IconButton>
-                  </Tooltip>
-                </TableCell>
-              </TableRow>
-            ))}
+                      </Tooltip>
+                      {run.status === "running" && (
+                        <Box sx={{ mt: 0.5 }}>
+                          <LinearProgress
+                            sx={{ height: 2, borderRadius: 1 }}
+                          />
+                        </Box>
+                      )}
+                    </Box>
+                  </TableCell>
+                  <TableCell align="right">
+                    <Tooltip title="View Detailed Briefing">
+                      <IconButton
+                        size="small"
+                        color="primary"
+                        disabled={run.status !== "completed" && run.status !== "failed"}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          if (onOpenReport) onOpenReport(run.id);
+                          dispatch(setSelectedRunId(run.id));
+                        }}
+                        sx={{
+                          backgroundColor: "rgba(59, 130, 246, 0.05)",
+                          "&:hover": { backgroundColor: "rgba(59, 130, 246, 0.15)" }
+                        }}
+                      >
+                        <VisibilityIcon fontSize="small" />
+                      </IconButton>
+                    </Tooltip>
+                  </TableCell>
+                </TableRow>
+              ))}
             {filteredRuns.length === 0 && (
               <TableRow>
-                <TableCell colSpan={5}>
+                <TableCell colSpan={6}>
                   <Box sx={{ textAlign: "center", py: 3 }}>
                     <Typography variant="body2" color="text.secondary">
                       {runs.length === 0
@@ -407,14 +418,46 @@ export const RunsTable = ({ runs, onRefresh, onOpenReport, isLoading }: Props) =
         </Table>
       </TableContainer>
 
-      {/* Results count */}
-      {runs.length > 0 && (
-        <Box sx={{ mt: 1.5, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-          <Typography variant="caption" color="text.secondary">
-            Showing {filteredRuns.length} of {runs.length} runs
-          </Typography>
-        </Box>
-      )}
+      {/* Pagination Controls */}
+      <Box
+        sx={{
+          mt: "auto",
+          pt: 2,
+          display: "flex",
+          flexDirection: "column",
+          alignItems: "center",
+          gap: 1
+        }}
+      >
+        <Pagination
+          count={Math.ceil(filteredRuns.length / ROWS_PER_PAGE)}
+          page={page}
+          onChange={(_, p) => setPage(p)}
+          color="primary"
+          shape="rounded"
+          size="medium"
+          showFirstButton
+          showLastButton
+          sx={{
+            "& .MuiPaginationItem-previousNext": {
+              transition: "transform 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275)",
+              "&:hover": {
+                transform: "scale(1.2) translateX(2px)",
+                backgroundColor: "rgba(59, 130, 246, 0.1)",
+              },
+            },
+            // Previous button specifically
+            "& .MuiPaginationItem-previousNext[aria-label='Go to previous page']": {
+              "&:hover": {
+                transform: "scale(1.2) translateX(-2px)",
+              },
+            },
+          }}
+        />
+        <Typography variant="caption" color="text.secondary">
+          Showing {Math.min((page - 1) * ROWS_PER_PAGE + 1, filteredRuns.length)} - {Math.min(page * ROWS_PER_PAGE, filteredRuns.length)} of {filteredRuns.length} runs
+        </Typography>
+      </Box>
     </Paper>
   );
 };
