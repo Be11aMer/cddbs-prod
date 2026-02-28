@@ -5,13 +5,15 @@ from src.cddbs.pipeline.fetch import fetch_articles
 from src.cddbs import models
 from src.cddbs.utils.genai_client import call_gemini
 from src.cddbs.pipeline.prompt_templates import get_consolidated_prompt
+from src.cddbs.quality import score_briefing
+from src.cddbs.narratives import match_narratives_from_report
 
 
 def run_pipeline(
-    outlet: str, 
-    country: str, 
-    report_id: int = None, 
-    num_articles: int = None, 
+    outlet: str,
+    country: str,
+    report_id: int = None,
+    num_articles: int = None,
     url: str = None,
     serpapi_key: str = None,
     google_api_key: str = None,
@@ -20,7 +22,7 @@ def run_pipeline(
     print(f"DEBUG: run_pipeline started for outlet={outlet}, country={country}, report_id={report_id}, num_articles={num_articles}, url={url}, date_filter={date_filter}")
     articles = fetch_articles(outlet, country, num_articles=num_articles, url=url, api_key=serpapi_key, time_period=date_filter)
     print(f"DEBUG: fetch_articles returned {len(articles)} articles")
-    
+
     session = SessionLocal()
     try:
         out = session.query(models.Outlet).filter(models.Outlet.name == outlet).one_or_none()
@@ -43,19 +45,19 @@ def run_pipeline(
             articles_data = "No articles found for this search."
 
         prompt = get_consolidated_prompt(outlet, country, articles_data)
-        
+
         # Single Gemini call
         print("DEBUG: Calling Gemini...")
         raw_response = call_gemini(prompt, api_key=google_api_key)
         print(f"DEBUG: Gemini raw response length: {len(raw_response)}")
-        
+
         # Try to parse JSON from response
         try:
             import re
-            
+
             # 1. Try to find content within markdown code blocks (```json ... ``` or ``` ... ```)
             json_match = re.search(r'```(?:json)?\s*(\{.*?\})\s*```', raw_response, re.DOTALL)
-            
+
             if json_match:
                 clean_response = json_match.group(1).strip()
             else:
@@ -66,7 +68,7 @@ def run_pipeline(
                 else:
                     # 3. Fallback to just stripping the whole thing
                     clean_response = raw_response.strip()
-            
+
             payload = json.loads(clean_response)
         except Exception as e:
             print(f"DEBUG: JSON parsing failed: {e}. Final fallback to raw_response.")
@@ -93,7 +95,7 @@ def run_pipeline(
 
         report.final_report = final_report
         report.raw_response = raw_response
-        
+
         # Preserve existing data and update specific fields
         current_data = report.data or {}
         report.data = {
@@ -104,7 +106,7 @@ def run_pipeline(
             "status": "completed",
             "analysis_date": datetime.now(UTC).isoformat(),
         }
-        
+
         # Update outlet URL if provided and not already set
         if url and not out.url:
             out.url = url
@@ -113,7 +115,7 @@ def run_pipeline(
         print(f"DEBUG: Persisting {len(articles)} articles for report {report.id}")
         for i, a in enumerate(articles):
             analysis = individual_analyses.get(i, {})
-            
+
             art = models.Article(
                 outlet_id=out.id,
                 report_id=report.id,
@@ -129,17 +131,68 @@ def run_pipeline(
             )
             session.add(art)
 
+        # --- Sprint 4: Quality Scoring ---
+        print("DEBUG: Running quality scoring...")
+        quality_scorecard = None
+        try:
+            quality_scorecard = score_briefing(payload)
+            print(f"DEBUG: Quality score: {quality_scorecard['total_score']}/{quality_scorecard['max_score']} ({quality_scorecard['rating']})")
+
+            briefing = models.Briefing(
+                report_id=report.id,
+                briefing_json=payload,
+                quality_score=quality_scorecard["total_score"],
+                quality_rating=quality_scorecard["rating"],
+                quality_details=quality_scorecard,
+                prompt_version="v1.3",
+            )
+            session.add(briefing)
+        except Exception as e:
+            print(f"DEBUG: Quality scoring failed (non-fatal): {e}")
+
+        # --- Sprint 4: Narrative Matching ---
+        print("DEBUG: Running narrative matching...")
+        try:
+            narrative_matches = match_narratives_from_report(
+                report_text=final_report or raw_response,
+                articles=articles,
+            )
+            print(f"DEBUG: Found {len(narrative_matches)} narrative matches")
+
+            for nm in narrative_matches:
+                match_row = models.NarrativeMatch(
+                    report_id=report.id,
+                    narrative_id=nm["narrative_id"],
+                    narrative_name=nm["narrative_name"],
+                    category=nm.get("category", ""),
+                    confidence=nm.get("confidence", "low"),
+                    matched_keywords=nm.get("matched_keywords", []),
+                    match_count=nm.get("match_count", 0),
+                )
+                session.add(match_row)
+        except Exception as e:
+            print(f"DEBUG: Narrative matching failed (non-fatal): {e}")
+
+        # Update report data with quality and narrative info
+        report.data = {
+            **report.data,
+            "quality_score": quality_scorecard["total_score"] if quality_scorecard else None,
+            "quality_rating": quality_scorecard["rating"] if quality_scorecard else None,
+            "narrative_matches_count": len(narrative_matches) if 'narrative_matches' in dir() else 0,
+        }
+
         session.commit()
         print(f"DEBUG: session.commit() done for report id={report.id}")
         session.refresh(report)
-        
+
         return {
             "report_id": report.id,
             "outlet": outlet,
             "country": country,
             "articles": articles,
             "final_report": final_report,
-            "raw_response": raw_response
+            "raw_response": raw_response,
+            "quality_score": quality_scorecard,
         }
     except Exception as e:
         print(f"DEBUG: run_pipeline ERROR: {e}")

@@ -1,0 +1,361 @@
+{
+  "version": "1.0.0",
+  "description": "Known disinformation narrative patterns for automated detection. Sourced from EUvsDisinfo, GEC Pillars report, NATO StratCom COE, and Sprint 1 research.",
+  "last_updated": "2026-02-17",
+  "categories": [
+    {
+      "id": "anti_nato",
+      "name": "Anti-NATO / Western Alliance",
+      "description": "Narratives aimed at undermining NATO cohesion and Western alliances",
+      "narratives": [
+        {
+          "id": "anti_nato_001",
+          "name": "NATO expansion threatens Russia",
+          "description": "Claims that NATO eastward expansion is an aggressive, threatening act toward Russia, framing Russia's actions as defensive responses.",
+          "keywords": ["NATO expansion", "NATO aggression", "encirclement", "broken promises", "Gorbachev", "not one inch eastward", "NATO threat", "security guarantees"],
+          "example_claims": [
+            "NATO broke its promise not to expand eastward",
+            "NATO is encircling Russia with military bases",
+            "NATO expansion provoked the conflict in Ukraine"
+          ],
+          "source_refs": ["EUvsDisinfo database", "GEC Pillar 1"],
+          "frequency": "dominant",
+          "first_documented": "2007",
+          "active": true,
+          "propagation": {
+            "twitter": "Amplified by RT and Sputnik accounts; high retweet velocity during NATO summits",
+            "telegram": "Forwarded heavily through military/geopolitics Telegram channels; often paired with maps and military footage"
+          }
+        },
+        {
+          "id": "anti_nato_002",
+          "name": "NATO is obsolete / purposeless",
+          "description": "Claims that NATO has no legitimate purpose after the Cold War and exists only to justify military spending and US hegemony.",
+          "keywords": ["NATO obsolete", "Cold War relic", "brain dead", "NATO purpose", "US hegemony", "military-industrial complex"],
+          "example_claims": [
+            "NATO is a Cold War relic that should have been dissolved",
+            "NATO exists only to serve American interests",
+            "European countries are vassals of the US through NATO"
+          ],
+          "source_refs": ["EUvsDisinfo database", "NATO StratCom COE research"],
+          "frequency": "frequent",
+          "first_documented": "2010",
+          "active": true
+        },
+        {
+          "id": "anti_nato_003",
+          "name": "NATO destabilizes regions",
+          "description": "Claims that NATO interventions and presence create instability rather than security.",
+          "keywords": ["NATO destabilize", "NATO intervention", "Libya", "Afghanistan", "Iraq", "regime change", "NATO war"],
+          "example_claims": [
+            "Everywhere NATO intervenes, it leaves chaos and destruction",
+            "NATO destroyed Libya and created a failed state",
+            "NATO's presence in Eastern Europe escalates tensions"
+          ],
+          "source_refs": ["EUvsDisinfo database"],
+          "frequency": "frequent",
+          "first_documented": "2011",
+          "active": true
+        }
+      ]
+    },
+    {
+      "id": "anti_eu",
+      "name": "Anti-EU / European Instability",
+      "description": "Narratives aimed at undermining EU cohesion and portraying European institutions as failing",
+      "narratives": [
+        {
+          "id": "anti_eu_001",
+          "name": "EU is collapsing / on verge of breakup",
+          "description": "Amplifies any EU disagreement or crisis as evidence of imminent institutional collapse.",
+          "keywords": ["EU collapse", "EU breakup", "Eurosceptic", "EU crisis", "EU failure", "Brussels bureaucrats", "EU undemocratic"],
+          "example_claims": [
+            "The EU is falling apart as more countries reject Brussels",
+            "Brexit was just the beginning of the EU's dissolution",
+            "EU member states are losing sovereignty to unelected bureaucrats"
+          ],
+          "source_refs": ["EUvsDisinfo database"],
+          "frequency": "frequent",
+          "first_documented": "2015",
+          "active": true
+        },
+        {
+          "id": "anti_eu_002",
+          "name": "Sanctions hurt Europe more than Russia",
+          "description": "Claims that Western sanctions are economically self-destructive and harm European citizens while Russia is unaffected.",
+          "keywords": ["sanctions backfire", "sanctions hurt Europe", "energy crisis", "sanctions useless", "European economy", "inflation sanctions"],
+          "example_claims": [
+            "Sanctions against Russia are destroying the European economy",
+            "European citizens are paying the price for anti-Russian sanctions",
+            "Russia's economy is growing despite Western sanctions"
+          ],
+          "source_refs": ["GEC Pillar 1", "EUvsDisinfo database"],
+          "frequency": "dominant",
+          "first_documented": "2014",
+          "active": true
+        },
+        {
+          "id": "anti_eu_003",
+          "name": "Migration as EU weapon / threat",
+          "description": "Weaponizes migration issues to amplify fears and divisions within the EU.",
+          "keywords": ["migration crisis", "refugees", "invasion", "Islamization", "cultural replacement", "open borders", "EU migration"],
+          "example_claims": [
+            "The EU's migration policy is destroying European culture",
+            "Mass immigration is leading to the Islamization of Europe",
+            "EU forces member states to accept unlimited migrants"
+          ],
+          "source_refs": ["EUvsDisinfo database", "OII COMPROP research"],
+          "frequency": "frequent",
+          "first_documented": "2015",
+          "active": true
+        }
+      ]
+    },
+    {
+      "id": "ukraine",
+      "name": "Ukraine Conflict Revisionism",
+      "description": "Narratives aimed at justifying Russian actions in Ukraine and undermining Ukrainian sovereignty",
+      "narratives": [
+        {
+          "id": "ukraine_001",
+          "name": "Ukraine is a Nazi / fascist state",
+          "description": "Labels Ukraine's government or military as Nazi or fascist to delegitimize the state and justify military action.",
+          "keywords": ["Nazi", "neo-Nazi", "Azov", "fascist", "Bandera", "denazification", "ultranationalist"],
+          "example_claims": [
+            "Ukraine is ruled by neo-Nazis who persecute Russian speakers",
+            "The Azov Battalion proves Ukraine's Nazi ideology",
+            "Denazification of Ukraine is a necessary and legitimate goal"
+          ],
+          "source_refs": ["EUvsDisinfo database", "GEC Pillar 1", "NATO StratCom COE"],
+          "frequency": "dominant",
+          "first_documented": "2014",
+          "active": true,
+          "propagation": {
+            "twitter": "Amplified alongside Azov-related content; hashtag campaigns (#denazification)",
+            "telegram": "Dominant in Russian-language war correspondent channels; visual content (photos, videos) forwarded rapidly through channel networks"
+          }
+        },
+        {
+          "id": "ukraine_002",
+          "name": "Ukraine is not a real country",
+          "description": "Denies Ukrainian sovereignty, national identity, or historical legitimacy as an independent state.",
+          "keywords": ["Ukraine artificial", "Ukraine not real", "historically Russian", "one people", "Ukrainian language artificial", "brotherly nations"],
+          "example_claims": [
+            "Ukraine and Russia are one people artificially divided",
+            "Ukraine as a state is an artificial Western creation",
+            "Ukrainian language is just a dialect of Russian"
+          ],
+          "source_refs": ["EUvsDisinfo database", "GEC Pillar 1"],
+          "frequency": "frequent",
+          "first_documented": "2014",
+          "active": true
+        },
+        {
+          "id": "ukraine_003",
+          "name": "Western provocation caused the conflict",
+          "description": "Blames Western actions (NATO expansion, EU association, US involvement) for the conflict in Ukraine.",
+          "keywords": ["Western provocation", "US proxy war", "color revolution", "Maidan coup", "CIA", "regime change", "West provoked"],
+          "example_claims": [
+            "The US orchestrated the Maidan coup to install an anti-Russian government",
+            "NATO pushed Ukraine into conflict with Russia",
+            "Ukraine is a proxy war by the West against Russia"
+          ],
+          "source_refs": ["EUvsDisinfo database", "GEC Pillar 1", "RAND analysis"],
+          "frequency": "dominant",
+          "first_documented": "2014",
+          "active": true
+        },
+        {
+          "id": "ukraine_004",
+          "name": "Ukraine bioweapons labs",
+          "description": "Claims that US-funded biological research labs in Ukraine are developing bioweapons.",
+          "keywords": ["biolabs", "bioweapons", "biological weapons", "Pentagon labs", "biological research", "pathogen"],
+          "example_claims": [
+            "The US funded secret bioweapons labs in Ukraine",
+            "Russia discovered evidence of biological weapons programs in Ukraine",
+            "Pentagon was developing dangerous pathogens near the Russian border"
+          ],
+          "source_refs": ["EUvsDisinfo database"],
+          "frequency": "occasional",
+          "first_documented": "2022",
+          "active": true
+        }
+      ]
+    },
+    {
+      "id": "western_hypocrisy",
+      "name": "Western Hypocrisy / Moral Equivalence",
+      "description": "Narratives that deflect criticism of Russia by pointing to Western failings, real or exaggerated",
+      "narratives": [
+        {
+          "id": "west_hyp_001",
+          "name": "Western media is propaganda",
+          "description": "Claims that Western mainstream media is state-controlled propaganda, equivalent to or worse than Russian state media.",
+          "keywords": ["Western propaganda", "mainstream media lies", "fake news", "biased media", "censorship", "media freedom", "alternative viewpoint"],
+          "example_claims": [
+            "Western media is just propaganda for NATO and the EU",
+            "RT provides a much-needed alternative to Western media bias",
+            "The West censors Russian media because it fears the truth"
+          ],
+          "source_refs": ["GEC Pillar 2", "EUvsDisinfo database"],
+          "frequency": "dominant",
+          "first_documented": "2005",
+          "active": true
+        },
+        {
+          "id": "west_hyp_002",
+          "name": "Whataboutism / tu quoque",
+          "description": "Deflects criticism of Russian actions by pointing to Western equivalents ('What about Iraq? What about Guantanamo?').",
+          "keywords": ["what about", "double standards", "hypocrisy", "Iraq", "Libya", "Guantanamo", "Abu Ghraib", "Western crimes"],
+          "example_claims": [
+            "The West has no right to criticize Russia after what it did in Iraq",
+            "Western countries apply double standards when it comes to human rights",
+            "Where was the outrage when NATO bombed Yugoslavia?"
+          ],
+          "source_refs": ["RAND Firehose of Falsehood", "EUvsDisinfo database"],
+          "frequency": "dominant",
+          "first_documented": "Soviet era",
+          "active": true
+        },
+        {
+          "id": "west_hyp_003",
+          "name": "Western democracy is failing",
+          "description": "Amplifies democratic challenges in Western countries to suggest systemic failure.",
+          "keywords": ["democracy crisis", "polarization", "riots", "protests", "election fraud", "democratic decline", "failed state"],
+          "example_claims": [
+            "Western democracy is in terminal decline",
+            "US elections are just as rigged as those in any authoritarian state",
+            "European democracies are descending into chaos"
+          ],
+          "source_refs": ["OII COMPROP research", "EUvsDisinfo database"],
+          "frequency": "frequent",
+          "first_documented": "2016",
+          "active": true
+        }
+      ]
+    },
+    {
+      "id": "global_south",
+      "name": "Global South Appeals",
+      "description": "Narratives targeting Global South audiences, positioning Russia as anti-colonial ally",
+      "narratives": [
+        {
+          "id": "gs_001",
+          "name": "Russia as anti-colonial champion",
+          "description": "Positions Russia as ally of the Global South against Western neocolonialism.",
+          "keywords": ["neocolonialism", "Western imperialism", "multipolar world", "BRICS", "Global South", "anti-colonial", "sovereignty"],
+          "example_claims": [
+            "Russia stands with the Global South against Western neocolonialism",
+            "BRICS offers an alternative to Western-dominated institutions",
+            "Africa is freeing itself from Western exploitation with Russian help"
+          ],
+          "source_refs": ["GEC reports", "DFRLab Africa analysis"],
+          "frequency": "frequent",
+          "first_documented": "2018",
+          "active": true
+        }
+      ]
+    },
+    {
+      "id": "health_disinfo",
+      "name": "Health Disinformation",
+      "description": "Narratives leveraging health crises to sow distrust in Western institutions",
+      "narratives": [
+        {
+          "id": "health_001",
+          "name": "COVID-19 Western conspiracy",
+          "description": "Claims that COVID-19 was created, released, or weaponized by Western actors.",
+          "keywords": ["bioweapon", "lab leak", "Big Pharma", "vaccine danger", "plandemic", "gain of function", "Western virus"],
+          "example_claims": [
+            "COVID-19 was a US bioweapon targeting specific populations",
+            "Western vaccines are experimental and dangerous",
+            "The pandemic was planned by Western elites to control populations"
+          ],
+          "source_refs": ["EUvsDisinfo database", "Graphika COVID Infodemic report"],
+          "frequency": "occasional",
+          "first_documented": "2020",
+          "active": false
+        }
+      ]
+    },
+    {
+      "id": "election_interference",
+      "name": "Election Interference Denial",
+      "description": "Narratives denying or deflecting from documented Russian interference in elections",
+      "narratives": [
+        {
+          "id": "elect_001",
+          "name": "Russiagate is a hoax",
+          "description": "Claims that evidence of Russian interference in Western elections is fabricated.",
+          "keywords": ["Russiagate", "hoax", "Russia collusion", "witch hunt", "no evidence", "fabricated", "Steele dossier"],
+          "example_claims": [
+            "Russian election interference is a conspiracy theory with no evidence",
+            "The West blames Russia for its own democratic failures",
+            "Russiagate was a hoax designed to demonize Russia"
+          ],
+          "source_refs": ["Stanford IO EIP reports", "DFRLab analysis"],
+          "frequency": "frequent",
+          "first_documented": "2017",
+          "active": true
+        }
+      ]
+    },
+    {
+      "id": "telegram_amplification",
+      "name": "Telegram-Specific Amplification Patterns",
+      "description": "Narrative patterns and techniques specific to Telegram's platform architecture, including forwarding chain manipulation and channel network coordination",
+      "narratives": [
+        {
+          "id": "tg_amp_001",
+          "name": "Forwarding chain laundering",
+          "description": "State media content is forwarded through a chain of increasingly 'independent'-appearing channels to strip perceived state association before reaching organic audiences.",
+          "keywords": ["forwarded from", "originally posted", "repost", "share this", "spread the truth"],
+          "example_claims": [
+            "Content appears as 'Forwarded from Geopolitics Daily' but traces back to RT through 2-3 intermediate channels",
+            "Anonymous channel posts RT content without forwarding attribution (copy-paste to strip source)"
+          ],
+          "source_refs": ["DFRLab Telegram analysis", "EU DisinfoLab Doppelganger report"],
+          "frequency": "dominant",
+          "first_documented": "2022",
+          "active": true,
+          "propagation": {
+            "telegram": "Primary platform — exploits Telegram's forwarding chain visibility and anonymous channel admin features"
+          }
+        },
+        {
+          "id": "tg_amp_002",
+          "name": "Censorship refugee narrative",
+          "description": "Claims that content was 'banned' or 'censored' on mainstream platforms, driving audiences to Telegram channels as 'uncensored truth' sources.",
+          "keywords": ["banned", "censored", "deleted by", "they don't want you to see", "uncensored", "join our Telegram", "truth channel"],
+          "example_claims": [
+            "This video was deleted from YouTube — watch it here before they remove it",
+            "Twitter banned us for telling the truth — follow our Telegram for uncensored news",
+            "The mainstream media won't show you this — share on Telegram"
+          ],
+          "source_refs": ["Graphika platform migration studies", "Stanford IO cross-platform analysis"],
+          "frequency": "frequent",
+          "first_documented": "2022",
+          "active": true,
+          "propagation": {
+            "twitter": "Used as call-to-action to drive followers from Twitter to Telegram channels",
+            "telegram": "Channel descriptions and pinned messages frequently reference being 'censored' elsewhere"
+          }
+        }
+      ]
+    }
+  ],
+  "metadata": {
+    "total_categories": 8,
+    "total_narratives": 18,
+    "primary_sources": [
+      "EU EastStratCom / EUvsDisinfo database (15,000+ cases)",
+      "GEC Pillars of Russia's Disinformation and Propaganda Ecosystem (2020)",
+      "NATO StratCom COE publications",
+      "RAND Firehose of Falsehood (PE-198-OSD)",
+      "Stanford IO Election Integrity Partnership reports",
+      "DFRLab reports on influence operations",
+      "Graphika network analysis reports",
+      "OII COMPROP computational propaganda research"
+    ]
+  }
+}

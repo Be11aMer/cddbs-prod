@@ -8,8 +8,9 @@ from sqlalchemy.orm import Session
 
 from src.cddbs.config import settings
 from src.cddbs.database import SessionLocal, init_db
-from src.cddbs.models import Article, Outlet, Report
+from src.cddbs.models import Article, Outlet, Report, Briefing, NarrativeMatch
 from src.cddbs.pipeline.orchestrator import run_pipeline
+from src.cddbs.narratives import get_all_narratives
 
 
 from contextlib import asynccontextmanager
@@ -351,3 +352,106 @@ def api_status():
     }
 
     return status
+
+
+# ---------------------------------------------------------------------------
+# Sprint 4: Quality & Narrative Endpoints
+# ---------------------------------------------------------------------------
+
+
+class QualityDimension(BaseModel):
+    score: int
+    max: int
+    issues: List[str] = Field(default_factory=list)
+
+
+class QualityResponse(BaseModel):
+    report_id: int
+    total_score: Optional[int] = None
+    max_score: int = 70
+    rating: Optional[str] = None
+    dimensions: Optional[dict] = None
+    prompt_version: Optional[str] = None
+
+
+class NarrativeMatchResponse(BaseModel):
+    id: int
+    narrative_id: str
+    narrative_name: str
+    category: Optional[str] = None
+    confidence: Optional[str] = None
+    matched_keywords: Optional[List[str]] = None
+    match_count: int = 0
+
+    model_config = {
+        "from_attributes": True
+    }
+
+
+class NarrativeInfoResponse(BaseModel):
+    id: str
+    name: str
+    category_id: str
+    category_name: str
+    description: str
+    keywords: List[str] = Field(default_factory=list)
+    frequency: str = "unknown"
+    active: bool = True
+
+
+@app.get("/analysis-runs/{report_id}/quality", response_model=QualityResponse)
+def get_quality_score(report_id: int, db: Session = Depends(get_db)):
+    """Return the quality scorecard for a completed analysis run."""
+    report = db.query(Report).filter(Report.id == report_id).first()
+    if not report:
+        raise HTTPException(status_code=404, detail="Report not found")
+
+    briefing = db.query(Briefing).filter(Briefing.report_id == report_id).first()
+    if not briefing:
+        return QualityResponse(
+            report_id=report_id,
+            total_score=None,
+            rating=None,
+            dimensions=None,
+            prompt_version=None,
+        )
+
+    return QualityResponse(
+        report_id=report_id,
+        total_score=briefing.quality_score,
+        max_score=70,
+        rating=briefing.quality_rating,
+        dimensions=briefing.quality_details.get("dimensions") if briefing.quality_details else None,
+        prompt_version=briefing.prompt_version,
+    )
+
+
+@app.get("/analysis-runs/{report_id}/narratives", response_model=List[NarrativeMatchResponse])
+def get_narrative_matches(report_id: int, db: Session = Depends(get_db)):
+    """Return narrative matches for a completed analysis run."""
+    report = db.query(Report).filter(Report.id == report_id).first()
+    if not report:
+        raise HTTPException(status_code=404, detail="Report not found")
+
+    matches = db.query(NarrativeMatch).filter(
+        NarrativeMatch.report_id == report_id
+    ).order_by(NarrativeMatch.match_count.desc()).all()
+
+    return [
+        NarrativeMatchResponse(
+            id=m.id,
+            narrative_id=m.narrative_id,
+            narrative_name=m.narrative_name,
+            category=m.category,
+            confidence=m.confidence,
+            matched_keywords=m.matched_keywords,
+            match_count=m.match_count,
+        )
+        for m in matches
+    ]
+
+
+@app.get("/narratives", response_model=List[NarrativeInfoResponse])
+def list_narratives():
+    """Return the full known narratives database (for reference/UI display)."""
+    return [NarrativeInfoResponse(**n) for n in get_all_narratives()]
