@@ -100,3 +100,61 @@ export async function fetchApiStatus() {
 }
 
 
+// ---------------------------------------------------------------------------
+// Sprint 4: Quality & Narrative Types
+// ---------------------------------------------------------------------------
+
+export interface QualityDimension {
+  score: number;
+  max: number;
+  issues: string[];
+}
+
+export interface QualityResponse {
+  report_id: number;
+  total_score: number | null;
+  max_score: number;
+  rating: string | null;
+  dimensions: Record<string, QualityDimension> | null;
+  prompt_version: string | null;
+}
+
+export interface NarrativeMatchItem {
+  id: number;
+  narrative_id: string;
+  narrative_name: string;
+  category: string | null;
+  confidence: string | null;
+  matched_keywords: string[] | null;
+  match_count: number;
+}
+
+export interface NarrativeInfo {
+  id: string;
+  name: string;
+  category_id: string;
+  category_name: string;
+  description: string;
+  keywords: string[];
+  frequency: string;
+  active: boolean;
+}
+
+export async function fetchQuality(reportId: number) {
+  const { data } = await api.get<QualityResponse>(
+    `/analysis-runs/${reportId}/quality`
+  );
+  return data;
+}
+
+export async function fetchNarrativeMatches(reportId: number) {
+  const { data } = await api.get<NarrativeMatchItem[]>(
+    `/analysis-runs/${reportId}/narratives`
+  );
+  return data;
+}
+
+export async function fetchNarrativesDb() {
+  const { data } = await api.get<NarrativeInfo[]>("/narratives");
+  return data;
+}

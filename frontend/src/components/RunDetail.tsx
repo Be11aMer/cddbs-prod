@@ -14,8 +14,11 @@ import ArticleIcon from "@mui/icons-material/Article";
 import ContentCopyIcon from "@mui/icons-material/ContentCopy";
 import DownloadIcon from "@mui/icons-material/Download";
 import { useQuery } from "@tanstack/react-query";
-import { fetchRun } from "../api";
+import { fetchRun, fetchQuality, fetchNarrativeMatches } from "../api";
+import type { QualityResponse, NarrativeMatchItem } from "../api";
 import ReactMarkdown from "react-markdown";
+import { QualityBadge } from "./QualityBadge";
+import { NarrativeTags } from "./NarrativeTags";
 import { Prism as SyntaxHighlighter } from "react-syntax-highlighter";
 import { vscDarkPlus } from "react-syntax-highlighter/dist/esm/styles/prism";
 import { useNotification } from "../contexts/NotificationContext";
@@ -38,6 +41,18 @@ export const RunDetail = ({ runId, onOpenReport }: Props) => {
       const data = query.state.data;
       return data && !data.final_report ? 3000 : false;
     },
+  });
+
+  const { data: quality } = useQuery<QualityResponse>({
+    queryKey: ["quality", runId],
+    queryFn: () => fetchQuality(runId as number),
+    enabled: runId !== null && data?.status === "completed",
+  });
+
+  const { data: narrativeMatches } = useQuery<NarrativeMatchItem[]>({
+    queryKey: ["narratives", runId],
+    queryFn: () => fetchNarrativeMatches(runId as number),
+    enabled: runId !== null && data?.status === "completed",
   });
 
   const handleCopyToClipboard = async () => {
@@ -160,6 +175,24 @@ export const RunDetail = ({ runId, onOpenReport }: Props) => {
                 </Box>
               )}
             </Box>
+
+            {/* Quality Score */}
+            {quality && quality.total_score !== null && (
+              <>
+                <Divider sx={{ my: 2, opacity: 0.5 }} />
+                <Box sx={{ mb: 1 }}>
+                  <QualityBadge quality={quality} />
+                </Box>
+              </>
+            )}
+
+            {/* Narrative Matches */}
+            {narrativeMatches && narrativeMatches.length > 0 && (
+              <>
+                <Divider sx={{ my: 2, opacity: 0.5 }} />
+                <NarrativeTags matches={narrativeMatches} compact />
+              </>
+            )}
 
             <Divider sx={{ my: 2, opacity: 0.5 }} />
 
