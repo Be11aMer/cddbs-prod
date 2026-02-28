@@ -27,8 +27,12 @@ import ArticleIcon from "@mui/icons-material/Article";
 import { forwardRef, ReactElement, Ref } from "react";
 import { TransitionProps } from "@mui/material/transitions";
 import { useQuery } from "@tanstack/react-query";
-import { fetchRun } from "../api";
+import { fetchRun, fetchQuality, fetchNarrativeMatches } from "../api";
+import type { QualityResponse, NarrativeMatchItem } from "../api";
 import ReactMarkdown from "react-markdown";
+import { QualityBadge } from "./QualityBadge";
+import { QualityRadarChart } from "./QualityRadarChart";
+import { NarrativeTags } from "./NarrativeTags";
 import { Prism as SyntaxHighlighter } from "react-syntax-highlighter";
 import { vscDarkPlus } from "react-syntax-highlighter/dist/esm/styles/prism";
 import { useNotification } from "../contexts/NotificationContext";
@@ -69,6 +73,18 @@ export const ReportViewDialog = ({ open, onClose, runId }: Props) => {
             const data = query.state.data;
             return data && !data.final_report ? 3000 : false;
         },
+    });
+
+    const { data: quality } = useQuery<QualityResponse>({
+        queryKey: ["quality", runId],
+        queryFn: () => fetchQuality(runId as number),
+        enabled: !!runId && open && data?.status === "completed",
+    });
+
+    const { data: narrativeMatches } = useQuery<NarrativeMatchItem[]>({
+        queryKey: ["narratives", runId],
+        queryFn: () => fetchNarrativeMatches(runId as number),
+        enabled: !!runId && open && data?.status === "completed",
     });
 
     const handleCopyToClipboard = async () => {
@@ -227,13 +243,32 @@ export const ReportViewDialog = ({ open, onClose, runId }: Props) => {
                                         )}
                                     </Paper>
 
+                                    {/* Quality Score Panel */}
+                                    {quality && quality.total_score !== null && (
+                                        <Paper sx={{ p: 3, borderRadius: 4, border: "1px solid rgba(148,163,184,0.1)", backgroundColor: "rgba(148, 163, 184, 0.03)" }}>
+                                            <QualityBadge quality={quality} />
+                                            {quality.dimensions && (
+                                                <Box sx={{ mt: 2 }}>
+                                                    <QualityRadarChart dimensions={quality.dimensions} />
+                                                </Box>
+                                            )}
+                                        </Paper>
+                                    )}
+
+                                    {/* Narrative Matches Panel */}
+                                    {narrativeMatches && narrativeMatches.length > 0 && (
+                                        <Paper sx={{ p: 3, borderRadius: 4, border: "1px solid rgba(148,163,184,0.1)", backgroundColor: "rgba(148, 163, 184, 0.03)" }}>
+                                            <NarrativeTags matches={narrativeMatches} />
+                                        </Paper>
+                                    )}
+
                                     <Paper sx={{ p: 3, borderRadius: 4, border: "1px solid rgba(148,163,184,0.1)", backgroundColor: "rgba(148, 163, 184, 0.03)" }}>
                                         <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mb: 1 }}>
                                             <Typography variant="overline" color="text.secondary" fontWeight={700}>Data Footprint</Typography>
                                             <Chip
-                                                label={data.articles.length >= 3 ? "High Confidence" : "Limited Data"}//FIXME: implement proper logic for data completeness
+                                                label={quality?.rating || (data.articles.length >= 3 ? "High Confidence" : "Limited Data")}
                                                 size="small"
-                                                color={data.articles.length >= 3 ? "success" : "warning"}
+                                                color={quality?.rating === "Excellent" || quality?.rating === "Good" ? "success" : data.articles.length >= 3 ? "success" : "warning"}
                                                 sx={{ height: 20, fontSize: "0.65rem", fontWeight: 700 }}
                                             />
                                         </Stack>
