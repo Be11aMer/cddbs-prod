@@ -8,7 +8,7 @@ from sqlalchemy.orm import Session
 
 from src.cddbs.config import settings
 from src.cddbs.database import SessionLocal, init_db
-from src.cddbs.models import Article, Outlet, Report, Briefing, NarrativeMatch
+from src.cddbs.models import Article, Outlet, Report, Briefing, NarrativeMatch, Feedback
 from src.cddbs.pipeline.orchestrator import run_pipeline
 from src.cddbs.narratives import get_all_narratives
 
@@ -462,3 +462,71 @@ def get_narrative_matches(report_id: int, db: Session = Depends(get_db)):
 def list_narratives():
     """Return the full known narratives database (for reference/UI display)."""
     return [NarrativeInfoResponse(**n) for n in get_all_narratives()]
+
+
+# ---------------------------------------------------------------------------
+# Feedback (standalone, no relationships)
+# ---------------------------------------------------------------------------
+
+
+class FeedbackCreateRequest(BaseModel):
+    tester_name: Optional[str] = None
+    tester_role: Optional[str] = None
+    overall_rating: int = Field(..., ge=1, le=5)
+    accuracy_rating: int = Field(..., ge=1, le=5)
+    usability_rating: int = Field(..., ge=1, le=5)
+    bugs_encountered: str = Field(..., min_length=5)
+    misleading_outputs: Optional[str] = None
+    missing_features: Optional[str] = None
+    ux_pain_points: Optional[str] = None
+    professional_concerns: Optional[str] = None
+    would_recommend: Optional[str] = None
+    additional_comments: Optional[str] = None
+
+
+class FeedbackResponse(BaseModel):
+    id: int
+    tester_name: Optional[str] = None
+    tester_role: Optional[str] = None
+    overall_rating: int
+    accuracy_rating: int
+    usability_rating: int
+    bugs_encountered: str
+    misleading_outputs: Optional[str] = None
+    missing_features: Optional[str] = None
+    ux_pain_points: Optional[str] = None
+    professional_concerns: Optional[str] = None
+    would_recommend: Optional[str] = None
+    additional_comments: Optional[str] = None
+    created_at: datetime
+
+    model_config = {"from_attributes": True}
+
+
+@app.post("/feedback", response_model=FeedbackResponse)
+def submit_feedback(payload: FeedbackCreateRequest, db: Session = Depends(get_db)):
+    """Submit tester feedback (early-stage quality gate)."""
+    fb = Feedback(
+        tester_name=payload.tester_name,
+        tester_role=payload.tester_role,
+        overall_rating=payload.overall_rating,
+        accuracy_rating=payload.accuracy_rating,
+        usability_rating=payload.usability_rating,
+        bugs_encountered=payload.bugs_encountered,
+        misleading_outputs=payload.misleading_outputs,
+        missing_features=payload.missing_features,
+        ux_pain_points=payload.ux_pain_points,
+        professional_concerns=payload.professional_concerns,
+        would_recommend=payload.would_recommend,
+        additional_comments=payload.additional_comments,
+    )
+    db.add(fb)
+    db.commit()
+    db.refresh(fb)
+    return fb
+
+
+@app.get("/feedback", response_model=List[FeedbackResponse])
+def list_feedback(db: Session = Depends(get_db)):
+    """List all feedback entries (for dev review)."""
+    return db.query(Feedback).order_by(Feedback.created_at.desc()).all()
