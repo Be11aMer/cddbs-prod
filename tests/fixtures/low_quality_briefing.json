@@ -1,0 +1,48 @@
+{
+  "metadata": {
+    "briefing_id": "d6e0f3a5-4b2c-7d8e-9f0a-1b2c3d4e5f6a",
+    "generated_at": "2026-02-12T12:00:00Z",
+    "model_version": "gemini-1.5-pro",
+    "prompt_version": "v1.0",
+    "cddbs_version": "1.0.0"
+  },
+  "executive_summary": "This account seems suspicious and may be spreading disinformation.",
+  "key_findings": [
+    {
+      "finding": "Account shares fake news.",
+      "confidence": "high",
+      "evidence": [
+        {"type": "post", "reference": "Some tweets"}
+      ]
+    },
+    {
+      "finding": "Account is probably a bot.",
+      "confidence": "high",
+      "evidence": [
+        {"type": "pattern", "reference": "Looks like a bot"}
+      ]
+    }
+  ],
+  "subject_profile": {
+    "account_handle": "@suspicious_account_123",
+    "platform": "twitter"
+  },
+  "confidence_assessment": {
+    "overall": "high",
+    "factors": {
+      "data_completeness": "high",
+      "source_reliability": "high",
+      "analytical_consistency": "high",
+      "corroboration": "high"
+    }
+  },
+  "limitations": {
+    "cannot_determine": [],
+    "data_gaps": []
+  },
+  "methodology": {
+    "data_collection": "manual",
+    "analysis_model": "gemini-1.5-pro",
+    "prompt_version": "v1.0"
+  }
+}

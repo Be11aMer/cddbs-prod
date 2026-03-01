@@ -1,0 +1,165 @@
+{
+  "metadata": {
+    "briefing_id": "a3f8c1d2-7e4b-4a9f-b6c3-2d1e8f9a0b5c",
+    "generated_at": "2026-02-11T14:30:00Z",
+    "model_version": "gemini-1.5-pro",
+    "prompt_version": "v1.1",
+    "cddbs_version": "1.1.0",
+    "analysis_period": {
+      "start": "2026-01-01",
+      "end": "2026-02-10"
+    }
+  },
+  "executive_summary": "The account @rt_com is assessed with high confidence as an official Russian state media account operating as a primary node in the Kremlin's international messaging infrastructure. The account consistently amplifies narratives aligned with documented Russian state information operations, including anti-NATO messaging, Ukraine conflict revisionism, and anti-sanctions content. This assessment is corroborated by formal government designations, platform labels, and DOJ FARA registration.",
+  "key_findings": [
+    {
+      "finding": "Account operates as official Russian state media, directly funded by the Russian government through ANO TV-Novosti, registered as a foreign agent with the U.S. Department of Justice.",
+      "confidence": "high",
+      "evidence": [
+        {"type": "external", "reference": "U.S. DOJ FARA registration filed November 2017, registration number 6485"},
+        {"type": "external", "reference": "EU Council sanctions documentation listing RT as state-controlled entity"},
+        {"type": "metadata", "reference": "Twitter/X state-affiliated media label applied to @rt_com since August 2020"}
+      ]
+    },
+    {
+      "finding": "Content consistently amplifies five core Russian state narratives: anti-NATO expansion, Western hypocrisy, Ukraine conflict revisionism, EU instability, and anti-sanctions messaging.",
+      "confidence": "high",
+      "evidence": [
+        {"type": "pattern", "reference": "847 of 1,200 posts (70.6%) contain one or more of the five core narratives during analysis period (Jan 1 - Feb 10, 2026)"},
+        {"type": "external", "reference": "Narrative alignment confirmed against EUvsDisinfo database (15 matching case entries)"}
+      ]
+    },
+    {
+      "finding": "Posting patterns show coordination with RT broadcast schedule and Kremlin press briefing timing, suggesting centralized editorial control rather than independent journalism.",
+      "confidence": "moderate",
+      "evidence": [
+        {"type": "pattern", "reference": "78% of posts published within 30 minutes of RT broadcast segments; activity spikes at 09:00, 12:00, and 17:00 Moscow time correlate with MFA briefing schedule"},
+        {"type": "metadata", "reference": "Account posting frequency of ~30 posts/day consistent with institutional social media operation, not individual user behavior"}
+      ]
+    },
+    {
+      "finding": "Account serves as a 'Pillar 2' (State-Funded Global Messaging) node in the GEC-defined Russian disinformation ecosystem, with content regularly amplified by proxy accounts.",
+      "confidence": "high",
+      "evidence": [
+        {"type": "network", "reference": "23 accounts in retweet network identified as probable proxies based on behavioral indicators matching GEC proxy site profiles"},
+        {"type": "external", "reference": "GEC 'Pillars of Russia's Disinformation' report (Aug 2020) classifies RT as Pillar 2 entity"}
+      ]
+    }
+  ],
+  "subject_profile": {
+    "account_handle": "@rt_com",
+    "platform": "twitter",
+    "account_created": "2009-03-14",
+    "followers": 3180000,
+    "following": 1247,
+    "total_posts_analyzed": 1200,
+    "account_bio": "RT is the first Russian 24/7 English-language news channel which brings the Russian view on global news.",
+    "profile_language": "English",
+    "verified": false
+  },
+  "narrative_analysis": {
+    "primary_narratives": [
+      {
+        "narrative": "NATO expansion threatens global security and Russia's legitimate security interests",
+        "frequency": "dominant",
+        "alignment": "Core Kremlin foreign policy narrative (anti_nato_001)"
+      },
+      {
+        "narrative": "Western sanctions harm European citizens more than Russia and are counterproductive",
+        "frequency": "frequent",
+        "alignment": "Anti-sanctions messaging aligned with GEC Pillar 1 (anti_eu_002)"
+      },
+      {
+        "narrative": "Ukraine conflict is driven by Western provocation and NATO expansion, not Russian aggression",
+        "frequency": "frequent",
+        "alignment": "Russia MFA official position (ukraine_003)"
+      },
+      {
+        "narrative": "Western media is biased propaganda; RT provides a necessary alternative perspective",
+        "frequency": "occasional",
+        "alignment": "Both-sides equivalence framing (west_hyp_001)"
+      }
+    ],
+    "behavioral_indicators": [
+      {
+        "indicator": "posting_frequency",
+        "description": "Average 30 posts per day, concentrated during European business hours (06:00-18:00 UTC), with 78% of posts within 30 minutes of RT broadcast segments"
+      },
+      {
+        "indicator": "language_patterns",
+        "description": "Professional English editorial quality consistent with newsroom production; no machine translation artifacts"
+      },
+      {
+        "indicator": "engagement_ratio",
+        "description": "95% original content vs 5% retweets, indicating a content producer role rather than amplifier"
+      },
+      {
+        "indicator": "coordination_signals",
+        "description": "Posting timing correlates with RT broadcast schedule and Kremlin MFA press events at r=0.82 correlation coefficient"
+      }
+    ],
+    "network_context": {
+      "known_associations": ["@SputnikInt", "@maboroshka", "@EmbassyofRussia", "@mod_russia"],
+      "amplification_patterns": "Content amplified by 23 accounts matching GEC proxy profiles; RT content frequently laundered through intermediary blogs before reaching organic audiences",
+      "cross_platform_presence": ["Telegram (RT English channel)", "YouTube (suspended in EU)", "Facebook (restricted in EU)"]
+    },
+    "source_attribution": {
+      "role": "official_state_media",
+      "content_origin": "RT editorial team; supplemented by Russian MFA statements and TASS/RIA Novosti wire content",
+      "amplification_chain": "Kremlin → RT Editorial → @rt_com → proxy accounts → organic amplification"
+    }
+  },
+  "confidence_assessment": {
+    "overall": "high",
+    "factors": {
+      "data_completeness": "high",
+      "source_reliability": "high",
+      "analytical_consistency": "high",
+      "corroboration": "high"
+    }
+  },
+  "limitations": {
+    "cannot_determine": [
+      "Internal editorial decision-making process or direct Kremlin editorial directives",
+      "Specific individuals responsible for content selection and publication timing",
+      "Whether the account operator(s) believe the content they publish"
+    ],
+    "data_gaps": [
+      "Deleted posts not captured in analysis dataset",
+      "Direct messages and internal communications unavailable",
+      "Pre-analysis period activity (before 2026-01-01) not included",
+      "Engagement from accounts that have since been suspended"
+    ],
+    "alternative_interpretations": [
+      "Some narrative overlap with legitimate critical journalism perspectives (anti-war, anti-establishment)",
+      "High posting frequency could reflect a large editorial team rather than automated coordination",
+      "Timing correlations with MFA briefings could reflect news cycle dependency rather than editorial control"
+    ],
+    "assessment_changing_factors": [
+      "Discovery of editorial independence from Russian state directives",
+      "Evidence that the account has published content critical of Russian government policy",
+      "Changes to FARA registration status or platform labeling"
+    ]
+  },
+  "methodology": {
+    "data_collection": "Twitter/X API v2 (academic research access) — full timeline pull for analysis period",
+    "collection_period": {
+      "start": "2026-01-01",
+      "end": "2026-02-10"
+    },
+    "posts_analyzed": 1200,
+    "analysis_model": "gemini-1.5-pro",
+    "prompt_version": "v1.1",
+    "validation": "Cross-referenced with EUvsDisinfo database (15 matching cases), GEC Pillars report (Pillar 2 classification), DOJ FARA records (registration 6485)"
+  },
+  "evidence_references": [
+    {"id": 1, "type": "external", "reference": "U.S. DOJ FARA registration #6485 (filed November 2017)", "notes": "Confirms Russian government funding through ANO TV-Novosti"},
+    {"id": 2, "type": "external", "reference": "EU Council Decision 2022/351 — RT sanctions", "notes": "RT broadcasting suspended in EU"},
+    {"id": 3, "type": "pattern", "reference": "Narrative analysis: 847/1200 posts (70.6%) contain core state narratives", "notes": "Coding performed by Gemini 1.5 Pro with v1.1 prompt"},
+    {"id": 4, "type": "network", "reference": "Retweet network analysis: 23 probable proxy accounts identified", "notes": "Matched against GEC proxy site behavioral profiles"},
+    {"id": 5, "type": "external", "reference": "GEC 'Pillars of Russia's Disinformation and Propaganda Ecosystem' (August 2020)", "notes": "Classifies RT as Pillar 2: State-Funded Global Messaging"}
+  ],
+  "related_briefings": [
+    {"briefing_id": "b7c2d4e6-1a3f-5b8c-9d0e-4f2a6c8e0b1d", "subject": "@SputnikInt", "relationship": "Sister state media account, frequent mutual amplification"}
+  ]
+}

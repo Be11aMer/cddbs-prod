@@ -1,0 +1,209 @@
+{
+  "metadata": {
+    "briefing_id": "c7d8e9f0-1a2b-3c4d-5e6f-7a8b9c0d1e2f",
+    "generated_at": "2026-03-08T10:00:00Z",
+    "model_version": "gemini-1.5-pro",
+    "prompt_version": "v1.3",
+    "cddbs_version": "1.3.0",
+    "analysis_period": {
+      "start": "2026-01-15",
+      "end": "2026-03-07"
+    }
+  },
+  "executive_summary": "The Telegram channel @rt_english is assessed with high confidence as an official Russian state media channel operated by RT (formerly Russia Today), serving as the primary English-language Telegram distribution node for RT content. The channel mirrors RT editorial output with near-zero delay and functions as a direct extension of the state media apparatus on a platform with minimal content moderation.",
+  "key_findings": [
+    {
+      "finding": "Channel operates as direct broadcast extension of RT editorial pipeline, with 97% of messages being either original RT articles or forwards from sister RT channels, published within 3 minutes of website publication.",
+      "confidence": "high",
+      "evidence": [
+        {"type": "pattern", "reference": "Content analysis: 1,843 of 1,900 messages (97%) are RT-originated content during analysis period"},
+        {"type": "channel_meta", "reference": "Channel description explicitly states 'RT is a global news network' with link to rt.com"},
+        {"type": "forward", "reference": "312 messages forwarded from @rt_russian within average 2.1 minutes of original posting"}
+      ]
+    },
+    {
+      "finding": "Channel serves as hub for a forwarding network of 15+ downstream channels that systematically amplify RT content to niche audiences, with forwarding occurring within 5 minutes for 89% of content.",
+      "confidence": "high",
+      "evidence": [
+        {"type": "network", "reference": "15 channels identified forwarding from @rt_english with >50 forwards each during analysis period; top 5 channels forward >90% of RT English content"},
+        {"type": "pattern", "reference": "89% of forwarding events occur within 5 minutes of @rt_english posting, suggesting automated or semi-automated amplification"}
+      ]
+    },
+    {
+      "finding": "Content consistently promotes four documented Russian state narrative categories, with anti-NATO messaging appearing in 62% of analyzed messages and Ukraine conflict revisionism in 48%.",
+      "confidence": "high",
+      "evidence": [
+        {"type": "pattern", "reference": "Narrative coding of 1,900 messages: anti-NATO (62%, dominant), Ukraine revisionism (48%, frequent), Western hypocrisy (35%, frequent), anti-EU (28%, frequent)"},
+        {"type": "external", "reference": "Narrative alignment verified against EUvsDisinfo database: 23 matching entries for anti_nato_001, ukraine_003, west_hyp_001"}
+      ]
+    },
+    {
+      "finding": "Subscriber growth shows anomalous spikes of 8,000-12,000 new subscribers on dates coinciding with major geopolitical events, suggesting coordinated promotion or artificial inflation.",
+      "confidence": "moderate",
+      "evidence": [
+        {"type": "channel_meta", "reference": "Subscriber count grew from 485,000 to 524,000 during analysis period; three spikes of 8K-12K in single days (Feb 2, Feb 18, Mar 1)"},
+        {"type": "pattern", "reference": "Spike dates correlate with RT cross-promotion campaigns on Twitter and Facebook; organic growth baseline is ~200/day"}
+      ]
+    }
+  ],
+  "subject_profile": {
+    "account_handle": "@rt_english",
+    "platform": "telegram",
+    "followers": 524000,
+    "total_posts_analyzed": 1900,
+    "account_bio": "RT is a global news network. Watch RT LIVE at rt.com. Follow us for breaking news and commentary.",
+    "profile_language": "English",
+    "verified": false,
+    "platform_metadata": {
+      "telegram_channel_type": "channel",
+      "telegram_subscriber_count": 524000,
+      "telegram_is_verified": false,
+      "telegram_linked_chat": "@rt_english_chat",
+      "telegram_invite_link": "t.me/rt_english"
+    }
+  },
+  "narrative_analysis": {
+    "primary_narratives": [
+      {
+        "narrative": "NATO expansion threatens Russia's legitimate security interests and destabilizes Europe",
+        "frequency": "dominant",
+        "alignment": "anti_nato_001, anti_nato_003"
+      },
+      {
+        "narrative": "Western intervention in Ukraine caused the conflict; Russia is responding defensively",
+        "frequency": "frequent",
+        "alignment": "ukraine_003"
+      },
+      {
+        "narrative": "Western media presents a biased, one-sided view; RT provides necessary alternative perspective",
+        "frequency": "frequent",
+        "alignment": "west_hyp_001"
+      },
+      {
+        "narrative": "EU sanctions are self-destructive and harm European citizens more than Russia",
+        "frequency": "frequent",
+        "alignment": "anti_eu_002"
+      }
+    ],
+    "behavioral_indicators": [
+      {
+        "indicator": "posting_frequency",
+        "description": "Average 35 messages per day, concentrated during 06:00-20:00 UTC with peak at 12:00 UTC; consistent 7 days/week with no weekend reduction"
+      },
+      {
+        "indicator": "forwarding_pattern",
+        "description": "16.4% of messages (312/1900) forwarded from other RT channels (@rt_russian, @rt_arabic); 83.6% original posts. Forwarding delay averages 2.1 minutes from source."
+      },
+      {
+        "indicator": "channel_growth",
+        "description": "Net growth of 39,000 subscribers over 52 days (750/day average), with three anomalous spikes of 8K-12K; organic baseline estimated at ~200/day"
+      },
+      {
+        "indicator": "engagement_ratio",
+        "description": "Average 85,000 views per message; 16.2% view-to-subscriber ratio; top posts reach 250K+ views indicating significant external sharing"
+      },
+      {
+        "indicator": "coordination_signals",
+        "description": "Posting timestamps correlate with RT.com article publication times at r=0.91; cross-channel forwarding within RT network occurs within median 2.1 minutes"
+      }
+    ],
+    "network_context": {
+      "known_associations": ["@rt_russian", "@rt_arabic", "@SputnikInt", "@taboroshka_tg", "@ria_novosti"],
+      "amplification_patterns": "Content forwarded by 15+ downstream channels; top amplifiers are @geopolitics_uncensored (12K subs), @truth_global_news (8K subs), @multipolarity_now (5K subs)",
+      "cross_platform_presence": ["Twitter (@rt_com)", "YouTube (RT, suspended in EU)", "Facebook (RT, restricted)"]
+    },
+    "source_attribution": {
+      "role": "official_state_media",
+      "content_origin": "RT editorial team via rt.com publication pipeline; supplemented by forwards from sister RT language channels",
+      "amplification_chain": "RT Editorial → rt.com → @rt_english (Telegram) → proxy channels → organic audiences"
+    }
+  },
+  "cross_platform_identities": [
+    {
+      "platform": "twitter",
+      "handle": "@rt_com",
+      "confidence": "high",
+      "linking_evidence": "Same organization (RT); channel bio links to rt.com; content overlap >95%; cross-referenced in RT corporate communications",
+      "briefing_id": "a3f8c1d2-7e4b-4a9f-b6c3-2d1e8f9a0b5c"
+    }
+  ],
+  "network_graph": {
+    "nodes": [
+      {"id": "@rt_english", "platform": "telegram", "role": "subject", "label": "RT English"},
+      {"id": "@rt_russian", "platform": "telegram", "role": "source", "label": "RT Russian"},
+      {"id": "@rt_com", "platform": "twitter", "role": "peer", "label": "RT Twitter"},
+      {"id": "@geopolitics_uncensored", "platform": "telegram", "role": "amplifier", "label": "Geopolitics Uncensored"},
+      {"id": "@truth_global_news", "platform": "telegram", "role": "amplifier", "label": "Truth Global News"},
+      {"id": "@ria_novosti", "platform": "telegram", "role": "source", "label": "RIA Novosti"}
+    ],
+    "edges": [
+      {"from": "@rt_russian", "to": "@rt_english", "type": "forward", "weight": 312},
+      {"from": "@rt_english", "to": "@geopolitics_uncensored", "type": "forward", "weight": 178},
+      {"from": "@rt_english", "to": "@truth_global_news", "type": "forward", "weight": 145},
+      {"from": "@ria_novosti", "to": "@rt_english", "type": "forward", "weight": 67},
+      {"from": "@rt_com", "to": "@rt_english", "type": "amplification", "weight": 450}
+    ],
+    "communities": [
+      {
+        "id": "c1",
+        "label": "Russian state media cluster",
+        "members": ["@rt_english", "@rt_russian", "@rt_com", "@ria_novosti"]
+      },
+      {
+        "id": "c2",
+        "label": "Proxy amplification network",
+        "members": ["@geopolitics_uncensored", "@truth_global_news"]
+      }
+    ]
+  },
+  "confidence_assessment": {
+    "overall": "high",
+    "factors": {
+      "data_completeness": "high",
+      "source_reliability": "high",
+      "analytical_consistency": "high",
+      "corroboration": "high"
+    }
+  },
+  "limitations": {
+    "cannot_determine": [
+      "Channel admin identities (Telegram hides admin lists by default)",
+      "Whether subscriber growth spikes are organic promotion-driven or artificially inflated"
+    ],
+    "data_gaps": [
+      "Channel creation date not exposed by Telegram API (estimated from earliest available message)",
+      "Subscriber demographics and geographic distribution unavailable",
+      "Deleted messages not recoverable; estimated 2-3% message gap based on ID sequence analysis"
+    ],
+    "alternative_interpretations": [
+      "High forwarding velocity could reflect a large editorial team with fast publication processes rather than automation",
+      "Subscriber growth spikes may correlate with legitimate news interest during geopolitical crises"
+    ],
+    "assessment_changing_factors": [
+      "Evidence of editorial independence from Russian state directives",
+      "Significant original reporting not sourced from Kremlin talking points",
+      "Channel admin identification revealing non-state actors"
+    ]
+  },
+  "methodology": {
+    "data_collection": "Telegram MTProto API via Telethon — full message history pull for public channel",
+    "collection_period": {
+      "start": "2026-01-15",
+      "end": "2026-03-07"
+    },
+    "posts_analyzed": 1900,
+    "analysis_model": "gemini-1.5-pro",
+    "prompt_version": "v1.3",
+    "validation": "Cross-referenced with EUvsDisinfo database (23 matching entries), GEC Pillars report classification, forwarding chain verified via MTProto forward metadata"
+  },
+  "evidence_references": [
+    {"id": 1, "type": "channel_meta", "reference": "Telegram channel @rt_english — 524K subscribers, channel type, description text", "notes": "Retrieved via MTProto getFullChannel"},
+    {"id": 2, "type": "pattern", "reference": "Content analysis: 1,843/1,900 messages (97%) RT-originated", "notes": "Coded by Gemini 1.5 Pro with v1.3 prompt"},
+    {"id": 3, "type": "forward", "reference": "312 forwarded messages from @rt_russian, avg 2.1min delay", "notes": "Forward metadata from Telegram message objects"},
+    {"id": 4, "type": "network", "reference": "15 downstream channels forwarding RT English content", "notes": "Identified via reverse forwarding search"},
+    {"id": 5, "type": "external", "reference": "EUvsDisinfo database — 23 matching narrative entries", "notes": "Cross-referenced Jan-Mar 2026 entries"}
+  ],
+  "related_briefings": [
+    {"briefing_id": "a3f8c1d2-7e4b-4a9f-b6c3-2d1e8f9a0b5c", "subject": "@rt_com (Twitter)", "relationship": "Cross-platform identity — same organization"}
+  ]
+}

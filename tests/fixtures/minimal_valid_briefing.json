@@ -1,0 +1,45 @@
+{
+  "metadata": {
+    "briefing_id": "00000000-0000-0000-0000-000000000001",
+    "generated_at": "2026-02-12T00:00:00Z",
+    "model_version": "gemini-1.5-pro",
+    "prompt_version": "v1.1",
+    "cddbs_version": "1.1.0"
+  },
+  "executive_summary": "The account @test_handle is assessed with low confidence as potentially inauthentic based on limited available data and preliminary behavioral analysis.",
+  "key_findings": [
+    {
+      "finding": "Account exhibits posting patterns inconsistent with typical organic user behavior, including regular 10-minute intervals between posts.",
+      "confidence": "low",
+      "evidence": [
+        {"type": "pattern", "reference": "Posting interval analysis shows regular 10-minute gaps between posts over a 7-day observation period"}
+      ]
+    }
+  ],
+  "subject_profile": {
+    "account_handle": "@test_handle",
+    "platform": "twitter"
+  },
+  "confidence_assessment": {
+    "overall": "low",
+    "factors": {
+      "data_completeness": "low",
+      "source_reliability": "moderate",
+      "analytical_consistency": "low",
+      "corroboration": "low"
+    }
+  },
+  "limitations": {
+    "cannot_determine": [
+      "Account operator identity or organizational affiliation"
+    ],
+    "data_gaps": [
+      "Only 7 days of data available"
+    ]
+  },
+  "methodology": {
+    "data_collection": "Twitter/X API v2 — limited to 7-day window",
+    "analysis_model": "gemini-1.5-pro",
+    "prompt_version": "v1.1"
+  }
+}

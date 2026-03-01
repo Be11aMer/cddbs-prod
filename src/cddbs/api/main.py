@@ -101,6 +101,9 @@ class RunStatusResponse(BaseModel):
     created_at: datetime
     status: str
     message: Optional[str] = None
+    quality_score: Optional[int] = None
+    quality_rating: Optional[str] = None
+    narrative_count: Optional[int] = None
 
 
 # ---------------------------------------------------------------------------
@@ -252,6 +255,7 @@ def list_analysis_runs(db: Session = Depends(get_db)):
 
     for r in reports:
         status, msg = _get_report_status(r)
+        data = r.data or {}
         response.append(
             RunStatusResponse(
                 id=r.id,
@@ -260,6 +264,9 @@ def list_analysis_runs(db: Session = Depends(get_db)):
                 created_at=r.created_at,
                 status=status,
                 message=msg,
+                quality_score=data.get("quality_score") if isinstance(data, dict) else None,
+                quality_rating=data.get("quality_rating") if isinstance(data, dict) else None,
+                narrative_count=data.get("narrative_matches_count") if isinstance(data, dict) else None,
             )
         )
 
