@@ -35,6 +35,9 @@ export interface RunStatus {
   created_at: string;
   status: string;
   message?: string | null;
+  quality_score?: number | null;
+  quality_rating?: string | null;
+  narrative_count?: number | null;
 }
 
 export interface ArticleSummary {

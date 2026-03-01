@@ -1,0 +1,111 @@
+{
+  "metadata": {
+    "briefing_id": "c5d9e2f4-3a1b-6c7d-8e9f-0a1b2c3d4e5f",
+    "generated_at": "2026-02-12T10:00:00Z",
+    "model_version": "gemini-1.5-pro",
+    "prompt_version": "v1.1",
+    "cddbs_version": "1.1.0",
+    "analysis_period": {
+      "start": "2026-01-15",
+      "end": "2026-02-10"
+    }
+  },
+  "executive_summary": "The account @geopolitics_truthseeker is assessed with moderate confidence as a probable proxy account amplifying Russian state narratives. The account primarily shares content from RT, Sputnik, and lesser-known proxy sites, with posting patterns suggesting automated or semi-automated operation.",
+  "key_findings": [
+    {
+      "finding": "Account consistently amplifies content from known Russian state media outlets (RT, Sputnik) and documented proxy sites, with 85% of shared links pointing to these sources.",
+      "confidence": "high",
+      "evidence": [
+        {"type": "pattern", "reference": "Link analysis: 170/200 shared URLs (85%) point to RT, Sputnik, or GEC-documented proxy sites"}
+      ]
+    },
+    {
+      "finding": "Posting patterns suggest automated or semi-automated operation with consistent 15-minute intervals between posts during active hours.",
+      "confidence": "moderate",
+      "evidence": [
+        {"type": "pattern", "reference": "Timing analysis shows posts at regular 15-minute intervals from 08:00-20:00 UTC"}
+      ]
+    },
+    {
+      "finding": "Account was created shortly before a major geopolitical event and immediately began posting high-volume content on that topic.",
+      "confidence": "moderate",
+      "evidence": [
+        {"type": "metadata", "reference": "Account created 2025-12-01, first post within 24 hours of creation"}
+      ]
+    }
+  ],
+  "subject_profile": {
+    "account_handle": "@geopolitics_truthseeker",
+    "platform": "twitter",
+    "account_created": "2025-12-01",
+    "followers": 4500,
+    "following": 180,
+    "total_posts_analyzed": 200,
+    "profile_language": "English",
+    "verified": false
+  },
+  "narrative_analysis": {
+    "primary_narratives": [
+      {
+        "narrative": "Western sanctions are destroying European economies while Russia thrives",
+        "frequency": "dominant",
+        "alignment": "Anti-sanctions narrative (anti_eu_002)"
+      },
+      {
+        "narrative": "NATO expansion is the root cause of global instability",
+        "frequency": "frequent"
+      }
+    ],
+    "behavioral_indicators": [
+      {
+        "indicator": "posting_frequency",
+        "description": "Average 8 posts per day at regular 15-minute intervals"
+      },
+      {
+        "indicator": "engagement_ratio",
+        "description": "98% retweets and shared links, only 2% original content"
+      }
+    ],
+    "network_context": {
+      "known_associations": ["@rt_com", "@SputnikInt"],
+      "amplification_patterns": "Primarily amplifies RT and Sputnik content"
+    },
+    "source_attribution": {
+      "role": "proxy",
+      "content_origin": "RT and Sputnik wire content, laundered through intermediary blogs"
+    }
+  },
+  "confidence_assessment": {
+    "overall": "moderate",
+    "factors": {
+      "data_completeness": "moderate",
+      "source_reliability": "high",
+      "analytical_consistency": "moderate",
+      "corroboration": "moderate"
+    }
+  },
+  "limitations": {
+    "cannot_determine": [
+      "Whether the account is operated by a human or fully automated",
+      "Organizational affiliation of the account operator"
+    ],
+    "data_gaps": [
+      "Account history limited to ~2 months since creation",
+      "No access to DM or private interaction data"
+    ],
+    "alternative_interpretations": [
+      "Account could be a genuine enthusiast who happens to share state media content",
+      "Regular posting intervals could be from a scheduling tool used by authentic users"
+    ]
+  },
+  "methodology": {
+    "data_collection": "Twitter/X API v2",
+    "posts_analyzed": 200,
+    "analysis_model": "gemini-1.5-pro",
+    "prompt_version": "v1.1"
+  },
+  "evidence_references": [
+    {"id": 1, "type": "pattern", "reference": "Link analysis: 85% of shared URLs point to state media or proxy sites", "notes": "Matched against GEC proxy site list"}
+  ],
+  "related_briefings": []
+}

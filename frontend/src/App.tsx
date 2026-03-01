@@ -19,6 +19,8 @@ import AssessmentIcon from "@mui/icons-material/Assessment";
 import PlayCircleIcon from "@mui/icons-material/PlayCircle";
 import CheckCircleIcon from "@mui/icons-material/CheckCircle";
 import TrendingUpIcon from "@mui/icons-material/TrendingUp";
+import VerifiedIcon from "@mui/icons-material/Verified";
+import WarningAmberIcon from "@mui/icons-material/WarningAmber";
 import PushPinIcon from "@mui/icons-material/PushPin";
 import PushPinOutlinedIcon from "@mui/icons-material/PushPinOutlined";
 import SearchIcon from "@mui/icons-material/Search";
@@ -146,6 +148,13 @@ export const App = () => {
   const runningCount = runs?.filter((r) => r.status === "running" || r.status === "queued").length ?? 0;
   const completedCount = runs?.filter((r) => r.status === "completed").length ?? 0;
   const successRate = totalRuns > 0 ? Math.round((completedCount / totalRuns) * 100) : 0;
+
+  // Quality metrics from runs data
+  const runsWithQuality = runs?.filter((r) => r.quality_score != null) ?? [];
+  const avgQuality = runsWithQuality.length > 0
+    ? Math.round(runsWithQuality.reduce((sum, r) => sum + (r.quality_score || 0), 0) / runsWithQuality.length)
+    : 0;
+  const totalNarratives = runs?.reduce((sum, r) => sum + (r.narrative_count || 0), 0) ?? 0;
 
   // Keyboard shortcuts
   useKeyboardShortcuts([
@@ -464,12 +473,11 @@ export const App = () => {
                 <MetricCardSkeleton />
               ) : (
                 <MetricCard
-                  title="Running"
-                  value={runningCount}
-                  icon={<PlayCircleIcon sx={{ fontSize: 28 }} />}
-                  color="primary"
-                  trend={{ value: 12, label: "vs last week" }}
-                  tooltip="Analyses currently in progress"
+                  title="Avg Quality"
+                  value={runsWithQuality.length > 0 ? `${avgQuality}/70` : "—"}
+                  icon={<VerifiedIcon sx={{ fontSize: 28 }} />}
+                  color={avgQuality >= 50 ? "success" : avgQuality >= 30 ? "warning" : "info"}
+                  tooltip={`Average quality score across ${runsWithQuality.length} scored briefings (70 max)`}
                 />
               )}
             </Grid>
@@ -478,12 +486,11 @@ export const App = () => {
                 <MetricCardSkeleton />
               ) : (
                 <MetricCard
-                  title="Completed"
-                  value={completedCount}
-                  icon={<CheckCircleIcon sx={{ fontSize: 28 }} />}
-                  color="success"
-                  trend={{ value: 8, label: "at peak time" }}
-                  tooltip="Successfully generated intelligence briefings"
+                  title="Narratives"
+                  value={totalNarratives}
+                  icon={<WarningAmberIcon sx={{ fontSize: 28 }} />}
+                  color={totalNarratives > 0 ? "warning" : "success"}
+                  tooltip="Total disinformation narrative matches detected across all analyses"
                 />
               )}
             </Grid>

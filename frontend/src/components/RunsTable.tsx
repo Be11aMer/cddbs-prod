@@ -319,6 +319,7 @@ export const RunsTable = ({ runs, onRefresh, onOpenReport, isLoading }: Props) =
                 </Box>
               </TableCell>
               <TableCell>Status</TableCell>
+              <TableCell>Quality</TableCell>
               <TableCell align="right">Details</TableCell>
             </TableRow>
           </TableHead>
@@ -379,6 +380,33 @@ export const RunsTable = ({ runs, onRefresh, onOpenReport, isLoading }: Props) =
                       )}
                     </Box>
                   </TableCell>
+                  <TableCell>
+                    {run.status === "completed" && run.quality_score != null ? (
+                      <Tooltip title={`${run.quality_score}/70 — ${run.quality_rating || "N/A"}`}>
+                        <Chip
+                          size="small"
+                          label={`${run.quality_score}/70`}
+                          color={
+                            run.quality_score >= 60 ? "success" :
+                            run.quality_score >= 40 ? "info" :
+                            run.quality_score >= 30 ? "warning" : "error"
+                          }
+                          variant="outlined"
+                          sx={{ fontSize: "0.65rem", fontWeight: 700, height: 20 }}
+                        />
+                      </Tooltip>
+                    ) : run.status === "completed" ? (
+                      <Typography variant="caption" color="text.secondary">—</Typography>
+                    ) : null}
+                    {run.narrative_count != null && run.narrative_count > 0 && (
+                      <Chip
+                        size="small"
+                        label={`${run.narrative_count} narr.`}
+                        variant="outlined"
+                        sx={{ fontSize: "0.6rem", height: 18, ml: 0.5, opacity: 0.7 }}
+                      />
+                    )}
+                  </TableCell>
                   <TableCell align="right">
                     <Tooltip title="View Detailed Briefing">
                       <IconButton
@@ -403,7 +431,7 @@ export const RunsTable = ({ runs, onRefresh, onOpenReport, isLoading }: Props) =
               ))}
             {filteredRuns.length === 0 && (
               <TableRow>
-                <TableCell colSpan={6}>
+                <TableCell colSpan={7}>
                   <Box sx={{ textAlign: "center", py: 3 }}>
                     <Typography variant="body2" color="text.secondary">
                       {runs.length === 0

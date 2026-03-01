@@ -1,0 +1,206 @@
+{
+  "metadata": {
+    "briefing_id": "e1f2a3b4-5c6d-7e8f-9a0b-1c2d3e4f5a6b",
+    "generated_at": "2026-03-10T14:00:00Z",
+    "model_version": "gemini-1.5-pro",
+    "prompt_version": "v1.3",
+    "cddbs_version": "1.3.0",
+    "analysis_period": {
+      "start": "2026-01-01",
+      "end": "2026-03-09"
+    }
+  },
+  "executive_summary": "The account @multipolar_lens (Twitter) and @multipolar_lens_tg (Telegram) are assessed with moderate confidence as a coordinated proxy operation amplifying Russian state narratives across both platforms. The entity maintains consistent messaging, synchronized posting, and a cross-platform amplification network that bridges Telegram forwarding chains with Twitter engagement, suggesting centralized editorial control rather than independent commentary.",
+  "key_findings": [
+    {
+      "finding": "The same operator controls both the Twitter account @multipolar_lens and Telegram channel @multipolar_lens_tg, as evidenced by identical bios, matching profile photos, synchronized posting within 5-minute windows, and explicit cross-platform links in both profiles.",
+      "confidence": "high",
+      "evidence": [
+        {"type": "metadata", "reference": "Both profiles contain identical bio text: 'Independent geopolitical analysis for a multipolar world' and link to each other"},
+        {"type": "pattern", "reference": "Content overlap analysis: 87% of Twitter posts appear on Telegram within 5 minutes (234 of 269 matched posts over analysis period)"},
+        {"type": "metadata", "reference": "Identical profile photos confirmed via perceptual hash comparison (hamming distance: 0)"}
+      ]
+    },
+    {
+      "finding": "Content originates from Telegram channel and is subsequently posted to Twitter, with the Telegram version appearing first in 91% of matched content pairs, indicating Telegram-first editorial workflow.",
+      "confidence": "moderate",
+      "evidence": [
+        {"type": "pattern", "reference": "Temporal analysis: Telegram posts precede Twitter by median 3.2 minutes for 91% of matched content; remaining 9% are simultaneous (within 30 seconds)"},
+        {"type": "forward", "reference": "Telegram channel forwards content from @rt_english (45 instances) and @sputnik_channel (23 instances) which is then rewritten for Twitter"}
+      ]
+    },
+    {
+      "finding": "Content consistently promotes anti-NATO and Western hypocrisy narratives aligned with documented Russian state messaging, with 74% of posts matching known narrative patterns from the CDDBS narrative database.",
+      "confidence": "high",
+      "evidence": [
+        {"type": "pattern", "reference": "Narrative coding: 199 of 269 posts (74%) align with known patterns — anti_nato_001 (38%), west_hyp_002 (22%), ukraine_003 (14%)"},
+        {"type": "external", "reference": "12 posts contain claims directly traceable to RT articles published within 24 hours prior"}
+      ]
+    },
+    {
+      "finding": "Network analysis reveals the entity acts as a bridge between Russian state media Telegram channels and an organic English-speaking Twitter audience, effectively laundering state narratives through an 'independent analysis' framing.",
+      "confidence": "moderate",
+      "evidence": [
+        {"type": "network", "reference": "Betweenness centrality: top 5% in the RT amplification network on Telegram; Twitter followers are 78% English-speaking non-Russian accounts"},
+        {"type": "pattern", "reference": "Telegram channel forwards from state media → reframes as original analysis → posts on Twitter without source attribution"}
+      ]
+    }
+  ],
+  "subject_profile": {
+    "account_handle": "@multipolar_lens",
+    "platform": "twitter",
+    "account_created": "2023-06-15",
+    "followers": 14200,
+    "following": 387,
+    "total_posts_analyzed": 269,
+    "account_bio": "Independent geopolitical analysis for a multipolar world. Also on Telegram: t.me/multipolar_lens_tg",
+    "profile_language": "English",
+    "verified": false,
+    "platform_metadata": {
+      "twitter_is_blue_verified": false,
+      "twitter_list_memberships": 12
+    }
+  },
+  "narrative_analysis": {
+    "primary_narratives": [
+      {
+        "narrative": "NATO expansion is the root cause of European security instability",
+        "frequency": "dominant",
+        "alignment": "anti_nato_001"
+      },
+      {
+        "narrative": "Western countries apply double standards in international affairs",
+        "frequency": "frequent",
+        "alignment": "west_hyp_002"
+      },
+      {
+        "narrative": "Ukraine conflict is a Western proxy war against Russia",
+        "frequency": "occasional",
+        "alignment": "ukraine_003"
+      }
+    ],
+    "behavioral_indicators": [
+      {
+        "indicator": "posting_frequency",
+        "description": "Average 4 posts per day on Twitter, 5 messages per day on Telegram; consistent Monday-Friday with reduced weekend activity"
+      },
+      {
+        "indicator": "coordination_signals",
+        "description": "Cross-platform posting synchronized within 5-minute windows for 87% of content; Telegram precedes Twitter by median 3.2 minutes"
+      },
+      {
+        "indicator": "content_amplification",
+        "description": "Telegram channel forwards from RT English (45x) and Sputnik (23x) then rephrases for Twitter without attribution to original source"
+      },
+      {
+        "indicator": "language_patterns",
+        "description": "Professional English with occasional British spelling; consistent use of framing terms: 'multipolar', 'Western hegemony', 'legitimate security concerns'"
+      }
+    ],
+    "network_context": {
+      "known_associations": ["@rt_english (Telegram)", "@sputnik_channel (Telegram)", "@geopolitics_daily (Twitter)", "@realist_analysis (Twitter)"],
+      "amplification_patterns": "Receives content from state media Telegram channels; distributes to Twitter audience. Twitter posts amplified by 8-12 accounts showing similar behavioral patterns.",
+      "cross_platform_presence": ["Telegram (@multipolar_lens_tg)"]
+    },
+    "source_attribution": {
+      "role": "proxy",
+      "content_origin": "RT English and Sputnik Telegram channels; reframed as independent analysis",
+      "amplification_chain": "RT/Sputnik (Telegram) → @multipolar_lens_tg (Telegram) → @multipolar_lens (Twitter) → organic audience"
+    }
+  },
+  "cross_platform_identities": [
+    {
+      "platform": "telegram",
+      "handle": "@multipolar_lens_tg",
+      "confidence": "high",
+      "linking_evidence": "Explicit bio cross-reference on both platforms; identical profile photos (perceptual hash match); 87% content overlap within 5-minute windows; same writing style and framing"
+    }
+  ],
+  "network_graph": {
+    "nodes": [
+      {"id": "@multipolar_lens", "platform": "twitter", "role": "subject", "label": "Multipolar Lens (Twitter)"},
+      {"id": "@multipolar_lens_tg", "platform": "telegram", "role": "subject", "label": "Multipolar Lens (Telegram)"},
+      {"id": "@rt_english", "platform": "telegram", "role": "source", "label": "RT English"},
+      {"id": "@sputnik_channel", "platform": "telegram", "role": "source", "label": "Sputnik"},
+      {"id": "@geopolitics_daily", "platform": "twitter", "role": "amplifier", "label": "Geopolitics Daily"},
+      {"id": "@realist_analysis", "platform": "twitter", "role": "amplifier", "label": "Realist Analysis"}
+    ],
+    "edges": [
+      {"from": "@rt_english", "to": "@multipolar_lens_tg", "type": "forward", "weight": 45},
+      {"from": "@sputnik_channel", "to": "@multipolar_lens_tg", "type": "forward", "weight": 23},
+      {"from": "@multipolar_lens_tg", "to": "@multipolar_lens", "type": "amplification", "weight": 234},
+      {"from": "@multipolar_lens", "to": "@geopolitics_daily", "type": "retweet", "weight": 18},
+      {"from": "@multipolar_lens", "to": "@realist_analysis", "type": "mention", "weight": 12}
+    ],
+    "communities": [
+      {
+        "id": "c1",
+        "label": "State media source layer",
+        "members": ["@rt_english", "@sputnik_channel"]
+      },
+      {
+        "id": "c2",
+        "label": "Cross-platform proxy operation",
+        "members": ["@multipolar_lens", "@multipolar_lens_tg"]
+      },
+      {
+        "id": "c3",
+        "label": "Twitter amplification cluster",
+        "members": ["@geopolitics_daily", "@realist_analysis"]
+      }
+    ]
+  },
+  "confidence_assessment": {
+    "overall": "moderate",
+    "factors": {
+      "data_completeness": "moderate",
+      "source_reliability": "high",
+      "analytical_consistency": "high",
+      "corroboration": "moderate"
+    }
+  },
+  "limitations": {
+    "cannot_determine": [
+      "Identity of the account operator — both platforms allow pseudonymous operation",
+      "Whether there is direct financial or editorial relationship with Russian state entities",
+      "Whether the content reframing is directed by state actors or voluntarily aligned"
+    ],
+    "data_gaps": [
+      "Twitter DMs and Telegram private messages inaccessible",
+      "Account operator's other potential identities on additional platforms",
+      "Historical data before June 2023 (Twitter account creation) unavailable"
+    ],
+    "alternative_interpretations": [
+      "Account operator could be a genuine ideological supporter of multipolar world order who independently curates content from Russian state media sources",
+      "Cross-platform synchronization could reflect efficient content management tools rather than centralized state direction",
+      "Narrative alignment with Russian state messaging could reflect shared worldview rather than coordination"
+    ],
+    "assessment_changing_factors": [
+      "Discovery of financial links to Russian state entities or proxy organizations",
+      "Evidence of content direction from state actors (leaked communications)",
+      "Account publishing content critical of Russian government policy"
+    ]
+  },
+  "methodology": {
+    "data_collection": "Twitter API v2 (user timeline) + Telegram MTProto via Telethon (channel history)",
+    "collection_period": {
+      "start": "2026-01-01",
+      "end": "2026-03-09"
+    },
+    "posts_analyzed": 269,
+    "analysis_model": "gemini-1.5-pro",
+    "prompt_version": "v1.3",
+    "validation": "Cross-platform content matching via text similarity (cosine >0.9 threshold); forwarding chain verified via Telegram forward metadata; narrative coding against CDDBS known narratives database v1.1"
+  },
+  "evidence_references": [
+    {"id": 1, "type": "metadata", "reference": "Identical bio text and profile photos across Twitter and Telegram", "notes": "Perceptual hash hamming distance: 0"},
+    {"id": 2, "type": "pattern", "reference": "234/269 content matches within 5-minute cross-platform windows", "notes": "Cosine similarity >0.9"},
+    {"id": 3, "type": "forward", "reference": "45 Telegram forwards from @rt_english, 23 from @sputnik_channel", "notes": "MTProto forward_from_chat metadata"},
+    {"id": 4, "type": "network", "reference": "Betweenness centrality: top 5% in RT amplification network", "notes": "Computed via networkx on forwarding graph"},
+    {"id": 5, "type": "external", "reference": "12 posts traceable to RT articles published within 24 hours prior", "notes": "URL and content matching"}
+  ],
+  "related_briefings": [
+    {"briefing_id": "a3f8c1d2-7e4b-4a9f-b6c3-2d1e8f9a0b5c", "subject": "@rt_com (Twitter)", "relationship": "Content source — subject forwards RT content"},
+    {"briefing_id": "c7d8e9f0-1a2b-3c4d-5e6f-7a8b9c0d1e2f", "subject": "@rt_english (Telegram)", "relationship": "Content source — subject forwards from this channel"}
+  ]
+}
