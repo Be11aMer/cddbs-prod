@@ -76,3 +76,26 @@ class NarrativeMatch(Base):
     created_at = Column(DateTime, default=lambda: datetime.now(UTC))
 
     report = relationship("Report", back_populates="narrative_matches")
+
+
+class Feedback(Base):
+    """Tester feedback — standalone table, no relationships."""
+    __tablename__ = "feedback"
+    __table_args__ = {'extend_existing': True}
+    id = Column(Integer, primary_key=True, index=True)
+    # Who
+    tester_name = Column(String, nullable=True)
+    tester_role = Column(String, nullable=True)  # analyst, developer, researcher, other
+    # Core feedback (mandatory fields)
+    overall_rating = Column(Integer, nullable=False)  # 1-5
+    accuracy_rating = Column(Integer, nullable=False)  # 1-5: Are analysis results accurate?
+    usability_rating = Column(Integer, nullable=False)  # 1-5: Is the UI intuitive?
+    bugs_encountered = Column(Text, nullable=False)  # Describe any bugs found
+    # Detailed feedback (optional)
+    misleading_outputs = Column(Text, nullable=True)  # Any misleading/incorrect AI outputs?
+    missing_features = Column(Text, nullable=True)  # What features are missing?
+    ux_pain_points = Column(Text, nullable=True)  # What was frustrating to use?
+    professional_concerns = Column(Text, nullable=True)  # Anything unprofessional/inappropriate?
+    would_recommend = Column(String, nullable=True)  # yes/no/maybe
+    additional_comments = Column(Text, nullable=True)
+    created_at = Column(DateTime, default=lambda: datetime.now(UTC))

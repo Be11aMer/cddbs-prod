@@ -161,3 +161,27 @@ export async function fetchNarrativesDb() {
   const { data } = await api.get<NarrativeInfo[]>("/narratives");
   return data;
 }
+
+// ---------------------------------------------------------------------------
+// Feedback
+// ---------------------------------------------------------------------------
+
+export interface FeedbackPayload {
+  tester_name?: string;
+  tester_role?: string;
+  overall_rating: number;
+  accuracy_rating: number;
+  usability_rating: number;
+  bugs_encountered: string;
+  misleading_outputs?: string;
+  missing_features?: string;
+  ux_pain_points?: string;
+  professional_concerns?: string;
+  would_recommend?: string;
+  additional_comments?: string;
+}
+
+export async function submitFeedback(payload: FeedbackPayload) {
+  const { data } = await api.post("/feedback", payload);
+  return data;
+}

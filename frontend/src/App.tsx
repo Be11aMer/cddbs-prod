@@ -43,9 +43,13 @@ import { MetricCardSkeleton } from "./components/Skeletons";
 import { SettingsDialog } from "./components/SettingsDialog";
 import { ReportViewDialog } from "./components/ReportViewDialog";
 import SettingsIcon from "@mui/icons-material/Settings";
+import InfoOutlinedIcon from "@mui/icons-material/InfoOutlined";
+import FeedbackOutlinedIcon from "@mui/icons-material/FeedbackOutlined";
 import { IconButton } from "@mui/material";
 import { setSelectedRunId } from "./slices/runsSlice";
 import { useAppDispatch } from "./hooks";
+import { TestGuideDialog } from "./components/TestGuideDialog";
+import { FeedbackDialog } from "./components/FeedbackDialog";
 
 const Search = styled("div")(({ theme }) => ({
   position: "relative",
@@ -96,6 +100,8 @@ export const App = () => {
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [isFirstLaunch, setIsFirstLaunch] = useState(false);
   const [reportViewOpen, setReportViewOpen] = useState(false);
+  const [testGuideOpen, setTestGuideOpen] = useState(false);
+  const [feedbackOpen, setFeedbackOpen] = useState(false);
 
   // Sidebar states
   const [isSidebarPinned, setIsSidebarPinned] = useState(() => {
@@ -432,6 +438,41 @@ export const App = () => {
             </Typography>
           </Box>
         </Box>
+
+        {/* Bottom sidebar actions */}
+        <Box sx={{ mt: "auto", px: 1, pb: 2 }}>
+          <Divider sx={{ mx: 1, mb: 1.5, opacity: 0.1 }} />
+          <List dense disablePadding>
+            <ListItem disablePadding>
+              <ListItemButton
+                onClick={() => setTestGuideOpen(true)}
+                sx={{ borderRadius: 2, py: 1 }}
+              >
+                <Tooltip title="Test Guide & Help" placement="right">
+                  <InfoOutlinedIcon sx={{ fontSize: 20, mr: 1.5, color: "text.secondary" }} />
+                </Tooltip>
+                <ListItemText
+                  primary="Test Guide"
+                  primaryTypographyProps={{ fontSize: "0.8rem", fontWeight: 600 }}
+                />
+              </ListItemButton>
+            </ListItem>
+            <ListItem disablePadding>
+              <ListItemButton
+                onClick={() => setFeedbackOpen(true)}
+                sx={{ borderRadius: 2, py: 1 }}
+              >
+                <Tooltip title="Leave Feedback" placement="right">
+                  <FeedbackOutlinedIcon sx={{ fontSize: 20, mr: 1.5, color: "text.secondary" }} />
+                </Tooltip>
+                <ListItemText
+                  primary="Leave Feedback"
+                  primaryTypographyProps={{ fontSize: "0.8rem", fontWeight: 600 }}
+                />
+              </ListItemButton>
+            </ListItem>
+          </List>
+        </Box>
       </Drawer>
 
       <Box
@@ -576,6 +617,16 @@ export const App = () => {
       <KeyboardShortcutsDialog
         open={shortcutsHelpOpen}
         onClose={() => setShortcutsHelpOpen(false)}
+      />
+
+      <TestGuideDialog
+        open={testGuideOpen}
+        onClose={() => setTestGuideOpen(false)}
+      />
+
+      <FeedbackDialog
+        open={feedbackOpen}
+        onClose={() => setFeedbackOpen(false)}
       />
     </Box>
   );
