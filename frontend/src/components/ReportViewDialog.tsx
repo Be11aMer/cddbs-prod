@@ -180,20 +180,21 @@ export const ReportViewDialog = ({ open, onClose, runId }: Props) => {
             }}
         >
             <AppBar sx={{ position: "relative", backgroundColor: "rgba(15, 23, 42, 0.8)", backdropFilter: "blur(12px)", borderBottom: "1px solid rgba(148,163,184,0.1)" }}>
-                <Toolbar>
+                <Toolbar sx={{ gap: 1 }}>
                     <IconButton edge="start" color="inherit" onClick={onClose} aria-label="close">
                         <CloseIcon />
                     </IconButton>
-                    <Typography sx={{ ml: 2, flex: 1 }} variant="h6" component="div" fontWeight={700}>
+                    <Typography sx={{ ml: 1, flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }} variant="h6" component="div" fontWeight={700}>
                         Intelligence Briefing: {data?.outlet || "Loading..."}
                     </Typography>
-                    <Stack direction="row" spacing={1}>
+                    <Stack direction="row" spacing={0.5}>
+                        {/* Desktop: text + icon buttons */}
                         <Button
                             color="inherit"
                             startIcon={<ContentCopyIcon />}
                             onClick={handleCopyToClipboard}
                             disabled={!data?.final_report}
-                            sx={{ textTransform: "none", borderRadius: 2 }}
+                            sx={{ textTransform: "none", borderRadius: 2, display: { xs: "none", sm: "inline-flex" } }}
                         >
                             Copy
                         </Button>
@@ -202,7 +203,7 @@ export const ReportViewDialog = ({ open, onClose, runId }: Props) => {
                             startIcon={<DownloadIcon />}
                             onClick={handleDownloadMarkdown}
                             disabled={!data?.final_report}
-                            sx={{ textTransform: "none", borderRadius: 2 }}
+                            sx={{ textTransform: "none", borderRadius: 2, display: { xs: "none", sm: "inline-flex" } }}
                         >
                             Download
                         </Button>
@@ -210,15 +211,49 @@ export const ReportViewDialog = ({ open, onClose, runId }: Props) => {
                             color="inherit"
                             startIcon={<ShareIcon />}
                             onClick={handleShare}
-                            sx={{ textTransform: "none", borderRadius: 2 }}
+                            sx={{ textTransform: "none", borderRadius: 2, display: { xs: "none", sm: "inline-flex" } }}
                         >
                             Share
                         </Button>
+                        {/* Mobile: icon-only buttons */}
+                        <Tooltip title="Copy to clipboard">
+                            <span>
+                                <IconButton
+                                    color="inherit"
+                                    onClick={handleCopyToClipboard}
+                                    disabled={!data?.final_report}
+                                    sx={{ display: { xs: "inline-flex", sm: "none" } }}
+                                >
+                                    <ContentCopyIcon fontSize="small" />
+                                </IconButton>
+                            </span>
+                        </Tooltip>
+                        <Tooltip title="Download markdown">
+                            <span>
+                                <IconButton
+                                    color="inherit"
+                                    onClick={handleDownloadMarkdown}
+                                    disabled={!data?.final_report}
+                                    sx={{ display: { xs: "inline-flex", sm: "none" } }}
+                                >
+                                    <DownloadIcon fontSize="small" />
+                                </IconButton>
+                            </span>
+                        </Tooltip>
+                        <Tooltip title="Share link">
+                            <IconButton
+                                color="inherit"
+                                onClick={handleShare}
+                                sx={{ display: { xs: "inline-flex", sm: "none" } }}
+                            >
+                                <ShareIcon fontSize="small" />
+                            </IconButton>
+                        </Tooltip>
                     </Stack>
                 </Toolbar>
             </AppBar>
-            <DialogContent sx={{ p: 4 }}>
-                <Box sx={{ maxWidth: 1000, mx: "auto" }}>
+            <DialogContent sx={{ p: { xs: 2, sm: 3, md: 4 } }}>
+                <Box sx={{ maxWidth: 1000, mx: "auto", px: { xs: 0, sm: 1 } }}>
                     {isLoading ? (
                         <Box sx={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", minHeight: "50vh" }}>
                             <CircularProgress size={48} />

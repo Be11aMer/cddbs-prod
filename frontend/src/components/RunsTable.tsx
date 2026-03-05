@@ -206,13 +206,13 @@ export const RunsTable = ({ runs, onRefresh, onOpenReport, isLoading }: Props) =
       </Box>
 
       {/* Search and Filters */}
-      <Box sx={{ mb: 2, display: "flex", gap: 1.5, flexWrap: "wrap" }}>
+      <Box sx={{ mb: 2, display: "flex", gap: 1.5, flexWrap: "wrap", alignItems: "center" }}>
         <TextField
           size="small"
           placeholder="Search... (Ctrl+K)"
           value={searchQuery}
           onChange={(e) => setSearchQuery(e.target.value)}
-          sx={{ flexGrow: 1, minWidth: 200 }}
+          sx={{ flexGrow: 1, minWidth: { xs: "100%", sm: 200 } }}
           InputProps={{
             startAdornment: (
               <InputAdornment position="start">
@@ -276,7 +276,7 @@ export const RunsTable = ({ runs, onRefresh, onOpenReport, isLoading }: Props) =
             <TableRow>
               <TableCell
                 onClick={() => handleSort("id")}
-                sx={{ cursor: "pointer", userSelect: "none", "&:hover": { backgroundColor: "rgba(148, 163, 184, 0.1)" } }}
+                sx={{ cursor: "pointer", userSelect: "none", "&:hover": { backgroundColor: "rgba(148, 163, 184, 0.1)" }, display: { xs: "none", sm: "table-cell" } }}
               >
                 <Box sx={{ display: "flex", alignItems: "center", gap: 0.5 }}>
                   ID
@@ -298,7 +298,7 @@ export const RunsTable = ({ runs, onRefresh, onOpenReport, isLoading }: Props) =
               </TableCell>
               <TableCell
                 onClick={() => handleSort("country")}
-                sx={{ cursor: "pointer", userSelect: "none", "&:hover": { backgroundColor: "rgba(148, 163, 184, 0.1)" } }}
+                sx={{ cursor: "pointer", userSelect: "none", "&:hover": { backgroundColor: "rgba(148, 163, 184, 0.1)" }, display: { xs: "none", md: "table-cell" } }}
               >
                 <Box sx={{ display: "flex", alignItems: "center", gap: 0.5 }}>
                   Country
@@ -309,7 +309,7 @@ export const RunsTable = ({ runs, onRefresh, onOpenReport, isLoading }: Props) =
               </TableCell>
               <TableCell
                 onClick={() => handleSort("created_at")}
-                sx={{ cursor: "pointer", userSelect: "none", "&:hover": { backgroundColor: "rgba(148, 163, 184, 0.1)" } }}
+                sx={{ cursor: "pointer", userSelect: "none", "&:hover": { backgroundColor: "rgba(148, 163, 184, 0.1)" }, display: { xs: "none", sm: "table-cell" } }}
               >
                 <Box sx={{ display: "flex", alignItems: "center", gap: 0.5 }}>
                   Created
@@ -319,7 +319,7 @@ export const RunsTable = ({ runs, onRefresh, onOpenReport, isLoading }: Props) =
                 </Box>
               </TableCell>
               <TableCell>Status</TableCell>
-              <TableCell>Quality</TableCell>
+              <TableCell sx={{ display: { xs: "none", sm: "table-cell" } }}>Quality</TableCell>
               <TableCell align="right">Details</TableCell>
             </TableRow>
           </TableHead>
@@ -344,14 +344,14 @@ export const RunsTable = ({ runs, onRefresh, onOpenReport, isLoading }: Props) =
                   }}
                   onClick={() => dispatch(setSelectedRunId(run.id))}
                 >
-                  <TableCell>{run.id}</TableCell>
+                  <TableCell sx={{ display: { xs: "none", sm: "table-cell" } }}>{run.id}</TableCell>
                   <TableCell>
                     <Typography variant="body2" fontWeight={500}>
                       {run.outlet}
                     </Typography>
                   </TableCell>
-                  <TableCell>{run.country}</TableCell>
-                  <TableCell>
+                  <TableCell sx={{ display: { xs: "none", md: "table-cell" } }}>{run.country}</TableCell>
+                  <TableCell sx={{ display: { xs: "none", sm: "table-cell" } }}>
                     <Typography variant="body2" color="text.secondary">
                       {new Date(run.created_at).toLocaleString()}
                     </Typography>
@@ -380,7 +380,7 @@ export const RunsTable = ({ runs, onRefresh, onOpenReport, isLoading }: Props) =
                       )}
                     </Box>
                   </TableCell>
-                  <TableCell>
+                  <TableCell sx={{ display: { xs: "none", sm: "table-cell" } }}>
                     {run.status === "completed" && run.quality_score != null ? (
                       <Tooltip title={`${run.quality_score}/70 — ${run.quality_rating || "N/A"}`}>
                         <Chip
@@ -483,7 +483,9 @@ export const RunsTable = ({ runs, onRefresh, onOpenReport, isLoading }: Props) =
           }}
         />
         <Typography variant="caption" color="text.secondary">
-          Showing {Math.min((page - 1) * ROWS_PER_PAGE + 1, filteredRuns.length)} - {Math.min(page * ROWS_PER_PAGE, filteredRuns.length)} of {filteredRuns.length} runs
+          {filteredRuns.length === 0
+            ? "No runs to display"
+            : `Showing ${(page - 1) * ROWS_PER_PAGE + 1}–${Math.min(page * ROWS_PER_PAGE, filteredRuns.length)} of ${filteredRuns.length} runs`}
         </Typography>
       </Box>
     </Paper>

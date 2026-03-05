@@ -3,6 +3,7 @@ import {
   Container,
   Divider,
   Drawer,
+  IconButton,
   List,
   ListItem,
   ListItemButton,
@@ -14,6 +15,8 @@ import {
   Stack,
   Grid,
   Tooltip,
+  useMediaQuery,
+  useTheme,
 } from "@mui/material";
 import AssessmentIcon from "@mui/icons-material/Assessment";
 import PlayCircleIcon from "@mui/icons-material/PlayCircle";
@@ -24,6 +27,7 @@ import WarningAmberIcon from "@mui/icons-material/WarningAmber";
 import PushPinIcon from "@mui/icons-material/PushPin";
 import PushPinOutlinedIcon from "@mui/icons-material/PushPinOutlined";
 import SearchIcon from "@mui/icons-material/Search";
+import MenuIcon from "@mui/icons-material/Menu";
 import InputBase from "@mui/material/InputBase";
 import { styled, alpha } from "@mui/material/styles";
 import { useState, useEffect } from "react";
@@ -45,7 +49,6 @@ import { ReportViewDialog } from "./components/ReportViewDialog";
 import SettingsIcon from "@mui/icons-material/Settings";
 import InfoOutlinedIcon from "@mui/icons-material/InfoOutlined";
 import FeedbackOutlinedIcon from "@mui/icons-material/FeedbackOutlined";
-import { IconButton } from "@mui/material";
 import { setSelectedRunId } from "./slices/runsSlice";
 import { useAppDispatch } from "./hooks";
 import { TestGuideDialog } from "./components/TestGuideDialog";
@@ -95,6 +98,8 @@ const collapsedWidth = 8;
 
 export const App = () => {
   const dispatch = useAppDispatch();
+  const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down("md"));
   const [newAnalysisOpen, setNewAnalysisOpen] = useState(false);
   const [shortcutsHelpOpen, setShortcutsHelpOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
@@ -107,8 +112,9 @@ export const App = () => {
   const [isSidebarPinned, setIsSidebarPinned] = useState(() => {
     return localStorage.getItem("SIDEBAR_PINNED") === "true";
   });
+  const [isMobileDrawerOpen, setIsMobileDrawerOpen] = useState(false);
   const [isSidebarHovered, setIsSidebarHovered] = useState(false);
-  const [isSearchBarHovered, setIsSearchBarHovered] = useState(false);
+  const [isSearchBarExpanded, setIsSearchBarExpanded] = useState(false);
 
   const selectedRunId = useAppSelector((s) => s.runs.selectedRunId);
   const { showInfo } = useNotification();
@@ -212,7 +218,7 @@ export const App = () => {
   ]);
 
   const toggleSidebarPinned = () => setIsSidebarPinned(!isSidebarPinned);
-  const isSidebarOpen = isSidebarPinned || isSidebarHovered;
+  const isSidebarOpen = isMobile ? isMobileDrawerOpen : (isSidebarPinned || isSidebarHovered);
 
   return (
     <Box sx={{ display: "flex", minHeight: "100vh", overflowX: "hidden" }}>
@@ -236,33 +242,44 @@ export const App = () => {
             gap: 2,
           }}
         >
-          <Box sx={{ width: 150, display: "flex", alignItems: "center" }}>
-            {/* Left side spacer - allows sidebar overlap without shifting */}
+          {/* Left: hamburger on mobile, spacer on desktop */}
+          <Box sx={{ display: "flex", alignItems: "center", minWidth: { xs: "auto", md: 150 } }}>
+            {isMobile ? (
+              <IconButton
+                color="inherit"
+                onClick={() => setIsMobileDrawerOpen(true)}
+                sx={{ mr: 1 }}
+              >
+                <MenuIcon />
+              </IconButton>
+            ) : null}
           </Box>
 
           {/* Centered Collapsible Search Bar */}
           <Box
-            onMouseEnter={() => setIsSearchBarHovered(true)}
-            onMouseLeave={() => setIsSearchBarHovered(false)}
+            onMouseEnter={() => !isMobile && setIsSearchBarExpanded(true)}
+            onMouseLeave={() => !isMobile && setIsSearchBarExpanded(false)}
+            onClick={() => setIsSearchBarExpanded(true)}
             sx={{
               flexGrow: 1,
               display: "flex",
               justifyContent: "center",
               transition: "all 0.3s cubic-bezier(0.4, 0, 0.2, 1)",
-              maxWidth: isSearchBarHovered ? "40%" : "120px",
+              maxWidth: isSearchBarExpanded ? { xs: "100%", sm: "50%", md: "40%" } : { xs: 40, sm: 120 },
               height: 40,
               position: "relative",
             }}
           >
-            {isSearchBarHovered ? (
+            {isSearchBarExpanded ? (
               <Search>
                 <SearchIconWrapper>
                   <SearchIcon fontSize="small" />
                 </SearchIconWrapper>
                 <StyledInputBase
-                  placeholder="Global Search (Briefings, Entities, Tags)..."
+                  placeholder="Search (Briefings, Entities, Tags)..."
                   inputProps={{ "aria-label": "search" }}
                   autoFocus
+                  onBlur={() => setIsSearchBarExpanded(false)}
                 />
               </Search>
             ) : (
@@ -271,7 +288,7 @@ export const App = () => {
                   display: "flex",
                   alignItems: "center",
                   gap: 1,
-                  px: 2,
+                  px: { xs: 1, sm: 2 },
                   py: 1,
                   borderRadius: 5,
                   backgroundColor: "rgba(255,255,255,0.03)",
@@ -283,31 +300,33 @@ export const App = () => {
                 }}
               >
                 <SearchIcon sx={{ fontSize: 18, color: "text.secondary", opacity: 0.5 }} />
-                <Typography variant="caption" sx={{ color: "text.secondary", fontWeight: 600, opacity: 0.5 }}>
+                <Typography variant="caption" sx={{ color: "text.secondary", fontWeight: 600, opacity: 0.5, display: { xs: "none", sm: "block" } }}>
                   SEARCH
                 </Typography>
-                <Box sx={{ width: 10, height: 2, backgroundColor: "primary.main", borderRadius: 1, ml: 1, opacity: 0.3 }} />
+                <Box sx={{ width: 10, height: 2, backgroundColor: "primary.main", borderRadius: 1, ml: 1, opacity: 0.3, display: { xs: "none", sm: "block" } }} />
               </Box>
             )}
           </Box>
 
-          <Stack direction="row" spacing={1.5} alignItems="center" sx={{ width: 300, justifyContent: "flex-end" }}>
+          <Stack direction="row" spacing={1} alignItems="center" sx={{ justifyContent: "flex-end", flexShrink: 0 }}>
             <Button
               variant="contained"
               color="primary"
               onClick={() => setNewAnalysisOpen(true)}
-              sx={{ fontWeight: 700, textTransform: "none", px: 3, borderRadius: 2 }}
+              sx={{ fontWeight: 700, textTransform: "none", px: { xs: 1.5, sm: 3 }, borderRadius: 2, whiteSpace: "nowrap" }}
             >
-              New Analysis{" "}
+              <Box component="span" sx={{ display: { xs: "none", sm: "inline" } }}>New Analysis </Box>
+              <Box component="span" sx={{ display: { xs: "inline", sm: "none" } }}>+ </Box>
               <Box
                 component="span"
                 sx={{
-                  ml: 1,
+                  ml: 0.5,
                   px: 0.6,
                   py: 0.2,
                   borderRadius: 0.5,
                   backgroundColor: "rgba(255,255,255,0.2)",
                   fontSize: "0.7rem",
+                  display: { xs: "none", sm: "inline" },
                 }}
               >
                 N
@@ -323,8 +342,8 @@ export const App = () => {
         </Toolbar>
       </AppBar>
 
-      {/* Hover Trigger Area */}
-      {!isSidebarPinned && (
+      {/* Hover Trigger Area - desktop only */}
+      {!isMobile && !isSidebarPinned && (
         <Box
           onMouseEnter={() => setIsSidebarHovered(true)}
           sx={{
@@ -358,16 +377,18 @@ export const App = () => {
       )}
 
       <Drawer
-        variant="permanent"
-        onMouseEnter={() => setIsSidebarHovered(true)}
-        onMouseLeave={() => setIsSidebarHovered(false)}
+        variant={isMobile ? "temporary" : "permanent"}
+        open={isMobile ? isMobileDrawerOpen : undefined}
+        onClose={() => setIsMobileDrawerOpen(false)}
+        onMouseEnter={() => !isMobile && setIsSidebarHovered(true)}
+        onMouseLeave={() => !isMobile && setIsSidebarHovered(false)}
         sx={{
-          width: isSidebarPinned ? drawerWidth : collapsedWidth,
+          width: isMobile ? drawerWidth : (isSidebarPinned ? drawerWidth : collapsedWidth),
           flexShrink: 0,
           whiteSpace: "nowrap",
           boxSizing: "border-box",
           [`& .MuiDrawer-paper`]: {
-            width: isSidebarOpen ? drawerWidth : collapsedWidth,
+            width: isMobile ? drawerWidth : (isSidebarOpen ? drawerWidth : collapsedWidth),
             transition: (theme) => theme.transitions.create("width", {
               easing: theme.transitions.easing.sharp,
               duration: theme.transitions.duration.enteringScreen,
@@ -378,7 +399,7 @@ export const App = () => {
             borderRight: "1px solid rgba(148,163,184,0.1)",
             backgroundImage: "linear-gradient(to bottom, rgba(15, 23, 42, 0.5), rgba(2, 6, 23, 0.5))",
             zIndex: (theme) => isSidebarOpen ? theme.zIndex.drawer + 1 : theme.zIndex.drawer,
-            boxShadow: isSidebarOpen && !isSidebarPinned ? "10px 0 30px rgba(0,0,0,0.5)" : "none",
+            boxShadow: (isSidebarOpen && !isSidebarPinned) || isMobile ? "10px 0 30px rgba(0,0,0,0.5)" : "none",
           },
         }}
       >
@@ -399,11 +420,13 @@ export const App = () => {
               Analyst Portal
             </Typography>
           </Box>
-          <Tooltip title={isSidebarPinned ? "Unpin Sidebar" : "Pin Sidebar"}>
-            <IconButton size="small" onClick={toggleSidebarPinned} sx={{ color: isSidebarPinned ? "primary.main" : "text.secondary" }}>
-              {isSidebarPinned ? <PushPinIcon fontSize="small" /> : <PushPinOutlinedIcon fontSize="small" />}
-            </IconButton>
-          </Tooltip>
+          {!isMobile && (
+            <Tooltip title={isSidebarPinned ? "Unpin Sidebar" : "Pin Sidebar"}>
+              <IconButton size="small" onClick={toggleSidebarPinned} sx={{ color: isSidebarPinned ? "primary.main" : "text.secondary" }}>
+                {isSidebarPinned ? <PushPinIcon fontSize="small" /> : <PushPinOutlinedIcon fontSize="small" />}
+              </IconButton>
+            </Tooltip>
+          )}
         </Box>
 
         <Divider sx={{ mx: 2, opacity: 0.1 }} />
@@ -413,6 +436,7 @@ export const App = () => {
             <ListItem disablePadding sx={{ mb: 1 }}>
               <ListItemButton
                 selected
+                onClick={() => isMobile && setIsMobileDrawerOpen(false)}
                 sx={{
                   borderRadius: 2,
                   "&.Mui-selected": {
@@ -445,7 +469,7 @@ export const App = () => {
           <List dense disablePadding>
             <ListItem disablePadding>
               <ListItemButton
-                onClick={() => setTestGuideOpen(true)}
+                onClick={() => { setTestGuideOpen(true); isMobile && setIsMobileDrawerOpen(false); }}
                 sx={{ borderRadius: 2, py: 1 }}
               >
                 <Tooltip title="Test Guide & Help" placement="right">
@@ -459,7 +483,7 @@ export const App = () => {
             </ListItem>
             <ListItem disablePadding>
               <ListItemButton
-                onClick={() => setFeedbackOpen(true)}
+                onClick={() => { setFeedbackOpen(true); isMobile && setIsMobileDrawerOpen(false); }}
                 sx={{ borderRadius: 2, py: 1 }}
               >
                 <Tooltip title="Leave Feedback" placement="right">
@@ -479,15 +503,12 @@ export const App = () => {
         component="main"
         sx={{
           flexGrow: 1,
-          p: 3,
+          p: { xs: 1.5, sm: 2, md: 3 },
           width: "100%",
+          minWidth: 0, // prevent flex overflow
           transition: (theme) => theme.transitions.create("margin", {
             easing: theme.transitions.easing.sharp,
             duration: theme.transitions.duration.leavingScreen,
-          }),
-          marginLeft: 0,
-          ...(isSidebarPinned && {
-            marginLeft: 0, // Since it's 'permanent' and we use flex: 1, margin handles it
           }),
         }}
       >
