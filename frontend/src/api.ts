@@ -185,3 +185,73 @@ export async function submitFeedback(payload: FeedbackPayload) {
   const { data } = await api.post("/feedback", payload);
   return data;
 }
+
+
+// ---------------------------------------------------------------------------
+// Monitoring Dashboard
+// ---------------------------------------------------------------------------
+
+export interface GlobalStats {
+  total_analyses: number;
+  countries_monitored: number;
+  total_narratives_detected: number;
+  active_runs: number;
+  completed_runs: number;
+  failed_runs: number;
+  avg_quality_score: number | null;
+}
+
+export interface CountryStatItem {
+  country: string;
+  run_count: number;
+  completed_count: number;
+  narrative_count: number;
+  avg_quality: number | null;
+  risk_score: number;
+}
+
+export interface NarrativeTrendItem {
+  narrative_id: string;
+  narrative_name: string;
+  category: string | null;
+  total_matches: number;
+  report_count: number;
+  confidence_high: number;
+  confidence_medium: number;
+  confidence_low: number;
+}
+
+export interface FeedItem {
+  title: string;
+  url: string;
+  domain: string;
+  source_country: string | null;
+  published: string;
+  language: string;
+}
+
+export interface MonitoringFeedResponse {
+  items: FeedItem[];
+  source: string;
+  fetched_at: string;
+}
+
+export async function fetchGlobalStats() {
+  const { data } = await api.get<GlobalStats>("/stats/global");
+  return data;
+}
+
+export async function fetchStatsByCountry() {
+  const { data } = await api.get<CountryStatItem[]>("/stats/by-country");
+  return data;
+}
+
+export async function fetchNarrativeTrends() {
+  const { data } = await api.get<NarrativeTrendItem[]>("/stats/narrative-trends");
+  return data;
+}
+
+export async function fetchMonitoringFeed() {
+  const { data } = await api.get<MonitoringFeedResponse>("/monitoring/feed");
+  return data;
+}

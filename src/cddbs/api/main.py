@@ -530,3 +530,227 @@ def submit_feedback(payload: FeedbackCreateRequest, db: Session = Depends(get_db
 def list_feedback(db: Session = Depends(get_db)):
     """List all feedback entries (for dev review)."""
     return db.query(Feedback).order_by(Feedback.created_at.desc()).all()
+
+
+# ---------------------------------------------------------------------------
+# Monitoring Dashboard Stats Endpoints
+# ---------------------------------------------------------------------------
+
+
+class GlobalStatsResponse(BaseModel):
+    total_analyses: int
+    countries_monitored: int
+    total_narratives_detected: int
+    active_runs: int
+    completed_runs: int
+    failed_runs: int
+    avg_quality_score: Optional[float] = None
+
+
+class CountryStatItem(BaseModel):
+    country: str
+    run_count: int
+    completed_count: int
+    narrative_count: int
+    avg_quality: Optional[float] = None
+    risk_score: float  # composite score for map coloring
+
+
+class NarrativeTrendItem(BaseModel):
+    narrative_id: str
+    narrative_name: str
+    category: Optional[str]
+    total_matches: int
+    report_count: int
+    confidence_high: int
+    confidence_medium: int
+    confidence_low: int
+
+
+class FeedItem(BaseModel):
+    title: str
+    url: str
+    domain: str
+    source_country: Optional[str]
+    published: str
+    language: str
+
+
+class MonitoringFeedResponse(BaseModel):
+    items: List[FeedItem]
+    source: str
+    fetched_at: str
+
+
+@app.get("/stats/global", response_model=GlobalStatsResponse)
+def get_global_stats(db: Session = Depends(get_db)):
+    """Aggregate global stats for the monitoring dashboard metric bar."""
+    from sqlalchemy import func
+
+    reports = db.query(Report).all()
+    total = len(reports)
+
+    countries = set()
+    active = 0
+    completed = 0
+    failed = 0
+    quality_scores = []
+    narrative_total = 0
+
+    for r in reports:
+        if r.country:
+            countries.add(r.country)
+        status, _ = _get_report_status(r)
+        if status in ("running", "queued"):
+            active += 1
+        elif status == "completed":
+            completed += 1
+        elif status == "failed":
+            failed += 1
+        data = r.data or {}
+        if isinstance(data, dict) and data.get("quality_score"):
+            quality_scores.append(data["quality_score"])
+        narrative_total += db.query(NarrativeMatch).filter(
+            NarrativeMatch.report_id == r.id
+        ).count()
+
+    avg_quality = round(sum(quality_scores) / len(quality_scores), 1) if quality_scores else None
+
+    return GlobalStatsResponse(
+        total_analyses=total,
+        countries_monitored=len(countries),
+        total_narratives_detected=narrative_total,
+        active_runs=active,
+        completed_runs=completed,
+        failed_runs=failed,
+        avg_quality_score=avg_quality,
+    )
+
+
+@app.get("/stats/by-country", response_model=List[CountryStatItem])
+def get_stats_by_country(db: Session = Depends(get_db)):
+    """Per-country roll-up for the world map and country risk index."""
+    from collections import defaultdict
+
+    reports = db.query(Report).all()
+    country_data: dict = defaultdict(lambda: {
+        "run_count": 0, "completed": 0, "narratives": 0, "quality_scores": []
+    })
+
+    for r in reports:
+        country = r.country or "Unknown"
+        country_data[country]["run_count"] += 1
+        status, _ = _get_report_status(r)
+        if status == "completed":
+            country_data[country]["completed"] += 1
+        data = r.data or {}
+        if isinstance(data, dict) and data.get("quality_score"):
+            country_data[country]["quality_scores"].append(data["quality_score"])
+        n_count = db.query(NarrativeMatch).filter(NarrativeMatch.report_id == r.id).count()
+        country_data[country]["narratives"] += n_count
+
+    results = []
+    for country, d in country_data.items():
+        if country == "Unknown":
+            continue
+        avg_q = round(sum(d["quality_scores"]) / len(d["quality_scores"]), 1) if d["quality_scores"] else None
+        # Risk score: more narratives relative to runs = higher risk (0-100)
+        narrative_ratio = (d["narratives"] / max(d["run_count"], 1)) * 20
+        risk_score = min(100.0, round(narrative_ratio + (d["run_count"] * 5), 1))
+        results.append(CountryStatItem(
+            country=country,
+            run_count=d["run_count"],
+            completed_count=d["completed"],
+            narrative_count=d["narratives"],
+            avg_quality=avg_q,
+            risk_score=risk_score,
+        ))
+
+    results.sort(key=lambda x: x.risk_score, reverse=True)
+    return results
+
+
+@app.get("/stats/narrative-trends", response_model=List[NarrativeTrendItem])
+def get_narrative_trends(db: Session = Depends(get_db)):
+    """Top narratives by frequency across all analyses."""
+    from collections import defaultdict
+
+    matches = db.query(NarrativeMatch).all()
+    trends: dict = defaultdict(lambda: {
+        "name": "", "category": None, "total": 0, "reports": set(),
+        "high": 0, "medium": 0, "low": 0
+    })
+
+    for m in matches:
+        t = trends[m.narrative_id]
+        t["name"] = m.narrative_name
+        t["category"] = m.category
+        t["total"] += m.match_count
+        t["reports"].add(m.report_id)
+        conf = (m.confidence or "").lower()
+        if conf == "high":
+            t["high"] += 1
+        elif conf == "medium":
+            t["medium"] += 1
+        else:
+            t["low"] += 1
+
+    results = [
+        NarrativeTrendItem(
+            narrative_id=nid,
+            narrative_name=d["name"],
+            category=d["category"],
+            total_matches=d["total"],
+            report_count=len(d["reports"]),
+            confidence_high=d["high"],
+            confidence_medium=d["medium"],
+            confidence_low=d["low"],
+        )
+        for nid, d in trends.items()
+    ]
+    results.sort(key=lambda x: x.total_matches, reverse=True)
+    return results[:15]
+
+
+@app.get("/monitoring/feed", response_model=MonitoringFeedResponse)
+def get_monitoring_feed():
+    """Proxy GDELT news feed filtered for disinformation-relevant events."""
+    import requests as req
+    from datetime import datetime, UTC
+
+    gdelt_url = (
+        "https://api.gdeltproject.org/api/v2/doc/doc"
+        "?query=disinformation%20OR%20propaganda%20OR%20misinformation%20OR%20cyberattack"
+        "%20OR%20election%20interference%20OR%20fake%20news"
+        "&mode=ArtList&maxrecords=25&format=json&timespan=1d&sort=DateDesc"
+    )
+
+    items: List[FeedItem] = []
+    try:
+        resp = req.get(gdelt_url, timeout=10)
+        if resp.status_code == 200:
+            payload = resp.json()
+            for article in payload.get("articles", []):
+                raw_date = article.get("seendate", "")
+                try:
+                    # GDELT format: YYYYMMDDTHHMMSSz
+                    parsed = datetime.strptime(raw_date[:15], "%Y%m%dT%H%M%S")
+                    formatted = parsed.strftime("%Y-%m-%dT%H:%M:%SZ")
+                except Exception:
+                    formatted = raw_date
+                items.append(FeedItem(
+                    title=article.get("title", "No title"),
+                    url=article.get("url", ""),
+                    domain=article.get("domain", ""),
+                    source_country=article.get("sourcecountry", None),
+                    published=formatted,
+                    language=article.get("language", "English"),
+                ))
+    except Exception:
+        pass  # Return empty list gracefully if GDELT is unreachable
+
+    return MonitoringFeedResponse(
+        items=items,
+        source="GDELT Project",
+        fetched_at=datetime.now(UTC).isoformat(),
+    )
