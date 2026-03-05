@@ -8,6 +8,7 @@ import {
   ListItem,
   ListItemButton,
   ListItemText,
+  ListItemIcon,
   Toolbar,
   Typography,
   AppBar,
@@ -28,6 +29,8 @@ import PushPinIcon from "@mui/icons-material/PushPin";
 import PushPinOutlinedIcon from "@mui/icons-material/PushPinOutlined";
 import SearchIcon from "@mui/icons-material/Search";
 import MenuIcon from "@mui/icons-material/Menu";
+import RadarIcon from "@mui/icons-material/Radar";
+import TableRowsIcon from "@mui/icons-material/TableRows";
 import InputBase from "@mui/material/InputBase";
 import { styled, alpha } from "@mui/material/styles";
 import { useState, useEffect } from "react";
@@ -53,6 +56,9 @@ import { setSelectedRunId } from "./slices/runsSlice";
 import { useAppDispatch } from "./hooks";
 import { TestGuideDialog } from "./components/TestGuideDialog";
 import { FeedbackDialog } from "./components/FeedbackDialog";
+import { MonitoringDashboard } from "./components/MonitoringDashboard";
+
+type ViewType = "monitoring" | "reports";
 
 const Search = styled("div")(({ theme }) => ({
   position: "relative",
@@ -100,6 +106,7 @@ export const App = () => {
   const dispatch = useAppDispatch();
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down("md"));
+  const [currentView, setCurrentView] = useState<ViewType>("monitoring");
   const [newAnalysisOpen, setNewAnalysisOpen] = useState(false);
   const [shortcutsHelpOpen, setShortcutsHelpOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
@@ -432,35 +439,61 @@ export const App = () => {
         <Divider sx={{ mx: 2, opacity: 0.1 }} />
 
         <Box sx={{ overflow: "auto", flexGrow: 1, mt: 2 }}>
+          <Box sx={{ px: 3, pb: 1, opacity: 0.5 }}>
+            <Typography variant="caption" fontWeight={800} sx={{ textTransform: "uppercase", letterSpacing: "0.1em", fontSize: "0.65rem" }}>
+              Navigation
+            </Typography>
+          </Box>
           <List sx={{ px: 1 }}>
-            <ListItem disablePadding sx={{ mb: 1 }}>
+            {/* Monitoring */}
+            <ListItem disablePadding sx={{ mb: 0.5 }}>
               <ListItemButton
-                selected
-                onClick={() => isMobile && setIsMobileDrawerOpen(false)}
+                selected={currentView === "monitoring"}
+                onClick={() => { setCurrentView("monitoring"); isMobile && setIsMobileDrawerOpen(false); }}
                 sx={{
                   borderRadius: 2,
                   "&.Mui-selected": {
                     backgroundColor: "rgba(59, 130, 246, 0.08)",
                     borderLeft: "3px solid #3b82f6",
-                    "&:hover": {
-                      backgroundColor: "rgba(59, 130, 246, 0.12)",
-                    },
+                    "&:hover": { backgroundColor: "rgba(59, 130, 246, 0.12)" },
                   },
+                  "&:not(.Mui-selected)": { pl: "19px" },
                 }}
               >
+                <ListItemIcon sx={{ minWidth: 32 }}>
+                  <RadarIcon sx={{ fontSize: 18, color: currentView === "monitoring" ? "primary.main" : "text.secondary" }} />
+                </ListItemIcon>
                 <ListItemText
                   primaryTypographyProps={{ fontWeight: 700, fontSize: "0.875rem" }}
-                  primary="Intelligence Dashboard"
+                  primary="Monitoring"
+                />
+              </ListItemButton>
+            </ListItem>
+            {/* Reports */}
+            <ListItem disablePadding sx={{ mb: 0.5 }}>
+              <ListItemButton
+                selected={currentView === "reports"}
+                onClick={() => { setCurrentView("reports"); isMobile && setIsMobileDrawerOpen(false); }}
+                sx={{
+                  borderRadius: 2,
+                  "&.Mui-selected": {
+                    backgroundColor: "rgba(59, 130, 246, 0.08)",
+                    borderLeft: "3px solid #3b82f6",
+                    "&:hover": { backgroundColor: "rgba(59, 130, 246, 0.12)" },
+                  },
+                  "&:not(.Mui-selected)": { pl: "19px" },
+                }}
+              >
+                <ListItemIcon sx={{ minWidth: 32 }}>
+                  <TableRowsIcon sx={{ fontSize: 18, color: currentView === "reports" ? "primary.main" : "text.secondary" }} />
+                </ListItemIcon>
+                <ListItemText
+                  primaryTypographyProps={{ fontWeight: 700, fontSize: "0.875rem" }}
+                  primary="Reports"
                 />
               </ListItemButton>
             </ListItem>
           </List>
-
-          <Box sx={{ px: 3, py: 2, opacity: 0.5 }}>
-            <Typography variant="caption" fontWeight={800} sx={{ textTransform: "uppercase", letterSpacing: "0.1em", fontSize: "0.65rem" }}>
-              Navigation
-            </Typography>
-          </Box>
         </Box>
 
         {/* Bottom sidebar actions */}
@@ -515,95 +548,104 @@ export const App = () => {
         <Toolbar />
         <Container maxWidth="xl" sx={{ pt: 2 }}>
           <ColdStartNotice />
-          {/* Dashboard Summary Cards */}
-          <Grid container spacing={2} sx={{ mb: 3 }}>
-            <Grid item xs={12} sm={6} md={3}>
-              {isLoading && !runs ? (
-                <MetricCardSkeleton />
-              ) : (
-                <MetricCard
-                  title="Total Analyses"
-                  value={totalRuns}
-                  icon={<AssessmentIcon sx={{ fontSize: 28 }} />}
-                  color="info"
-                  tooltip="Total number of intelligence reports generated by the system"
-                />
-              )}
-            </Grid>
-            <Grid item xs={12} sm={6} md={3}>
-              {isLoading && !runs ? (
-                <MetricCardSkeleton />
-              ) : (
-                <MetricCard
-                  title="Avg Quality"
-                  value={runsWithQuality.length > 0 ? `${avgQuality}/70` : "—"}
-                  icon={<VerifiedIcon sx={{ fontSize: 28 }} />}
-                  color={avgQuality >= 50 ? "success" : avgQuality >= 30 ? "warning" : "info"}
-                  tooltip={`Average quality score across ${runsWithQuality.length} scored briefings (70 max)`}
-                />
-              )}
-            </Grid>
-            <Grid item xs={12} sm={6} md={3}>
-              {isLoading && !runs ? (
-                <MetricCardSkeleton />
-              ) : (
-                <MetricCard
-                  title="Narratives"
-                  value={totalNarratives}
-                  icon={<WarningAmberIcon sx={{ fontSize: 28 }} />}
-                  color={totalNarratives > 0 ? "warning" : "success"}
-                  tooltip="Total disinformation narrative matches detected across all analyses"
-                />
-              )}
-            </Grid>
-            <Grid item xs={12} sm={6} md={3}>
-              {isLoading && !runs ? (
-                <MetricCardSkeleton />
-              ) : (
-                <MetricCard
-                  title="Success Rate"
-                  value={`${successRate}%`}
-                  icon={<TrendingUpIcon sx={{ fontSize: 28 }} />}
-                  color={successRate >= 80 ? "success" : successRate >= 50 ? "warning" : "error"}
-                  trend={{ value: 5, label: "vs average" }}
-                  tooltip="Percentage of analyses that resulted in a complete intelligence report"
-                />
-              )}
-            </Grid>
-          </Grid>
 
-          <Grid container spacing={3}>
-            <Grid item xs={12} md={8}>
-              <RunsTable
-                runs={runs ?? []}
-                onRefresh={refetch}
-                isLoading={isLoading && !runs}
-                onOpenReport={(id) => {
-                  dispatch(setSelectedRunId(id));
-                  setReportViewOpen(true);
-                }}
-              />
-            </Grid>
-            <Grid item xs={12} md={4}>
-              <Stack spacing={3}>
-                <StatusDistributionChart
-                  data={[
-                    { status: "completed", count: completedCount, color: "#10b981" },
-                    { status: "running", count: runningCount, color: "#3b82f6" },
-                    { status: "failed", count: runs?.filter(r => r.status === "failed").length || 0, color: "#ef4444" },
-                    { status: "queued", count: runs?.filter(r => r.status === "queued").length || 0, color: "#94a3b8" },
-                  ]}
-                />
-                <RunDetail
-                  runId={selectedRunId}
-                  onOpenReport={(id) => {
-                    dispatch(setSelectedRunId(id));
-                    setReportViewOpen(true);
-                  }}
-                />
-              </Stack>
-            </Grid>
-          </Grid>
+          {/* ── Monitoring Dashboard ── */}
+          {currentView === "monitoring" && <MonitoringDashboard />}
+
+          {/* ── Reports view (former "Intelligence Dashboard") ── */}
+          {currentView === "reports" && (
+            <>
+              {/* Summary Cards */}
+              <Grid container spacing={2} sx={{ mb: 3 }}>
+                <Grid item xs={12} sm={6} md={3}>
+                  {isLoading && !runs ? (
+                    <MetricCardSkeleton />
+                  ) : (
+                    <MetricCard
+                      title="Total Analyses"
+                      value={totalRuns}
+                      icon={<AssessmentIcon sx={{ fontSize: 28 }} />}
+                      color="info"
+                      tooltip="Total number of intelligence reports generated by the system"
+                    />
+                  )}
+                </Grid>
+                <Grid item xs={12} sm={6} md={3}>
+                  {isLoading && !runs ? (
+                    <MetricCardSkeleton />
+                  ) : (
+                    <MetricCard
+                      title="Avg Quality"
+                      value={runsWithQuality.length > 0 ? `${avgQuality}/70` : "—"}
+                      icon={<VerifiedIcon sx={{ fontSize: 28 }} />}
+                      color={avgQuality >= 50 ? "success" : avgQuality >= 30 ? "warning" : "info"}
+                      tooltip={`Average quality score across ${runsWithQuality.length} scored briefings (70 max)`}
+                    />
+                  )}
+                </Grid>
+                <Grid item xs={12} sm={6} md={3}>
+                  {isLoading && !runs ? (
+                    <MetricCardSkeleton />
+                  ) : (
+                    <MetricCard
+                      title="Narratives"
+                      value={totalNarratives}
+                      icon={<WarningAmberIcon sx={{ fontSize: 28 }} />}
+                      color={totalNarratives > 0 ? "warning" : "success"}
+                      tooltip="Total disinformation narrative matches detected across all analyses"
+                    />
+                  )}
+                </Grid>
+                <Grid item xs={12} sm={6} md={3}>
+                  {isLoading && !runs ? (
+                    <MetricCardSkeleton />
+                  ) : (
+                    <MetricCard
+                      title="Success Rate"
+                      value={`${successRate}%`}
+                      icon={<TrendingUpIcon sx={{ fontSize: 28 }} />}
+                      color={successRate >= 80 ? "success" : successRate >= 50 ? "warning" : "error"}
+                      trend={{ value: 5, label: "vs average" }}
+                      tooltip="Percentage of analyses that resulted in a complete intelligence report"
+                    />
+                  )}
+                </Grid>
+              </Grid>
+
+              <Grid container spacing={3}>
+                <Grid item xs={12} md={8}>
+                  <RunsTable
+                    runs={runs ?? []}
+                    onRefresh={refetch}
+                    isLoading={isLoading && !runs}
+                    onOpenReport={(id) => {
+                      dispatch(setSelectedRunId(id));
+                      setReportViewOpen(true);
+                    }}
+                  />
+                </Grid>
+                <Grid item xs={12} md={4}>
+                  <Stack spacing={3}>
+                    <StatusDistributionChart
+                      data={[
+                        { status: "completed", count: completedCount, color: "#10b981" },
+                        { status: "running", count: runningCount, color: "#3b82f6" },
+                        { status: "failed", count: runs?.filter(r => r.status === "failed").length || 0, color: "#ef4444" },
+                        { status: "queued", count: runs?.filter(r => r.status === "queued").length || 0, color: "#94a3b8" },
+                      ]}
+                    />
+                    <RunDetail
+                      runId={selectedRunId}
+                      onOpenReport={(id) => {
+                        dispatch(setSelectedRunId(id));
+                        setReportViewOpen(true);
+                      }}
+                    />
+                  </Stack>
+                </Grid>
+              </Grid>
+            </>
+          )}
         </Container>
       </Box>
 
