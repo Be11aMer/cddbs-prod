@@ -8,8 +8,9 @@ from sqlalchemy.orm import Session
 
 from src.cddbs.config import settings
 from src.cddbs.database import SessionLocal, init_db
-from src.cddbs.models import Article, Outlet, Report, Briefing, NarrativeMatch, Feedback
+from src.cddbs.models import Article, Outlet, Report, Briefing, NarrativeMatch, Feedback, TopicRun, TopicOutletResult
 from src.cddbs.pipeline.orchestrator import run_pipeline
+from src.cddbs.pipeline.topic_pipeline import run_topic_pipeline
 from src.cddbs.narratives import get_all_narratives
 
 
@@ -753,4 +754,187 @@ def get_monitoring_feed():
         items=items,
         source="GDELT Project",
         fetched_at=datetime.now(UTC).isoformat(),
+    )
+
+
+# ---------------------------------------------------------------------------
+# Topic Mode endpoints
+# ---------------------------------------------------------------------------
+
+
+class TopicRunCreateRequest(BaseModel):
+    topic: str = Field(..., min_length=3, max_length=300)
+    num_outlets: int = Field(5, ge=1, le=10)
+    date_filter: Optional[str] = Field("m", description="qdr: h/d/w/m/y")
+    serpapi_key: Optional[str] = None
+    google_api_key: Optional[str] = None
+
+
+class TopicRunStatusResponse(BaseModel):
+    id: int
+    topic: str
+    num_outlets: int
+    date_filter: str
+    status: str
+    created_at: datetime
+    completed_at: Optional[datetime] = None
+    error: Optional[str] = None
+    outlets_found: int = 0
+
+
+class TopicOutletResultResponse(BaseModel):
+    id: int
+    outlet_name: str
+    outlet_domain: Optional[str] = None
+    articles_analyzed: int
+    divergence_score: Optional[int] = None
+    amplification_signal: Optional[str] = None
+    propaganda_techniques: Optional[List[str]] = None
+    framing_summary: Optional[str] = None
+    divergence_explanation: Optional[str] = None
+    article_links: Optional[List[dict]] = None
+
+    model_config = {"from_attributes": True}
+
+
+class TopicRunDetailResponse(TopicRunStatusResponse):
+    baseline_summary: Optional[str] = None
+    outlet_results: List[TopicOutletResultResponse] = Field(default_factory=list)
+
+
+def _run_topic_job(
+    topic_run_id: int,
+    topic: str,
+    num_outlets: int,
+    date_filter: str,
+    serpapi_key: Optional[str] = None,
+    google_api_key: Optional[str] = None,
+):
+    """Background wrapper for run_topic_pipeline with error handling."""
+    db = SessionLocal()
+    try:
+        run_topic_pipeline(
+            topic_run_id=topic_run_id,
+            topic=topic,
+            num_outlets=num_outlets,
+            date_filter=date_filter,
+            serpapi_key=serpapi_key,
+            google_api_key=google_api_key,
+        )
+    except Exception as exc:
+        topic_run = db.query(TopicRun).filter(TopicRun.id == topic_run_id).first()
+        if topic_run:
+            topic_run.status = "failed"
+            topic_run.error = str(exc)
+            db.commit()
+    finally:
+        db.close()
+
+
+@app.post("/topic-runs", response_model=TopicRunStatusResponse)
+def create_topic_run(
+    payload: TopicRunCreateRequest,
+    background_tasks: BackgroundTasks,
+    db: Session = Depends(get_db),
+):
+    """Create a new topic-mode analysis run."""
+    serpapi_key = payload.serpapi_key
+    google_api_key = payload.google_api_key
+
+    topic_run = TopicRun(
+        topic=payload.topic,
+        num_outlets=payload.num_outlets,
+        date_filter=payload.date_filter or "m",
+        status="pending",
+    )
+    db.add(topic_run)
+    db.commit()
+    db.refresh(topic_run)
+
+    background_tasks.add_task(
+        _run_topic_job,
+        topic_run_id=topic_run.id,
+        topic=payload.topic,
+        num_outlets=payload.num_outlets,
+        date_filter=payload.date_filter or "m",
+        serpapi_key=serpapi_key,
+        google_api_key=google_api_key,
+    )
+
+    return TopicRunStatusResponse(
+        id=topic_run.id,
+        topic=topic_run.topic,
+        num_outlets=topic_run.num_outlets,
+        date_filter=topic_run.date_filter,
+        status="pending",
+        created_at=topic_run.created_at,
+        outlets_found=0,
+    )
+
+
+@app.get("/topic-runs", response_model=List[TopicRunStatusResponse])
+def list_topic_runs(db: Session = Depends(get_db)):
+    """Return all topic runs ordered by creation date."""
+    runs = db.query(TopicRun).order_by(TopicRun.created_at.desc()).all()
+    result = []
+    for r in runs:
+        outlets_found = db.query(TopicOutletResult).filter(
+            TopicOutletResult.topic_run_id == r.id
+        ).count()
+        result.append(TopicRunStatusResponse(
+            id=r.id,
+            topic=r.topic,
+            num_outlets=r.num_outlets,
+            date_filter=r.date_filter,
+            status=r.status,
+            created_at=r.created_at,
+            completed_at=r.completed_at,
+            error=r.error,
+            outlets_found=outlets_found,
+        ))
+    return result
+
+
+@app.get("/topic-runs/{topic_run_id}", response_model=TopicRunDetailResponse)
+def get_topic_run(topic_run_id: int, db: Session = Depends(get_db)):
+    """Return a topic run with its full outlet results ranked by divergence score."""
+    topic_run = db.query(TopicRun).filter(TopicRun.id == topic_run_id).first()
+    if not topic_run:
+        raise HTTPException(status_code=404, detail="Topic run not found")
+
+    results = (
+        db.query(TopicOutletResult)
+        .filter(TopicOutletResult.topic_run_id == topic_run_id)
+        .order_by(TopicOutletResult.divergence_score.desc())
+        .all()
+    )
+
+    outlet_responses = [
+        TopicOutletResultResponse(
+            id=r.id,
+            outlet_name=r.outlet_name,
+            outlet_domain=r.outlet_domain,
+            articles_analyzed=r.articles_analyzed,
+            divergence_score=r.divergence_score,
+            amplification_signal=r.amplification_signal,
+            propaganda_techniques=r.propaganda_techniques,
+            framing_summary=r.framing_summary,
+            divergence_explanation=r.divergence_explanation,
+            article_links=r.article_links,
+        )
+        for r in results
+    ]
+
+    return TopicRunDetailResponse(
+        id=topic_run.id,
+        topic=topic_run.topic,
+        num_outlets=topic_run.num_outlets,
+        date_filter=topic_run.date_filter,
+        status=topic_run.status,
+        created_at=topic_run.created_at,
+        completed_at=topic_run.completed_at,
+        error=topic_run.error,
+        outlets_found=len(results),
+        baseline_summary=topic_run.baseline_summary,
+        outlet_results=outlet_responses,
     )
