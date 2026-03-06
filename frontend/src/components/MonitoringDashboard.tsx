@@ -31,7 +31,7 @@ export const MonitoringDashboard = () => {
   return (
     <Box sx={{ display: "flex", flexDirection: "column", gap: 2.5, height: "100%" }}>
       {/* Page header */}
-      <Box sx={{ display: "flex", alignItems: "center", gap: 1.5, mb: 0.5 }}>
+      <Box sx={{ display: "flex", alignItems: "center", gap: 1.5, mb: 0.5, flexWrap: "wrap" }}>
         <Box
           sx={{
             width: 36,
@@ -47,15 +47,15 @@ export const MonitoringDashboard = () => {
         >
           <RadarIcon sx={{ fontSize: 20, color: "primary.main" }} />
         </Box>
-        <Box>
+        <Box sx={{ minWidth: 0, flex: 1 }}>
           <Typography variant="h6" fontWeight={800} sx={{ lineHeight: 1.2 }}>
             Global Monitoring
           </Typography>
-          <Typography variant="caption" color="text.secondary">
+          <Typography variant="caption" color="text.secondary" sx={{ display: { xs: "none", sm: "block" } }}>
             Real-time disinformation intelligence · Live global situation awareness
           </Typography>
         </Box>
-        <Box sx={{ ml: "auto", display: "flex", alignItems: "center", gap: 1 }}>
+        <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
           <Box
             sx={{
               display: "flex",
