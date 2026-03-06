@@ -747,8 +747,10 @@ def get_monitoring_feed():
                     published=formatted,
                     language=article.get("language", "English"),
                 ))
-    except Exception:
-        pass  # Return empty list gracefully if GDELT is unreachable
+        else:
+            print(f"DEBUG monitoring: GDELT returned HTTP {resp.status_code}")
+    except Exception as exc:
+        print(f"DEBUG monitoring: GDELT feed error: {exc}")
 
     return MonitoringFeedResponse(
         items=items,
