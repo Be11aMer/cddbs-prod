@@ -85,7 +85,7 @@ export const MetricCard = ({ title, value, icon, color = "primary", trend, toolt
                         <Typography variant="caption" color="text.secondary" sx={{ textTransform: "uppercase", letterSpacing: "0.1em", fontWeight: 600 }}>
                             {title}
                         </Typography>
-                        <Typography variant="h4" fontWeight={800} sx={{ mt: 0.5, letterSpacing: "-0.02em" }}>
+                        <Typography variant="h4" fontWeight={800} sx={{ mt: 0.5, letterSpacing: "-0.02em", fontSize: { xs: "1.5rem", sm: "2rem", md: "2.125rem" } }}>
                             {value}
                         </Typography>
                         <Box sx={{ height: 24, mt: 0.5, display: "flex", alignItems: "center" }}>

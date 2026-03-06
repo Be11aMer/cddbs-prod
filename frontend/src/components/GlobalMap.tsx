@@ -337,15 +337,17 @@ export const GlobalMap = ({ countryStats }: GlobalMapProps) => {
         onClose={() => setExpanded(false)}
         maxWidth={false}
         fullWidth
+        fullScreen={false}
         PaperProps={{
           sx: {
-            width: "92vw",
-            height: "88vh",
+            width: { xs: "100vw", sm: "92vw" },
+            height: { xs: "100dvh", sm: "88vh" },
             maxWidth: "none",
+            m: { xs: 0, sm: 2 },
             backgroundColor: "rgba(2, 6, 23, 0.97)",
             backdropFilter: "blur(20px)",
-            border: "1px solid rgba(148,163,184,0.15)",
-            borderRadius: 3,
+            border: { xs: "none", sm: "1px solid rgba(148,163,184,0.15)" },
+            borderRadius: { xs: 0, sm: 3 },
             display: "flex",
             flexDirection: "column",
           },
@@ -357,35 +359,37 @@ export const GlobalMap = ({ countryStats }: GlobalMapProps) => {
             alignItems: "center",
             justifyContent: "space-between",
             py: 1.5,
-            px: 3,
+            px: { xs: 2, sm: 3 },
             borderBottom: "1px solid rgba(148,163,184,0.1)",
             flexShrink: 0,
+            flexWrap: "wrap",
+            gap: 1,
           }}
         >
-          <Box sx={{ display: "flex", alignItems: "center", gap: 1.5 }}>
-            <PublicIcon sx={{ color: "primary.main" }} />
-            <Box>
-              <Typography variant="h6" fontWeight={800}>
-                Global Disinformation Intelligence Map
+          <Box sx={{ display: "flex", alignItems: "center", gap: 1.5, minWidth: 0 }}>
+            <PublicIcon sx={{ color: "primary.main", flexShrink: 0 }} />
+            <Box sx={{ minWidth: 0 }}>
+              <Typography variant="h6" fontWeight={800} sx={{ fontSize: { xs: "0.95rem", sm: "1.25rem" } }}>
+                Global Disinformation Map
               </Typography>
-              <Typography variant="caption" color="text.secondary">
-                Countries coloured by disinformation activity · Hover for details · Scroll to zoom · Drag to pan
+              <Typography variant="caption" color="text.secondary" sx={{ display: { xs: "none", sm: "block" } }}>
+                Hover for details · Scroll to zoom · Drag to pan
               </Typography>
             </Box>
           </Box>
-          <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
-            {/* Summary chips */}
+          <Box sx={{ display: "flex", alignItems: "center", gap: 0.75 }}>
+            {/* Summary chips - hidden on xs */}
             <Chip
-              label={`${monitoredCount} Countries Monitored`}
+              label={`${monitoredCount} Monitored`}
               size="small"
-              sx={{ backgroundColor: "rgba(59,130,246,0.15)", color: "primary.light", fontWeight: 600 }}
+              sx={{ backgroundColor: "rgba(59,130,246,0.15)", color: "primary.light", fontWeight: 600, display: { xs: "none", sm: "flex" } }}
             />
             <Chip
               label={`${highRiskCount} High Risk`}
               size="small"
-              sx={{ backgroundColor: "rgba(239,68,68,0.15)", color: "#ef4444", fontWeight: 600 }}
+              sx={{ backgroundColor: "rgba(239,68,68,0.15)", color: "#ef4444", fontWeight: 600, display: { xs: "none", sm: "flex" } }}
             />
-            <Divider orientation="vertical" flexItem sx={{ mx: 1 }} />
+            <Divider orientation="vertical" flexItem sx={{ mx: 0.5, display: { xs: "none", sm: "block" } }} />
             <Tooltip title="Collapse">
               <IconButton size="small" onClick={() => setExpanded(false)} sx={{ color: "text.secondary" }}>
                 <CloseFullscreenIcon fontSize="small" />
@@ -401,11 +405,11 @@ export const GlobalMap = ({ countryStats }: GlobalMapProps) => {
 
         <DialogContent sx={{ p: 0, flexGrow: 1, display: "flex", overflow: "hidden" }}>
           {/* Expanded map */}
-          <Box sx={{ flexGrow: 1, position: "relative" }}>
+          <Box sx={{ flexGrow: 1, position: "relative", minWidth: 0 }}>
             <MapView countryData={countryData} expanded />
           </Box>
 
-          {/* Side panel: country risk list */}
+          {/* Side panel: country risk list - hidden on mobile */}
           <Box
             sx={{
               width: 240,
@@ -413,6 +417,7 @@ export const GlobalMap = ({ countryStats }: GlobalMapProps) => {
               borderLeft: "1px solid rgba(148,163,184,0.1)",
               overflowY: "auto",
               p: 2,
+              display: { xs: "none", md: "block" },
             }}
           >
             <Typography variant="caption" fontWeight={800} sx={{ textTransform: "uppercase", letterSpacing: "0.08em", color: "text.secondary", mb: 1.5, display: "block" }}>
