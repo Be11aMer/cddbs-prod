@@ -580,6 +580,7 @@ class MonitoringFeedResponse(BaseModel):
     items: List[FeedItem]
     source: str
     fetched_at: str
+    error: Optional[str] = None
 
 
 @app.get("/stats/global", response_model=GlobalStatsResponse)
@@ -726,8 +727,9 @@ def get_monitoring_feed():
     )
 
     items: List[FeedItem] = []
+    feed_error: Optional[str] = None
     try:
-        resp = req.get(gdelt_url, timeout=10)
+        resp = req.get(gdelt_url, timeout=20)
         if resp.status_code == 200:
             payload = resp.json()
             for article in payload.get("articles", []):
@@ -746,11 +748,16 @@ def get_monitoring_feed():
                     published=formatted,
                     language=article.get("language", "English"),
                 ))
-    except Exception:
-        pass  # Return empty list gracefully if GDELT is unreachable
+        else:
+            feed_error = f"GDELT returned HTTP {resp.status_code}"
+            print(f"DEBUG monitoring: {feed_error}")
+    except Exception as exc:
+        feed_error = str(exc)
+        print(f"DEBUG monitoring: GDELT feed error: {exc}")
 
     return MonitoringFeedResponse(
         items=items,
         source="GDELT Project",
         fetched_at=datetime.now(UTC).isoformat(),
+        error=feed_error,
     )
