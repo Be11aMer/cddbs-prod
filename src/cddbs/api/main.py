@@ -715,114 +715,46 @@ def get_narrative_trends(db: Session = Depends(get_db)):
 
 @app.get("/monitoring/feed", response_model=MonitoringFeedResponse)
 def get_monitoring_feed():
-    """Proxy intel feed for disinformation-relevant events.
-
-    Primary source: SerpAPI Google News (uses server-configured SERPAPI_KEY).
-    Fallback: GDELT DOC API v2 (may be blocked in some environments).
-    """
+    """Proxy GDELT news feed filtered for disinformation-relevant events."""
     import requests as req
     from datetime import datetime, UTC
-    from urllib.parse import urlparse
+
+    gdelt_url = (
+        "https://api.gdeltproject.org/api/v2/doc/doc"
+        "?query=disinformation%20OR%20propaganda%20OR%20misinformation%20OR%20cyberattack"
+        "%20OR%20election%20interference%20OR%20fake%20news"
+        "&mode=ArtList&maxrecords=25&format=json&timespan=1d&sort=DateDesc"
+    )
 
     items: List[FeedItem] = []
-    source_used = "none"
-
-    QUERIES = [
-        "disinformation propaganda misinformation",
-        "information warfare narrative manipulation",
-        "fake news election interference cyberattack",
-    ]
-
-    def _domain(url: str) -> str:
-        try:
-            return urlparse(url).netloc.lstrip("www.")
-        except Exception:
-            return ""
-
-    # ------------------------------------------------------------------
-    # Primary: SerpAPI Google News
-    # ------------------------------------------------------------------
-    serpapi_key = settings.SERPAPI_KEY
-    if serpapi_key:
-        try:
-            seen_urls: set = set()
-            for q in QUERIES:
-                if len(items) >= 25:
-                    break
-                resp = req.get(
-                    "https://serpapi.com/search.json",
-                    params={
-                        "engine": "google_news",
-                        "q": q,
-                        "api_key": serpapi_key,
-                        "tbs": "qdr:d",   # past 24 hours
-                        "num": 15,
-                    },
-                    timeout=15,
-                )
-                if resp.status_code == 200:
-                    for article in resp.json().get("news_results", []):
-                        url = article.get("link", "")
-                        if not url or url in seen_urls:
-                            continue
-                        seen_urls.add(url)
-                        raw_date = article.get("date", "")
-                        items.append(FeedItem(
-                            title=article.get("title", "No title"),
-                            url=url,
-                            domain=_domain(url) or article.get("source", {}).get("name", ""),
-                            source_country=article.get("source", {}).get("name"),
-                            published=raw_date,
-                            language="English",
-                        ))
-            if items:
-                source_used = "SerpAPI Google News"
-        except Exception as exc:
-            print(f"DEBUG monitoring: SerpAPI feed error: {exc}")
-
-    # ------------------------------------------------------------------
-    # Fallback: GDELT DOC API v2
-    # ------------------------------------------------------------------
-    if not items:
-        gdelt_url = (
-            "https://api.gdeltproject.org/api/v2/doc/doc"
-            "?query=disinformation%20OR%20propaganda%20OR%20misinformation%20OR%20cyberattack"
-            "%20OR%20election%20interference%20OR%20fake%20news"
-            "&mode=ArtList&maxrecords=25&format=json&timespan=1d&sort=DateDesc"
-        )
-        try:
-            resp = req.get(gdelt_url, timeout=10)
-            if resp.status_code == 200:
-                payload = resp.json()
-                for article in payload.get("articles", []):
-                    raw_date = article.get("seendate", "")
-                    try:
-                        parsed = datetime.strptime(raw_date[:15], "%Y%m%dT%H%M%S")
-                        formatted = parsed.strftime("%Y-%m-%dT%H:%M:%SZ")
-                    except Exception:
-                        formatted = raw_date
-                    items.append(FeedItem(
-                        title=article.get("title", "No title"),
-                        url=article.get("url", ""),
-                        domain=article.get("domain", ""),
-                        source_country=article.get("sourcecountry", None),
-                        published=formatted,
-                        language=article.get("language", "English"),
-                    ))
-                if items:
-                    source_used = "GDELT Project"
-        except Exception as exc:
-            print(f"DEBUG monitoring: GDELT feed error: {exc}")
-
-    if not items:
-        if not serpapi_key:
-            source_used = "unavailable — configure SERPAPI_KEY in .env to enable this feed"
+    try:
+        resp = req.get(gdelt_url, timeout=10)
+        if resp.status_code == 200:
+            payload = resp.json()
+            for article in payload.get("articles", []):
+                raw_date = article.get("seendate", "")
+                try:
+                    # GDELT format: YYYYMMDDTHHMMSSz
+                    parsed = datetime.strptime(raw_date[:15], "%Y%m%dT%H%M%S")
+                    formatted = parsed.strftime("%Y-%m-%dT%H:%M:%SZ")
+                except Exception:
+                    formatted = raw_date
+                items.append(FeedItem(
+                    title=article.get("title", "No title"),
+                    url=article.get("url", ""),
+                    domain=article.get("domain", ""),
+                    source_country=article.get("sourcecountry", None),
+                    published=formatted,
+                    language=article.get("language", "English"),
+                ))
         else:
-            source_used = "unavailable — all feed sources unreachable"
+            print(f"DEBUG monitoring: GDELT returned HTTP {resp.status_code}")
+    except Exception as exc:
+        print(f"DEBUG monitoring: GDELT feed error: {exc}")
 
     return MonitoringFeedResponse(
         items=items,
-        source=source_used,
+        source="GDELT Project",
         fetched_at=datetime.now(UTC).isoformat(),
     )
 
