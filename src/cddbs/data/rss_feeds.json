@@ -1,0 +1,156 @@
+{
+  "feeds": [
+    {
+      "name": "Reuters World",
+      "url": "https://www.reutersagency.com/feed/?best-topics=world&post_type=best",
+      "category": "wire_service",
+      "language": "en",
+      "update_frequency_minutes": 5,
+      "reliability": "high",
+      "notes": "Primary global wire service, fastest verified reports"
+    },
+    {
+      "name": "Associated Press Top News",
+      "url": "https://apnews.com/hub/ap-top-news?output=rss",
+      "category": "wire_service",
+      "language": "en",
+      "update_frequency_minutes": 5,
+      "reliability": "high",
+      "notes": "Major wire service, strong conflict/disaster/diplomatic coverage"
+    },
+    {
+      "name": "BBC World News",
+      "url": "http://feeds.bbci.co.uk/news/world/rss.xml",
+      "category": "global_news",
+      "language": "en",
+      "update_frequency_minutes": 15,
+      "reliability": "high",
+      "notes": "Reliable global reporting with broad coverage"
+    },
+    {
+      "name": "Al Jazeera",
+      "url": "https://www.aljazeera.com/xml/rss/all.xml",
+      "category": "global_news",
+      "language": "en",
+      "update_frequency_minutes": 15,
+      "reliability": "high",
+      "notes": "Strong Middle East, North Africa, conflict zone coverage"
+    },
+    {
+      "name": "The Guardian World",
+      "url": "https://www.theguardian.com/world/rss",
+      "category": "global_news",
+      "language": "en",
+      "update_frequency_minutes": 15,
+      "reliability": "high",
+      "notes": "Good political developments and investigative coverage"
+    },
+    {
+      "name": "ReliefWeb Updates",
+      "url": "https://reliefweb.int/updates/rss.xml",
+      "category": "humanitarian",
+      "language": "en",
+      "update_frequency_minutes": 30,
+      "reliability": "high",
+      "notes": "UN-managed, tracks disasters, conflicts, humanitarian crises"
+    },
+    {
+      "name": "ACLED",
+      "url": "https://acleddata.com/feed/",
+      "category": "conflict_monitoring",
+      "language": "en",
+      "update_frequency_minutes": 60,
+      "reliability": "high",
+      "notes": "Armed Conflict Location & Event Data: protests, riots, insurgencies"
+    },
+    {
+      "name": "International Crisis Group",
+      "url": "https://www.crisisgroup.org/rss.xml",
+      "category": "geopolitical",
+      "language": "en",
+      "update_frequency_minutes": 120,
+      "reliability": "high",
+      "notes": "Emerging geopolitical crises, early warning reports"
+    },
+    {
+      "name": "Bellingcat",
+      "url": "https://www.bellingcat.com/feed/",
+      "category": "osint",
+      "language": "en",
+      "update_frequency_minutes": 240,
+      "reliability": "high",
+      "notes": "OSINT investigations, war analysis, disinformation research"
+    },
+    {
+      "name": "The Cipher Brief",
+      "url": "https://www.thecipherbrief.com/feed",
+      "category": "intelligence",
+      "language": "en",
+      "update_frequency_minutes": 240,
+      "reliability": "medium",
+      "notes": "Intelligence analysis, security threats"
+    },
+    {
+      "name": "The War Zone",
+      "url": "https://www.thedrive.com/the-war-zone/rss",
+      "category": "military",
+      "language": "en",
+      "update_frequency_minutes": 60,
+      "reliability": "medium",
+      "notes": "Military analysis and conflict reporting"
+    },
+    {
+      "name": "Krebs on Security",
+      "url": "https://krebsonsecurity.com/feed/",
+      "category": "cyber",
+      "language": "en",
+      "update_frequency_minutes": 480,
+      "reliability": "high",
+      "notes": "Cybersecurity intelligence, breach reporting"
+    },
+    {
+      "name": "The Record",
+      "url": "https://therecord.media/feed",
+      "category": "cyber",
+      "language": "en",
+      "update_frequency_minutes": 120,
+      "reliability": "medium",
+      "notes": "Cybersecurity and intelligence news"
+    },
+    {
+      "name": "AFP (Agence France-Presse)",
+      "url": "https://www.afp.com/en/rss",
+      "category": "wire_service",
+      "language": "en",
+      "update_frequency_minutes": 10,
+      "reliability": "high",
+      "notes": "Strong coverage in Africa, Middle East, Asia"
+    },
+    {
+      "name": "Financial Times World",
+      "url": "https://www.ft.com/world?format=rss",
+      "category": "economic",
+      "language": "en",
+      "update_frequency_minutes": 30,
+      "reliability": "high",
+      "notes": "Early signals for sanctions, geopolitical tensions, economic crises"
+    }
+  ],
+  "metadata": {
+    "version": "1.0",
+    "last_updated": "2026-03-06",
+    "total_feeds": 15,
+    "categories": {
+      "wire_service": "Major wire services (Reuters, AP, AFP) — fastest verified reporting",
+      "global_news": "International broadcasters with broad global coverage",
+      "humanitarian": "UN and humanitarian organizations tracking crises",
+      "conflict_monitoring": "Specialized conflict and armed event tracking",
+      "geopolitical": "Geopolitical analysis and early warning",
+      "osint": "Open-source intelligence investigations",
+      "intelligence": "Intelligence community analysis",
+      "military": "Military affairs and defense analysis",
+      "cyber": "Cybersecurity and information warfare",
+      "economic": "Financial and economic signals relevant to geopolitics"
+    }
+  }
+}

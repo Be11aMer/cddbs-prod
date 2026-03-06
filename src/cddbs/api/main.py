@@ -8,7 +8,11 @@ from sqlalchemy.orm import Session
 
 from src.cddbs.config import settings
 from src.cddbs.database import SessionLocal, init_db
-from src.cddbs.models import Article, Outlet, Report, Briefing, NarrativeMatch, Feedback, TopicRun, TopicOutletResult
+from src.cddbs.models import (
+    Article, Outlet, Report, Briefing, NarrativeMatch, Feedback,
+    TopicRun, TopicOutletResult,
+    RawArticle, EventCluster, NarrativeBurst,
+)
 from src.cddbs.pipeline.orchestrator import run_pipeline
 from src.cddbs.pipeline.topic_pipeline import run_topic_pipeline
 from src.cddbs.narratives import get_all_narratives
@@ -16,11 +20,27 @@ from src.cddbs.narratives import get_all_narratives
 
 from contextlib import asynccontextmanager
 
+from src.cddbs.collectors.manager import CollectorManager
+
+# Global collector manager instance
+_collector_manager: CollectorManager | None = None
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    global _collector_manager
     # Ensure tables exist on startup
     init_db()
+
+    # Start collector manager for event intelligence pipeline
+    _collector_manager = CollectorManager(db_session_factory=SessionLocal)
+    _collector_manager.start_background(interval_seconds=180)  # every 3 minutes
+
     yield
+
+    # Shutdown collectors
+    if _collector_manager:
+        _collector_manager.stop()
 
 app = FastAPI(title="CDDBS API", lifespan=lifespan)
 
@@ -964,3 +984,200 @@ def get_topic_run(topic_run_id: int, db: Session = Depends(get_db)):
         baseline_summary=topic_run.baseline_summary,
         outlet_results=outlet_responses,
     )
+
+
+# ---------------------------------------------------------------------------
+# Event Intelligence Pipeline endpoints
+# ---------------------------------------------------------------------------
+
+
+class EventClusterResponse(BaseModel):
+    id: int
+    title: Optional[str] = None
+    event_type: Optional[str] = None
+    countries: Optional[list] = None
+    keywords: Optional[list] = None
+    first_seen: Optional[datetime] = None
+    last_seen: Optional[datetime] = None
+    article_count: int = 0
+    source_count: int = 0
+    burst_score: float = 0.0
+    narrative_risk_score: float = 0.0
+    status: str = "active"
+    created_at: Optional[datetime] = None
+
+    model_config = {"from_attributes": True}
+
+
+class EventClusterDetailResponse(EventClusterResponse):
+    entities: Optional[dict] = None
+    articles: list[dict] = Field(default_factory=list)
+
+
+class NarrativeBurstResponse(BaseModel):
+    id: int
+    keyword: str
+    baseline_frequency: Optional[float] = None
+    current_frequency: Optional[float] = None
+    z_score: Optional[float] = None
+    cluster_id: Optional[int] = None
+    detected_at: Optional[datetime] = None
+    resolved_at: Optional[datetime] = None
+
+    model_config = {"from_attributes": True}
+
+
+class CollectorStatusResponse(BaseModel):
+    collectors: list[dict]
+
+
+class EventMapItem(BaseModel):
+    country: str
+    event_count: int
+    avg_risk_score: float
+    top_event_type: Optional[str] = None
+
+
+@app.get("/events", response_model=List[EventClusterResponse])
+def list_events(
+    event_type: Optional[str] = None,
+    country: Optional[str] = None,
+    status: Optional[str] = "active",
+    min_risk: Optional[float] = None,
+    limit: int = 50,
+    offset: int = 0,
+    db: Session = Depends(get_db),
+):
+    """List event clusters with optional filtering."""
+    query = db.query(EventCluster)
+
+    if status:
+        query = query.filter(EventCluster.status == status)
+    if event_type:
+        query = query.filter(EventCluster.event_type == event_type)
+    if min_risk is not None:
+        query = query.filter(EventCluster.narrative_risk_score >= min_risk)
+    if country:
+        # JSON array contains check
+        query = query.filter(EventCluster.countries.contains([country]))
+
+    events = (
+        query.order_by(EventCluster.narrative_risk_score.desc())
+        .offset(offset)
+        .limit(limit)
+        .all()
+    )
+
+    return [EventClusterResponse.model_validate(e) for e in events]
+
+
+@app.get("/events/map", response_model=List[EventMapItem])
+def get_events_map(db: Session = Depends(get_db)):
+    """Get events grouped by country for map visualization."""
+    clusters = db.query(EventCluster).filter_by(status="active").all()
+
+    country_data: dict[str, dict] = {}
+    for cluster in clusters:
+        for country in (cluster.countries or []):
+            if country not in country_data:
+                country_data[country] = {"events": [], "types": []}
+            country_data[country]["events"].append(cluster)
+            if cluster.event_type:
+                country_data[country]["types"].append(cluster.event_type)
+
+    result = []
+    for country, data in country_data.items():
+        events = data["events"]
+        avg_risk = sum(e.narrative_risk_score or 0 for e in events) / len(events) if events else 0
+        from collections import Counter
+        type_counts = Counter(data["types"])
+        top_type = type_counts.most_common(1)[0][0] if type_counts else None
+
+        result.append(EventMapItem(
+            country=country,
+            event_count=len(events),
+            avg_risk_score=round(avg_risk, 3),
+            top_event_type=top_type,
+        ))
+
+    return sorted(result, key=lambda x: x.event_count, reverse=True)
+
+
+@app.get("/events/bursts", response_model=List[NarrativeBurstResponse])
+def list_bursts(
+    min_zscore: Optional[float] = None,
+    active_only: bool = True,
+    limit: int = 50,
+    db: Session = Depends(get_db),
+):
+    """List detected narrative bursts (keyword frequency spikes)."""
+    query = db.query(NarrativeBurst)
+
+    if active_only:
+        query = query.filter(NarrativeBurst.resolved_at == None)
+    if min_zscore is not None:
+        query = query.filter(NarrativeBurst.z_score >= min_zscore)
+
+    bursts = (
+        query.order_by(NarrativeBurst.z_score.desc())
+        .limit(limit)
+        .all()
+    )
+
+    return [NarrativeBurstResponse.model_validate(b) for b in bursts]
+
+
+@app.get("/events/{event_id}", response_model=EventClusterDetailResponse)
+def get_event_detail(event_id: int, db: Session = Depends(get_db)):
+    """Get detailed event cluster with articles."""
+    cluster = db.query(EventCluster).filter(EventCluster.id == event_id).first()
+    if not cluster:
+        raise HTTPException(status_code=404, detail="Event cluster not found")
+
+    articles = (
+        db.query(RawArticle)
+        .filter(RawArticle.cluster_id == event_id, RawArticle.is_duplicate == False)
+        .order_by(RawArticle.published_at.desc())
+        .limit(100)
+        .all()
+    )
+
+    article_dicts = [
+        {
+            "id": a.id,
+            "title": a.title,
+            "url": a.url,
+            "source_name": a.source_name,
+            "source_domain": a.source_domain,
+            "source_type": a.source_type,
+            "published_at": a.published_at.isoformat() if a.published_at else None,
+            "country": a.country,
+        }
+        for a in articles
+    ]
+
+    return EventClusterDetailResponse(
+        id=cluster.id,
+        title=cluster.title,
+        event_type=cluster.event_type,
+        countries=cluster.countries,
+        keywords=cluster.keywords,
+        entities=cluster.entities,
+        first_seen=cluster.first_seen,
+        last_seen=cluster.last_seen,
+        article_count=cluster.article_count,
+        source_count=cluster.source_count,
+        burst_score=cluster.burst_score,
+        narrative_risk_score=cluster.narrative_risk_score,
+        status=cluster.status,
+        created_at=cluster.created_at,
+        articles=article_dicts,
+    )
+
+
+@app.get("/collector/status", response_model=CollectorStatusResponse)
+def get_collector_status():
+    """Get health status of all news collectors."""
+    if _collector_manager:
+        return CollectorStatusResponse(collectors=_collector_manager.statuses)
+    return CollectorStatusResponse(collectors=[])

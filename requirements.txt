@@ -10,3 +10,5 @@ httpx
 google
 google-genai
 pytest-cov
+feedparser>=6.0
+scikit-learn>=1.4
