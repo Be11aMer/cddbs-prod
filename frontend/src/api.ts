@@ -255,3 +255,61 @@ export async function fetchMonitoringFeed() {
   const { data } = await api.get<MonitoringFeedResponse>("/monitoring/feed");
   return data;
 }
+
+
+// ---------------------------------------------------------------------------
+// Topic Mode
+// ---------------------------------------------------------------------------
+
+export interface CreateTopicRunPayload {
+  topic: string;
+  num_outlets?: number;    // 1-10, default 5
+  date_filter?: string;    // h/d/w/m/y, default "m"
+  serpapi_key?: string;
+  google_api_key?: string;
+}
+
+export interface TopicRunStatus {
+  id: number;
+  topic: string;
+  num_outlets: number;
+  date_filter: string;
+  status: string;          // pending/running/completed/failed
+  created_at: string;
+  completed_at?: string | null;
+  error?: string | null;
+  outlets_found: number;
+}
+
+export interface TopicOutletResult {
+  id: number;
+  outlet_name: string;
+  outlet_domain: string | null;
+  articles_analyzed: number;
+  divergence_score: number | null;
+  amplification_signal: string | null;   // low/medium/high
+  propaganda_techniques: string[] | null;
+  framing_summary: string | null;
+  divergence_explanation: string | null;
+  article_links: { title: string; url: string; date: string }[] | null;
+}
+
+export interface TopicRunDetail extends TopicRunStatus {
+  baseline_summary: string | null;
+  outlet_results: TopicOutletResult[];
+}
+
+export async function createTopicRun(payload: CreateTopicRunPayload) {
+  const { data } = await api.post<TopicRunStatus>("/topic-runs", payload);
+  return data;
+}
+
+export async function fetchTopicRuns() {
+  const { data } = await api.get<TopicRunStatus[]>("/topic-runs");
+  return data;
+}
+
+export async function fetchTopicRun(id: number) {
+  const { data } = await api.get<TopicRunDetail>(`/topic-runs/${id}`);
+  return data;
+}

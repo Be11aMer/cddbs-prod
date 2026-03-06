@@ -31,11 +31,12 @@ import SearchIcon from "@mui/icons-material/Search";
 import MenuIcon from "@mui/icons-material/Menu";
 import RadarIcon from "@mui/icons-material/Radar";
 import TableRowsIcon from "@mui/icons-material/TableRows";
+import TravelExploreIcon from "@mui/icons-material/TravelExplore";
 import InputBase from "@mui/material/InputBase";
 import { styled, alpha } from "@mui/material/styles";
 import { useState, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { fetchRuns, wakeUpBackend, type RunStatus } from "./api";
+import { fetchRuns, fetchTopicRuns, wakeUpBackend, type RunStatus, type TopicRunStatus } from "./api";
 import { RunsTable } from "./components/RunsTable";
 import { RunDetail } from "./components/RunDetail";
 import { NewAnalysisDialog } from "./components/NewAnalysisDialog";
@@ -57,8 +58,10 @@ import { useAppDispatch } from "./hooks";
 import { TestGuideDialog } from "./components/TestGuideDialog";
 import { FeedbackDialog } from "./components/FeedbackDialog";
 import { MonitoringDashboard } from "./components/MonitoringDashboard";
+import { TopicRunsTable } from "./components/TopicRunsTable";
+import { TopicRunDetail } from "./components/TopicRunDetail";
 
-type ViewType = "monitoring" | "reports";
+type ViewType = "monitoring" | "reports" | "topic-runs";
 
 const Search = styled("div")(({ theme }) => ({
   position: "relative",
@@ -153,6 +156,18 @@ export const App = () => {
       // Auto-refresh every 10 seconds if there are running analyses
       const data = query.state.data;
       const hasRunning = data?.some((r) => r.status === "running" || r.status === "queued");
+      return hasRunning ? 10000 : false;
+    },
+  });
+
+  const [selectedTopicRunId, setSelectedTopicRunId] = useState<number | null>(null);
+
+  const { data: topicRuns, refetch: refetchTopicRuns, isLoading: topicRunsLoading } = useQuery<TopicRunStatus[]>({
+    queryKey: ["topic-runs"],
+    queryFn: fetchTopicRuns,
+    refetchInterval: (query) => {
+      const data = query.state.data;
+      const hasRunning = data?.some((r) => r.status === "running" || r.status === "pending");
       return hasRunning ? 10000 : false;
     },
   });
@@ -493,6 +508,30 @@ export const App = () => {
                 />
               </ListItemButton>
             </ListItem>
+            {/* Topic Analysis */}
+            <ListItem disablePadding sx={{ mb: 0.5 }}>
+              <ListItemButton
+                selected={currentView === "topic-runs"}
+                onClick={() => { setCurrentView("topic-runs"); setSelectedTopicRunId(null); isMobile && setIsMobileDrawerOpen(false); }}
+                sx={{
+                  borderRadius: 2,
+                  "&.Mui-selected": {
+                    backgroundColor: "rgba(139,92,246,0.08)",
+                    borderLeft: "3px solid #8b5cf6",
+                    "&:hover": { backgroundColor: "rgba(139,92,246,0.12)" },
+                  },
+                  "&:not(.Mui-selected)": { pl: "19px" },
+                }}
+              >
+                <ListItemIcon sx={{ minWidth: 32 }}>
+                  <TravelExploreIcon sx={{ fontSize: 18, color: currentView === "topic-runs" ? "#8b5cf6" : "text.secondary" }} />
+                </ListItemIcon>
+                <ListItemText
+                  primaryTypographyProps={{ fontWeight: 700, fontSize: "0.875rem" }}
+                  primary="Topic Analysis"
+                />
+              </ListItemButton>
+            </ListItem>
           </List>
         </Box>
 
@@ -551,6 +590,30 @@ export const App = () => {
 
           {/* ── Monitoring Dashboard ── */}
           {currentView === "monitoring" && <MonitoringDashboard />}
+
+          {/* ── Topic Analysis view ── */}
+          {currentView === "topic-runs" && (
+            selectedTopicRunId ? (
+              <Box>
+                <Button
+                  size="small"
+                  onClick={() => setSelectedTopicRunId(null)}
+                  sx={{ mb: 2, color: "text.secondary" }}
+                  startIcon={<TravelExploreIcon fontSize="small" />}
+                >
+                  ← All Topic Analyses
+                </Button>
+                <TopicRunDetail topicRunId={selectedTopicRunId} />
+              </Box>
+            ) : (
+              <TopicRunsTable
+                runs={topicRuns ?? []}
+                onRefresh={refetchTopicRuns}
+                isLoading={topicRunsLoading && !topicRuns}
+                onOpenDetail={(id) => setSelectedTopicRunId(id)}
+              />
+            )
+          )}
 
           {/* ── Reports view (former "Intelligence Dashboard") ── */}
           {currentView === "reports" && (
@@ -652,9 +715,15 @@ export const App = () => {
       <NewAnalysisDialog
         open={newAnalysisOpen}
         onClose={() => setNewAnalysisOpen(false)}
-        onCreated={() => {
+        onCreated={(mode) => {
           setNewAnalysisOpen(false);
-          refetch();
+          if (mode === "topic") {
+            refetchTopicRuns();
+            setCurrentView("topic-runs");
+          } else {
+            refetch();
+            setCurrentView("reports");
+          }
         }}
       />
 

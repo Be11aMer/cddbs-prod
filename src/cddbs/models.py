@@ -78,6 +78,46 @@ class NarrativeMatch(Base):
     report = relationship("Report", back_populates="narrative_matches")
 
 
+class TopicRun(Base):
+    """A topic-mode analysis run: discover which outlets push narratives on a given topic."""
+    __tablename__ = "topic_runs"
+    __table_args__ = {'extend_existing': True}
+    id               = Column(Integer, primary_key=True, index=True)
+    topic            = Column(String, nullable=False)       # e.g. "NATO expansion eastward"
+    num_outlets      = Column(Integer, default=5)
+    date_filter      = Column(String, default="m")
+    status           = Column(String, default="pending")   # pending/running/completed/failed
+    baseline_summary = Column(Text, nullable=True)         # Gemini neutral baseline prose
+    baseline_raw     = Column(Text, nullable=True)         # raw Gemini JSON response
+    created_at       = Column(DateTime, default=lambda: datetime.now(UTC))
+    completed_at     = Column(DateTime, nullable=True)
+    error            = Column(Text, nullable=True)
+
+    outlet_results = relationship("TopicOutletResult", back_populates="topic_run",
+                                  cascade="all, delete-orphan")
+
+
+class TopicOutletResult(Base):
+    """Per-outlet comparative result for a TopicRun."""
+    __tablename__ = "topic_outlet_results"
+    __table_args__ = {'extend_existing': True}
+    id                    = Column(Integer, primary_key=True, index=True)
+    topic_run_id          = Column(Integer, ForeignKey("topic_runs.id"), nullable=False)
+    outlet_name           = Column(String, nullable=False)  # discovered domain / name
+    outlet_domain         = Column(String, nullable=True)
+    articles_analyzed     = Column(Integer, default=0)
+    divergence_score      = Column(Integer, nullable=True)  # 0-100
+    amplification_signal  = Column(String, nullable=True)   # low/medium/high
+    propaganda_techniques = Column(JSON, nullable=True)     # list[str]
+    framing_summary       = Column(Text, nullable=True)
+    divergence_explanation = Column(Text, nullable=True)
+    gemini_raw            = Column(Text, nullable=True)
+    article_links         = Column(JSON, nullable=True)     # [{title, url, date}]
+    created_at            = Column(DateTime, default=lambda: datetime.now(UTC))
+
+    topic_run = relationship("TopicRun", back_populates="outlet_results")
+
+
 class Feedback(Base):
     """Tester feedback — standalone table, no relationships."""
     __tablename__ = "feedback"
