@@ -713,11 +713,25 @@ def get_narrative_trends(db: Session = Depends(get_db)):
     return results[:15]
 
 
+_gdelt_cache: dict = {"items": [], "fetched_at": None, "error": None}
+_GDELT_CACHE_TTL = 300  # seconds (5 minutes)
+
+
 @app.get("/monitoring/feed", response_model=MonitoringFeedResponse)
 def get_monitoring_feed():
     """Proxy GDELT news feed filtered for disinformation-relevant events."""
     import requests as req
     from datetime import datetime, UTC
+
+    now = datetime.now(UTC)
+    cached_at = _gdelt_cache["fetched_at"]
+    if cached_at and (now - cached_at).total_seconds() < _GDELT_CACHE_TTL:
+        return MonitoringFeedResponse(
+            items=_gdelt_cache["items"],
+            source="GDELT Project (cached)",
+            fetched_at=cached_at.isoformat(),
+            error=_gdelt_cache["error"],
+        )
 
     gdelt_url = (
         "https://api.gdeltproject.org/api/v2/doc/doc"
@@ -754,6 +768,11 @@ def get_monitoring_feed():
     except Exception as exc:
         feed_error = str(exc)
         print(f"DEBUG monitoring: GDELT feed error: {exc}")
+
+    if items:
+        _gdelt_cache["items"] = items
+        _gdelt_cache["fetched_at"] = now
+        _gdelt_cache["error"] = None
 
     return MonitoringFeedResponse(
         items=items,
