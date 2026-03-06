@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, Text, DateTime, JSON, Float, ForeignKey
+from sqlalchemy import Column, Integer, String, Text, DateTime, JSON, Float, ForeignKey, Boolean
 from sqlalchemy.orm import relationship
 from datetime import datetime, UTC
 from src.cddbs.database import Base
@@ -139,3 +139,66 @@ class Feedback(Base):
     would_recommend = Column(String, nullable=True)  # yes/no/maybe
     additional_comments = Column(Text, nullable=True)
     created_at = Column(DateTime, default=lambda: datetime.now(UTC))
+
+
+# ── Event Intelligence Pipeline models ────────────────────────────────
+
+
+class RawArticle(Base):
+    """Normalized article ingested from any collector source (RSS, GDELT, news API)."""
+    __tablename__ = "raw_articles"
+    __table_args__ = {'extend_existing': True}
+    id = Column(Integer, primary_key=True, index=True)
+    url_hash = Column(String(64), unique=True, index=True, nullable=False)
+    title = Column(String, nullable=False)
+    url = Column(String, nullable=False)
+    content = Column(Text, nullable=True)
+    source_name = Column(String, nullable=True)
+    source_domain = Column(String, index=True, nullable=True)
+    source_type = Column(String, nullable=True)  # rss, gdelt, news_api
+    published_at = Column(DateTime, nullable=True)
+    language = Column(String(10), nullable=True)
+    country = Column(String(100), nullable=True)
+    raw_meta = Column(JSON, nullable=True)
+    cluster_id = Column(Integer, ForeignKey("event_clusters.id"), nullable=True)
+    is_duplicate = Column(Boolean, default=False)
+    duplicate_of = Column(Integer, ForeignKey("raw_articles.id"), nullable=True)
+    created_at = Column(DateTime, default=lambda: datetime.now(UTC))
+
+    cluster = relationship("EventCluster", back_populates="articles")
+
+
+class EventCluster(Base):
+    """A detected event — group of related articles about the same event."""
+    __tablename__ = "event_clusters"
+    __table_args__ = {'extend_existing': True}
+    id = Column(Integer, primary_key=True, index=True)
+    title = Column(String, nullable=True)
+    event_type = Column(String, nullable=True)  # conflict, protest, diplomacy, disaster, cyber, info_warfare
+    countries = Column(JSON, nullable=True)      # ["Ukraine", "Russia"]
+    entities = Column(JSON, nullable=True)       # {"people": [], "orgs": [], "locations": []}
+    keywords = Column(JSON, nullable=True)       # ["explosion", "port"]
+    first_seen = Column(DateTime, nullable=True)
+    last_seen = Column(DateTime, nullable=True)
+    article_count = Column(Integer, default=0)
+    source_count = Column(Integer, default=0)
+    burst_score = Column(Float, default=0.0)
+    narrative_risk_score = Column(Float, default=0.0)
+    status = Column(String, default="active")    # active, declining, resolved
+    created_at = Column(DateTime, default=lambda: datetime.now(UTC))
+
+    articles = relationship("RawArticle", back_populates="cluster")
+
+
+class NarrativeBurst(Base):
+    """A detected keyword/topic frequency spike."""
+    __tablename__ = "narrative_bursts"
+    __table_args__ = {'extend_existing': True}
+    id = Column(Integer, primary_key=True, index=True)
+    keyword = Column(String, index=True, nullable=False)
+    baseline_frequency = Column(Float, nullable=True)   # articles/hour (rolling 24h avg)
+    current_frequency = Column(Float, nullable=True)     # articles/hour (last 1h)
+    z_score = Column(Float, nullable=True)
+    cluster_id = Column(Integer, ForeignKey("event_clusters.id"), nullable=True)
+    detected_at = Column(DateTime, default=lambda: datetime.now(UTC))
+    resolved_at = Column(DateTime, nullable=True)
