@@ -187,7 +187,7 @@ export const IntelFeed = () => {
             Intel Feed
           </Typography>
           <Chip
-            label="GDELT"
+            label={data?.source?.includes("SerpAPI") ? "SerpAPI" : "GDELT"}
             size="small"
             sx={{
               height: 16,
@@ -242,7 +242,7 @@ export const IntelFeed = () => {
         {isError && !isLoading && (
           <Box sx={{ p: 3, textAlign: "center" }}>
             <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
-              Unable to reach GDELT feed
+              Unable to load intel feed
             </Typography>
             <Typography variant="caption" color="text.disabled">
               Check backend connectivity
@@ -252,8 +252,13 @@ export const IntelFeed = () => {
 
         {!isLoading && !isError && items.length === 0 && (
           <Box sx={{ p: 3, textAlign: "center" }}>
-            <Typography variant="body2" color="text.secondary">
-              No articles found
+            <Typography variant="body2" color="text.secondary" sx={{ mb: 0.75 }}>
+              No articles available
+            </Typography>
+            <Typography variant="caption" color="text.disabled" sx={{ lineHeight: 1.5 }}>
+              {data?.source?.startsWith("unavailable")
+                ? data.source.replace("unavailable — ", "")
+                : "Feed sources returned no results. Try refreshing."}
             </Typography>
           </Box>
         )}
