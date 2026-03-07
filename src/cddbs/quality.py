@@ -14,7 +14,6 @@ Dimensions:
   7. Readability (0-10)
 """
 
-import json
 from pathlib import Path
 
 SCHEMA_PATH = Path(__file__).parent / "data" / "briefing_v1.json"
@@ -31,19 +30,116 @@ REQUIRED_SECTIONS = [
 
 CONFIDENCE_LEVELS = {"high", "moderate", "low"}
 EVIDENCE_TYPES = {"post", "pattern", "network", "metadata", "external", "forward", "channel_meta"}
-INDICATOR_TYPES = {
-    "posting_frequency",
-    "language_patterns",
-    "engagement_ratio",
-    "coordination_signals",
-    "timing_patterns",
-    "content_amplification",
-    "forwarding_pattern",
-    "channel_growth",
-    "bot_activity",
-    "message_deletion",
-    "other",
-}
+
+
+def _extract_briefing(payload: dict) -> dict:
+    """Extract the structured briefing from the Gemini payload.
+
+    The Gemini response has the form:
+      { "individual_analyses": [...], "structured_briefing": {...}, "final_briefing": "..." }
+
+    The scorer needs the structured_briefing dict. If not present, fall back
+    to the top-level payload (legacy format).
+    """
+    sb = payload.get("structured_briefing")
+    if isinstance(sb, dict) and sb:
+        return sb
+    return payload
+
+
+def _get_findings_evidence(finding: dict) -> list[dict]:
+    """Normalize finding evidence to [{type, reference}] format.
+
+    Handles both formats:
+    - Legacy: finding["evidence"] = [{type: "pattern", reference: "..."}]
+    - New prompt: finding["evidence_type"] = "PATTERN", finding["evidence"] = "specific text"
+    """
+    ev = finding.get("evidence", [])
+    if isinstance(ev, list) and ev and isinstance(ev[0], dict):
+        return ev
+
+    # New flat format
+    ev_type = finding.get("evidence_type", "")
+    ev_text = finding.get("evidence", "")
+    if isinstance(ev_text, str) and ev_text:
+        return [{"type": ev_type.lower() if ev_type else "", "reference": ev_text}]
+    return []
+
+
+def _get_confidence_factors(conf: dict) -> dict[str, str]:
+    """Normalize confidence factors to {factor_key: level} dict.
+
+    Handles both formats:
+    - Legacy: {"data_completeness": "high", "source_reliability": "moderate", ...}
+    - New prompt: [{"factor": "Data Completeness", "level": "high", "notes": "..."}]
+    """
+    factors = conf.get("factors", {})
+    if isinstance(factors, dict):
+        return factors
+    if isinstance(factors, list):
+        result = {}
+        for f in factors:
+            key = f.get("factor", "").lower().replace(" ", "_")
+            level = f.get("level", "")
+            if key and level:
+                result[key] = level
+        return result
+    return {}
+
+
+def _get_limitations_structured(limitations) -> dict:
+    """Normalize limitations to {cannot_determine, data_gaps, alternative_interpretations, ...}.
+
+    Handles both formats:
+    - Legacy dict: {"cannot_determine": [...], "data_gaps": [...], ...}
+    - New prompt: flat list of strings
+    """
+    if isinstance(limitations, dict):
+        return limitations
+    if isinstance(limitations, list):
+        # Try to categorize strings heuristically
+        cannot = []
+        gaps = []
+        alternatives = []
+        changing = []
+        for item in limitations:
+            lower = item.lower() if isinstance(item, str) else ""
+            if "cannot" in lower or "unable" in lower or "not possible" in lower:
+                cannot.append(item)
+            elif "gap" in lower or "missing" in lower or "no access" in lower or "unavailable" in lower:
+                gaps.append(item)
+            elif "alternative" in lower or "could also" in lower or "may be" in lower or "plausible" in lower:
+                alternatives.append(item)
+            elif "change" in lower or "new evidence" in lower or "would alter" in lower:
+                changing.append(item)
+            else:
+                # Default to cannot_determine
+                cannot.append(item)
+        return {
+            "cannot_determine": cannot,
+            "data_gaps": gaps,
+            "alternative_interpretations": alternatives,
+            "assessment_changing_factors": changing,
+        }
+    return {}
+
+
+def _get_behavioral_indicators(narr: dict) -> list[dict]:
+    """Normalize behavioral indicators.
+
+    Handles both: [{indicator_type, description}] and [{indicator, value}]
+    """
+    indicators = narr.get("behavioral_indicators", [])
+    if not isinstance(indicators, list):
+        return []
+    result = []
+    for ind in indicators:
+        desc = ind.get("description", "") or ind.get("value", "")
+        result.append({
+            "indicator_type": ind.get("indicator_type", ind.get("indicator", "other")),
+            "description": desc,
+        })
+    return result
 
 
 def score_structural_completeness(briefing: dict) -> tuple:
@@ -63,35 +159,28 @@ def score_structural_completeness(briefing: dict) -> tuple:
 
     for field, label in section_checks:
         val = briefing.get(field)
-        if val and (not isinstance(val, (dict, list)) or len(val) > 0):
+        if val and (isinstance(val, str) or (isinstance(val, (dict, list)) and len(val) > 0)):
             score += 1
         else:
             issues.append(f"Missing or empty: {label}")
 
+    # Bonus for evidence_references (optional)
     if briefing.get("evidence_references"):
         score += 1
     else:
         issues.append("No evidence_references appendix")
 
-    if briefing.get("metadata"):
-        meta = briefing["metadata"]
-        if meta.get("briefing_id") and meta.get("generated_at"):
-            score += 1
-        else:
-            issues.append("Metadata incomplete (missing briefing_id or generated_at)")
-    else:
-        issues.append("Missing metadata section")
-
-    if briefing.get("related_briefings") is not None:
+    # Bonus for metadata
+    meta = briefing.get("metadata", {})
+    if isinstance(meta, dict) and meta.get("briefing_id") and meta.get("generated_at"):
+        score += 1
+    elif briefing.get("methodology"):
+        # Count methodology as partial metadata credit
         score += 1
     else:
-        issues.append("No related_briefings field")
+        issues.append("Metadata incomplete")
 
-    has_xp = bool(briefing.get("cross_platform_identities"))
-    has_graph = bool(briefing.get("network_graph", {}).get("nodes"))
-    if has_xp or has_graph:
-        score += 1
-
+    # Cap at 10
     return min(score, 10), issues
 
 
@@ -108,19 +197,21 @@ def score_attribution_quality(briefing: dict) -> tuple:
     findings_with_evidence = 0
     evidence_specific = 0
     evidence_typed = 0
+    total_evidence = 0
 
     for f in findings:
-        evidence = f.get("evidence", [])
-        if evidence:
+        evidence_items = _get_findings_evidence(f)
+        total_evidence += len(evidence_items)
+        if evidence_items:
             findings_with_evidence += 1
-            for ev in evidence:
-                if ev.get("type") in EVIDENCE_TYPES:
+            for ev in evidence_items:
+                if ev.get("type", "").lower() in EVIDENCE_TYPES:
                     evidence_typed += 1
-                if ev.get("reference") and len(ev["reference"]) > 20:
+                ref = ev.get("reference", "")
+                if ref and len(ref) > 20:
                     evidence_specific += 1
 
-    total_evidence = sum(len(f.get("evidence", [])) for f in findings)
-
+    # All findings have evidence? (0-2)
     if findings_with_evidence == len(findings):
         score += 2
     elif findings_with_evidence > 0:
@@ -128,6 +219,7 @@ def score_attribution_quality(briefing: dict) -> tuple:
     else:
         issues.append("No findings have evidence references")
 
+    # Evidence specificity (0-2)
     if total_evidence > 0:
         specificity_rate = evidence_specific / total_evidence
         if specificity_rate >= 0.8:
@@ -140,6 +232,7 @@ def score_attribution_quality(briefing: dict) -> tuple:
     else:
         issues.append("No evidence references to evaluate specificity")
 
+    # Evidence typing (0-2)
     if total_evidence > 0:
         typed_rate = evidence_typed / total_evidence
         if typed_rate >= 0.8:
@@ -150,22 +243,27 @@ def score_attribution_quality(briefing: dict) -> tuple:
         else:
             issues.append(f"Only {typed_rate:.0%} of evidence is properly typed (need >= 50%)")
 
+    # Source attribution (0-2)
     narr = briefing.get("narrative_analysis", {})
     src_attr = narr.get("source_attribution", {})
-    if src_attr.get("role") and src_attr.get("content_origin"):
+    if isinstance(src_attr, dict) and src_attr.get("role") and src_attr.get("content_origin"):
         score += 2
-    elif src_attr:
+    elif isinstance(src_attr, dict) and src_attr:
         score += 1
         issues.append("Source attribution incomplete")
     else:
         issues.append("No source attribution in narrative analysis")
 
+    # Evidence references appendix (0-2)
     ev_refs = briefing.get("evidence_references", [])
     if len(ev_refs) >= 3:
         score += 2
     elif ev_refs:
         score += 1
         issues.append("Evidence references appendix has fewer than 3 entries")
+    elif total_evidence >= 3:
+        # Credit inline evidence as partial substitute
+        score += 1
     else:
         issues.append("No evidence references appendix")
 
@@ -179,15 +277,18 @@ def score_confidence_signaling(briefing: dict) -> tuple:
 
     conf = briefing.get("confidence_assessment", {})
 
-    if conf.get("overall") in CONFIDENCE_LEVELS:
+    # Overall confidence (0-2)
+    overall = conf.get("overall", "")
+    if overall and overall.lower() in CONFIDENCE_LEVELS:
         score += 2
     else:
         issues.append("No valid overall confidence level")
 
+    # Per-finding confidence (0-2)
     findings = briefing.get("key_findings", [])
     if findings:
         findings_with_confidence = sum(
-            1 for f in findings if f.get("confidence") in CONFIDENCE_LEVELS
+            1 for f in findings if (f.get("confidence") or "").lower() in CONFIDENCE_LEVELS
         )
         if findings_with_confidence == len(findings):
             score += 2
@@ -199,7 +300,8 @@ def score_confidence_signaling(briefing: dict) -> tuple:
         else:
             issues.append("No findings have confidence levels")
 
-    factors = conf.get("factors", {})
+    # Confidence factors (0-2)
+    factors = _get_confidence_factors(conf)
     required_factors = [
         "data_completeness",
         "source_reliability",
@@ -207,26 +309,38 @@ def score_confidence_signaling(briefing: dict) -> tuple:
         "corroboration",
     ]
     factors_present = sum(
-        1 for f in required_factors if factors.get(f) in CONFIDENCE_LEVELS
+        1 for f in required_factors
+        if factors.get(f, "").lower() in CONFIDENCE_LEVELS
     )
     if factors_present == 4:
         score += 2
     elif factors_present >= 2:
         score += 1
         issues.append(f"Only {factors_present}/4 confidence factors documented")
+    elif len(factors) > 0:
+        # Some factors present with different names
+        score += 1
+        issues.append("Confidence factors use non-standard names")
     else:
         issues.append("Confidence factors not documented")
 
-    limitations = briefing.get("limitations", {})
+    # Alternative interpretations (0-2)
+    limitations = _get_limitations_structured(briefing.get("limitations"))
     alt = limitations.get("alternative_interpretations", [])
     if alt and len(alt) >= 1:
         score += 2
+    elif isinstance(briefing.get("limitations"), list) and len(briefing.get("limitations", [])) >= 2:
+        # Flat list with 2+ items gets partial credit
+        score += 1
     else:
         issues.append("No alternative interpretations acknowledged")
 
+    # Assessment-changing factors (0-2)
     changing = limitations.get("assessment_changing_factors", [])
     if changing and len(changing) >= 1:
         score += 2
+    elif isinstance(briefing.get("limitations"), list) and len(briefing.get("limitations", [])) >= 3:
+        score += 1
     else:
         issues.append("No assessment-changing factors stated")
 
@@ -239,16 +353,21 @@ def score_evidence_presentation(briefing: dict) -> tuple:
     issues = []
 
     findings = briefing.get("key_findings", [])
-    total_evidence = sum(len(f.get("evidence", [])) for f in findings)
+    total_evidence = 0
 
-    if findings and all(f.get("evidence") for f in findings):
+    for f in findings:
+        total_evidence += len(_get_findings_evidence(f))
+
+    # All findings have evidence (0-2)
+    if findings and all(_get_findings_evidence(f) for f in findings):
         score += 2
-    elif findings and any(f.get("evidence") for f in findings):
+    elif findings and any(_get_findings_evidence(f) for f in findings):
         score += 1
         issues.append("Not all findings have evidence")
     else:
         issues.append("No findings have evidence")
 
+    # Total evidence count (0-2)
     if total_evidence >= 3:
         score += 2
     elif total_evidence >= 1:
@@ -257,13 +376,18 @@ def score_evidence_presentation(briefing: dict) -> tuple:
     else:
         issues.append("No evidence references")
 
+    # Quantitative data (0-2)
     narr = briefing.get("narrative_analysis", {})
-    indicators = narr.get("behavioral_indicators", [])
+    indicators = _get_behavioral_indicators(narr)
     has_metrics = any(
         any(c.isdigit() for c in ind.get("description", "")) for ind in indicators
     )
     profile = briefing.get("subject_profile", {})
-    has_counts = profile.get("followers") is not None or profile.get("total_posts_analyzed") is not None
+    has_counts = (
+        profile.get("followers") is not None
+        or profile.get("total_posts_analyzed") is not None
+        or profile.get("articles_analyzed") is not None
+    )
 
     if has_metrics and has_counts:
         score += 2
@@ -273,22 +397,26 @@ def score_evidence_presentation(briefing: dict) -> tuple:
     else:
         issues.append("No quantitative data in behavioral indicators or profile")
 
+    # Evidence type diversity (0-2)
     evidence_types_used = set()
     for f in findings:
-        for ev in f.get("evidence", []):
-            evidence_types_used.add(ev.get("type"))
+        for ev in _get_findings_evidence(f):
+            t = ev.get("type", "").lower()
+            if t:
+                evidence_types_used.add(t)
     if len(evidence_types_used) >= 3:
         score += 2
     elif len(evidence_types_used) >= 2:
         score += 1
         issues.append(f"Only {len(evidence_types_used)} evidence types used (3+ recommended)")
-    else:
+    elif len(evidence_types_used) == 1:
         issues.append("Only 1 evidence type used; need multiple types for robust analysis")
 
+    # Evidence references appendix (0-2)
     ev_refs = briefing.get("evidence_references", [])
     if len(ev_refs) >= 3:
         score += 2
-    elif ev_refs:
+    elif ev_refs or total_evidence >= 3:
         score += 1
     else:
         issues.append("No raw data references in appendix")
@@ -301,39 +429,61 @@ def score_analytical_rigor(briefing: dict) -> tuple:
     score = 0
     issues = []
 
+    # Source role assessment (0-2)
     narr = briefing.get("narrative_analysis", {})
     src = narr.get("source_attribution", {})
-    if src.get("role"):
+    if isinstance(src, dict) and src.get("role"):
         score += 2
     else:
         issues.append("No role assessment (fact vs. assessment distinction unclear)")
 
-    meta = briefing.get("metadata", {})
-    period = meta.get("analysis_period", {})
+    # Scope bounding (0-2)
+    meth = briefing.get("methodology", {})
     profile = briefing.get("subject_profile", {})
-    if period.get("start") and period.get("end") and profile.get("total_posts_analyzed"):
+    has_period = bool(
+        meth.get("analysis_period")
+        or (meth.get("start") and meth.get("end"))
+        or profile.get("analysis_period")
+    )
+    has_count = bool(
+        profile.get("total_posts_analyzed")
+        or profile.get("articles_analyzed")
+        or meth.get("articles_analyzed")
+    )
+    if has_period and has_count:
         score += 2
-    elif profile.get("total_posts_analyzed"):
+    elif has_period or has_count:
         score += 1
-        issues.append("Analysis period not fully specified")
+        issues.append("Scope partially bounded")
     else:
-        issues.append("Scope not bounded (missing analysis period and post count)")
+        issues.append("Scope not bounded (missing analysis period and count)")
 
-    limitations = briefing.get("limitations", {})
+    # Limitations documentation (0-2)
+    limitations = _get_limitations_structured(briefing.get("limitations"))
     cannot = limitations.get("cannot_determine", [])
     gaps = limitations.get("data_gaps", [])
+    raw_limitations = briefing.get("limitations")
     if cannot and gaps:
         score += 2
     elif cannot or gaps:
         score += 1
         issues.append("Limitations partially documented")
+    elif isinstance(raw_limitations, list) and len(raw_limitations) >= 2:
+        # Flat list of limitations still shows awareness
+        score += 2
+    elif isinstance(raw_limitations, list) and len(raw_limitations) >= 1:
+        score += 1
+        issues.append("Limited limitations documentation")
     else:
         issues.append("No limitations documented")
 
+    # Analytical chain (0-2)
     findings = briefing.get("key_findings", [])
     conf = briefing.get("confidence_assessment", {})
     if findings and conf.get("overall"):
-        finding_confidences = [f.get("confidence") for f in findings if f.get("confidence")]
+        finding_confidences = [
+            f.get("confidence") for f in findings if f.get("confidence")
+        ]
         if finding_confidences:
             score += 2
         else:
@@ -341,13 +491,17 @@ def score_analytical_rigor(briefing: dict) -> tuple:
     else:
         issues.append("Cannot assess analytical chain (missing findings or overall confidence)")
 
+    # Bias acknowledgment (0-2)
     alt = limitations.get("alternative_interpretations", [])
     changing = limitations.get("assessment_changing_factors", [])
     if alt and changing:
         score += 2
     elif alt or changing:
         score += 1
-        issues.append("Partial bias acknowledgment (missing alternatives or changing factors)")
+        issues.append("Partial bias acknowledgment")
+    elif isinstance(raw_limitations, list) and len(raw_limitations) >= 3:
+        # Comprehensive flat list shows bias awareness
+        score += 1
     else:
         issues.append("No bias acknowledgment")
 
@@ -359,6 +513,7 @@ def score_actionability(briefing: dict) -> tuple:
     score = 0
     issues = []
 
+    # Actionable findings (0-2)
     findings = briefing.get("key_findings", [])
     if findings and all(len(f.get("finding", "")) > 30 for f in findings):
         score += 2
@@ -368,10 +523,11 @@ def score_actionability(briefing: dict) -> tuple:
     else:
         issues.append("No findings")
 
+    # Prioritization aids (0-2)
     conf = briefing.get("confidence_assessment", {})
     narr = briefing.get("narrative_analysis", {})
     src = narr.get("source_attribution", {})
-    if conf.get("overall") and src.get("role"):
+    if conf.get("overall") and isinstance(src, dict) and src.get("role"):
         score += 2
     elif conf.get("overall"):
         score += 1
@@ -379,19 +535,25 @@ def score_actionability(briefing: dict) -> tuple:
     else:
         issues.append("No confidence or role assessment for prioritization")
 
+    # Executive summary quality (0-2)
     summary = briefing.get("executive_summary", "")
-    if len(summary) >= 100:
+    if isinstance(summary, str) and len(summary) >= 100:
         score += 2
-    elif len(summary) >= 50:
+    elif isinstance(summary, str) and len(summary) >= 50:
         score += 1
         issues.append("Executive summary is brief; may lack context for non-experts")
     else:
         issues.append("Executive summary too short or missing")
 
+    # Campaign/network context (0-2)
     narratives = narr.get("primary_narratives", [])
-    has_alignment = any(n.get("alignment") for n in narratives)
+    has_alignment = any(n.get("alignment") for n in narratives) if isinstance(narratives, list) else False
     network = narr.get("network_context", {})
-    has_associations = bool(network.get("known_associations"))
+    has_associations = False
+    if isinstance(network, dict):
+        has_associations = bool(network.get("known_associations"))
+    elif isinstance(network, list) and network:
+        has_associations = True
     if has_alignment and has_associations:
         score += 2
     elif has_alignment or has_associations:
@@ -400,10 +562,11 @@ def score_actionability(briefing: dict) -> tuple:
     else:
         issues.append("No campaign alignment or network associations documented")
 
+    # Methodology (0-2)
     meth = briefing.get("methodology", {})
-    if meth.get("data_collection") and meth.get("analysis_model") and meth.get("prompt_version"):
+    if isinstance(meth, dict) and meth.get("data_collection") and (meth.get("analysis_model") or meth.get("prompt_version")):
         score += 2
-    elif meth:
+    elif isinstance(meth, dict) and meth:
         score += 1
         issues.append("Methodology incomplete for reproducibility")
     else:
@@ -417,7 +580,14 @@ def score_readability(briefing: dict) -> tuple:
     score = 0
     issues = []
 
-    present = sum(1 for s in REQUIRED_SECTIONS if briefing.get(s))
+    # Section coverage (0-2)
+    present = sum(
+        1 for s in REQUIRED_SECTIONS
+        if briefing.get(s) and (
+            isinstance(briefing[s], str) or
+            (isinstance(briefing[s], (dict, list)) and len(briefing[s]) > 0)
+        )
+    )
     if present == len(REQUIRED_SECTIONS):
         score += 2
     elif present >= 5:
@@ -426,8 +596,12 @@ def score_readability(briefing: dict) -> tuple:
     else:
         issues.append(f"Only {present}/{len(REQUIRED_SECTIONS)} required sections present")
 
+    # Finding format consistency (0-2)
     findings = briefing.get("key_findings", [])
-    if findings and all(f.get("finding") and f.get("confidence") and f.get("evidence") for f in findings):
+    if findings and all(
+        f.get("finding") and f.get("confidence") and (_get_findings_evidence(f))
+        for f in findings
+    ):
         score += 2
     elif findings:
         score += 1
@@ -435,28 +609,35 @@ def score_readability(briefing: dict) -> tuple:
     else:
         issues.append("No findings")
 
+    # Confidence value consistency (0-2)
     all_confidences = []
     conf = briefing.get("confidence_assessment", {})
     if conf.get("overall"):
-        all_confidences.append(conf["overall"])
-    for f in conf.get("factors", {}).values():
-        if isinstance(f, str):
-            all_confidences.append(f)
+        all_confidences.append(conf["overall"].lower() if isinstance(conf["overall"], str) else "")
+
+    factors = _get_confidence_factors(conf)
+    for v in factors.values():
+        if isinstance(v, str):
+            all_confidences.append(v.lower())
+
     for f in findings:
-        if f.get("confidence"):
-            all_confidences.append(f["confidence"])
+        c = f.get("confidence", "")
+        if c:
+            all_confidences.append(c.lower() if isinstance(c, str) else "")
 
     if all_confidences and all(c in CONFIDENCE_LEVELS for c in all_confidences):
         score += 2
     elif all_confidences:
         invalid = [c for c in all_confidences if c not in CONFIDENCE_LEVELS]
         score += 1
-        issues.append(f"Non-standard confidence values: {invalid}")
+        if invalid:
+            issues.append(f"Non-standard confidence values: {invalid}")
     else:
         issues.append("No confidence values found")
 
+    # Executive summary length (0-2)
     summary = briefing.get("executive_summary", "")
-    word_count = len(summary.split())
+    word_count = len(summary.split()) if isinstance(summary, str) else 0
     if 20 <= word_count <= 150:
         score += 2
     elif 10 <= word_count <= 200:
@@ -465,6 +646,7 @@ def score_readability(briefing: dict) -> tuple:
     else:
         issues.append(f"Executive summary length ({word_count} words) is problematic")
 
+    # Finding count (0-2)
     if 3 <= len(findings) <= 5:
         score += 2
     elif 1 <= len(findings) <= 7:
@@ -476,8 +658,14 @@ def score_readability(briefing: dict) -> tuple:
     return min(score, 10), issues
 
 
-def score_briefing(briefing: dict) -> dict:
-    """Score a briefing across all 7 dimensions. Returns scorecard dict."""
+def score_briefing(payload: dict) -> dict:
+    """Score a briefing across all 7 dimensions. Returns scorecard dict.
+
+    Accepts either the full Gemini response payload (with structured_briefing
+    nested inside) or a standalone briefing dict with top-level sections.
+    """
+    briefing = _extract_briefing(payload)
+
     dimensions = {
         "structural_completeness": score_structural_completeness,
         "attribution_quality": score_attribution_quality,
