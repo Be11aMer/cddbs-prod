@@ -56,6 +56,47 @@ export interface ReportMeta {
   articles_analyzed: number;
 }
 
+export interface StructuredBriefing {
+  executive_summary?: string;
+  key_findings?: {
+    finding: string;
+    confidence: string;
+    evidence_type: string;
+    evidence: string;
+  }[];
+  subject_profile?: Record<string, unknown>;
+  narrative_analysis?: {
+    primary_narratives?: {
+      narrative: string;
+      frequency: string;
+      alignment: string;
+    }[];
+    behavioral_indicators?: {
+      indicator: string;
+      value: string;
+    }[];
+    network_context?: {
+      label: string;
+      value: string;
+    }[];
+    source_attribution?: {
+      role: string;
+      content_origin: string;
+      amplification_chain: string;
+    };
+  };
+  confidence_assessment?: {
+    overall: string;
+    factors?: {
+      factor: string;
+      level: string;
+      notes: string;
+    }[];
+  };
+  limitations?: string[];
+  methodology?: Record<string, unknown>;
+}
+
 export interface ReportResponse {
   id: number;
   outlet: string;
@@ -66,6 +107,7 @@ export interface ReportResponse {
   meta?: ReportMeta | null;
   final_report?: string | null;
   tldr_summary?: string | null;
+  structured_briefing?: StructuredBriefing | null;
   articles: ArticleSummary[];
 }
 
@@ -410,4 +452,39 @@ export async function fetchCollectorStatus() {
     "/collector/status"
   );
   return data.collectors;
+}
+
+
+// ---------------------------------------------------------------------------
+// Social Media Analysis
+// ---------------------------------------------------------------------------
+
+export interface SocialMediaRunPayload {
+  platform: "twitter" | "telegram";
+  handle: string;
+  google_api_key?: string;
+}
+
+export interface SocialMediaRunStatus {
+  id: number;
+  platform: string;
+  handle: string;
+  status: string;
+  created_at: string;
+  message?: string | null;
+}
+
+export async function createSocialMediaRun(payload: SocialMediaRunPayload) {
+  const { data } = await api.post<SocialMediaRunStatus>(
+    "/social-media/analyze",
+    payload
+  );
+  return data;
+}
+
+export interface ApiStatusExtended {
+  serpapi: { configured: boolean; status: string; message: string | null };
+  gemini: { configured: boolean; status: string; message: string | null };
+  twitter: { configured: boolean; status: string; message: string | null };
+  telegram: { configured: boolean; status: string; message: string | null };
 }

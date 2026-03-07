@@ -100,6 +100,8 @@ class ReportResponse(BaseModel):
     created_at: datetime
     meta: Optional[ReportData] = None
     final_report: Optional[str] = None
+    tldr_summary: Optional[str] = None
+    structured_briefing: Optional[dict] = None
     status: str
     message: Optional[str] = None
     articles: List[ArticleSummary] = Field(default_factory=list)
@@ -329,6 +331,25 @@ def get_analysis_run(report_id: int, db: Session = Depends(get_db)):
 
     status, msg = _get_report_status(report)
 
+    # Extract structured briefing and tldr from report data
+    structured_briefing = None
+    tldr_summary = None
+    if isinstance(data, dict):
+        structured_briefing = data.get("structured_briefing")
+        tldr_summary = data.get("tldr_summary")
+
+    # Also try to extract from raw_response JSON if not in data
+    if not structured_briefing and report.raw_response:
+        try:
+            import re as _re
+            _json_match = _re.search(r'(\{.*\})', report.raw_response, _re.DOTALL)
+            if _json_match:
+                _parsed = json.loads(_json_match.group(1))
+                structured_briefing = structured_briefing or _parsed.get("structured_briefing")
+                tldr_summary = tldr_summary or _parsed.get("tldr_summary")
+        except Exception:
+            pass
+
     return ReportResponse(
         id=report.id,
         outlet=report.outlet,
@@ -336,6 +357,8 @@ def get_analysis_run(report_id: int, db: Session = Depends(get_db)):
         created_at=report.created_at,
         meta=meta,
         final_report=report.final_report,
+        tldr_summary=tldr_summary,
+        structured_briefing=structured_briefing,
         status=status,
         message=msg,
         articles=article_summaries,
@@ -355,31 +378,6 @@ def healthcheck(db: Session = Depends(get_db)):
         raise HTTPException(status_code=500, detail=f"database_error: {exc}") from exc
 
     return {"status": "ok"}
-
-
-@app.get("/api-status")
-def api_status():
-    """
-    Check configuration status of external APIs (SerpAPI and Gemini).
-    This endpoint ONLY checks if API keys are configured - it does NOT make actual API calls
-    to avoid consuming tokens unnecessarily.
-    """
-    from src.cddbs.config import settings
-
-    status = {
-        "serpapi": {
-            "configured": bool(settings.SERPAPI_KEY),
-            "status": "configured" if settings.SERPAPI_KEY else "not_configured",
-            "message": "SerpAPI key is configured" if settings.SERPAPI_KEY else "SerpAPI key not configured in .env file",
-        },
-        "gemini": {
-            "configured": bool(settings.GOOGLE_API_KEY),
-            "status": "configured" if settings.GOOGLE_API_KEY else "not_configured",
-            "message": "Google API key is configured" if settings.GOOGLE_API_KEY else "Google API key not configured in .env file",
-        },
-    }
-
-    return status
 
 
 # ---------------------------------------------------------------------------
@@ -1173,3 +1171,162 @@ def get_collector_status():
     if _collector_manager:
         return CollectorStatusResponse(collectors=_collector_manager.statuses)
     return CollectorStatusResponse(collectors=[])
+
+
+# ---------------------------------------------------------------------------
+# Social Media Analysis endpoints (Sprint 3 integration)
+# ---------------------------------------------------------------------------
+
+
+class SocialMediaRunRequest(BaseModel):
+    platform: str = Field(..., description="twitter or telegram")
+    handle: str = Field(..., description="Account handle, e.g. @rt_com")
+    google_api_key: Optional[str] = None
+
+
+class SocialMediaStatusResponse(BaseModel):
+    id: int
+    platform: str
+    handle: str
+    status: str
+    created_at: datetime
+    message: Optional[str] = None
+
+
+@app.post("/social-media/analyze", response_model=SocialMediaStatusResponse)
+def create_social_media_run(
+    payload: SocialMediaRunRequest,
+    background_tasks: BackgroundTasks,
+    db: Session = Depends(get_db),
+):
+    """Create a social media account analysis run.
+
+    Requires platform API keys configured in environment:
+    - Twitter: TWITTER_BEARER_TOKEN
+    - Telegram: TELEGRAM_BOT_TOKEN
+    """
+    from src.cddbs.config import settings as _settings
+
+    # Check platform API key availability
+    if payload.platform == "twitter" and not _settings.TWITTER_BEARER_TOKEN:
+        raise HTTPException(
+            status_code=400,
+            detail="TWITTER_BEARER_TOKEN not configured. Set it in Render environment variables.",
+        )
+    if payload.platform == "telegram" and not _settings.TELEGRAM_BOT_TOKEN:
+        raise HTTPException(
+            status_code=400,
+            detail="TELEGRAM_BOT_TOKEN not configured. Set it in Render environment variables.",
+        )
+
+    # Create placeholder report
+    report = Report(
+        outlet=payload.handle,
+        country="",
+        final_report=None,
+        data={
+            "platform": payload.platform,
+            "handle": payload.handle,
+            "status": "pending",
+            "analysis_date": datetime.now(UTC).isoformat(),
+        },
+    )
+    db.add(report)
+    db.commit()
+    db.refresh(report)
+
+    background_tasks.add_task(
+        _run_social_media_job,
+        report_id=report.id,
+        platform=payload.platform,
+        handle=payload.handle,
+        google_api_key=payload.google_api_key,
+    )
+
+    return SocialMediaStatusResponse(
+        id=report.id,
+        platform=payload.platform,
+        handle=payload.handle,
+        status="queued",
+        created_at=report.created_at,
+        message="Social media analysis scheduled",
+    )
+
+
+def _run_social_media_job(
+    report_id: int,
+    platform: str,
+    handle: str,
+    google_api_key: Optional[str] = None,
+):
+    """Background job for social media analysis."""
+    import asyncio
+    from src.cddbs.pipeline.social_media_pipeline import (
+        run_social_media_pipeline,
+        fetch_twitter_data,
+        fetch_telegram_data,
+    )
+
+    db = SessionLocal()
+    try:
+        # Fetch platform data
+        if platform == "twitter":
+            raw_data = asyncio.run(fetch_twitter_data(handle))
+        elif platform == "telegram":
+            raw_data = asyncio.run(fetch_telegram_data(handle))
+        else:
+            raise ValueError(f"Unsupported platform: {platform}")
+
+        run_social_media_pipeline(
+            platform=platform,
+            handle=handle,
+            report_id=report_id,
+            google_api_key=google_api_key,
+            raw_data=raw_data,
+        )
+
+    except Exception as exc:
+        report = db.query(Report).filter(Report.id == report_id).first()
+        if report:
+            report.data = {
+                "platform": platform,
+                "handle": handle,
+                "status": "failed",
+                "analysis_date": datetime.now(UTC).isoformat(),
+                "errors": [str(exc)],
+            }
+            db.add(report)
+            db.commit()
+    finally:
+        db.close()
+
+
+@app.get("/api-status")
+def api_status():
+    """Check configuration status of external APIs."""
+    from src.cddbs.config import settings as _settings
+
+    status = {
+        "serpapi": {
+            "configured": bool(_settings.SERPAPI_KEY),
+            "status": "configured" if _settings.SERPAPI_KEY else "not_configured",
+            "message": "SerpAPI key is configured" if _settings.SERPAPI_KEY else "SerpAPI key not configured",
+        },
+        "gemini": {
+            "configured": bool(_settings.GOOGLE_API_KEY),
+            "status": "configured" if _settings.GOOGLE_API_KEY else "not_configured",
+            "message": "Google API key is configured" if _settings.GOOGLE_API_KEY else "Google API key not configured",
+        },
+        "twitter": {
+            "configured": bool(_settings.TWITTER_BEARER_TOKEN),
+            "status": "configured" if _settings.TWITTER_BEARER_TOKEN else "not_configured",
+            "message": "Twitter Bearer Token is configured" if _settings.TWITTER_BEARER_TOKEN else "TWITTER_BEARER_TOKEN not set",
+        },
+        "telegram": {
+            "configured": bool(_settings.TELEGRAM_BOT_TOKEN),
+            "status": "configured" if _settings.TELEGRAM_BOT_TOKEN else "not_configured",
+            "message": "Telegram Bot Token is configured" if _settings.TELEGRAM_BOT_TOKEN else "TELEGRAM_BOT_TOKEN not set",
+        },
+    }
+
+    return status
