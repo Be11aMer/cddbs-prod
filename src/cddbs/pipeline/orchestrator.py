@@ -105,6 +105,7 @@ def run_pipeline(
             "url": url or current_data.get("url"),
             "status": "completed",
             "analysis_date": datetime.now(UTC).isoformat(),
+            "structured_briefing": payload.get("structured_briefing"),
         }
 
         # Update outlet URL if provided and not already set
