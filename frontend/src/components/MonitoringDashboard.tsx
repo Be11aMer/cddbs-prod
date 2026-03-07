@@ -3,13 +3,17 @@ import RadarIcon from "@mui/icons-material/Radar";
 import PublicIcon from "@mui/icons-material/Public";
 import WarningAmberIcon from "@mui/icons-material/WarningAmber";
 import PlayCircleIcon from "@mui/icons-material/PlayCircle";
-import AssessmentIcon from "@mui/icons-material/Assessment";
+import BubbleChartIcon from "@mui/icons-material/BubbleChart";
+import TrendingUpIcon from "@mui/icons-material/TrendingUp";
+import StorageIcon from "@mui/icons-material/Storage";
 import { useQuery } from "@tanstack/react-query";
 import { fetchGlobalStats, fetchStatsByCountry } from "../api";
 import { GlobalMap } from "./GlobalMap";
 import { IntelFeed } from "./IntelFeed";
 import { NarrativeTrendPanel } from "./NarrativeTrendPanel";
 import { CountryRiskIndex } from "./CountryRiskIndex";
+import { EventClusterPanel } from "./EventClusterPanel";
+import { CollectorStatusBar } from "./CollectorStatusBar";
 import { MetricCard } from "./MetricCard";
 import { MetricCardSkeleton } from "./Skeletons";
 
@@ -52,10 +56,11 @@ export const MonitoringDashboard = () => {
             Global Monitoring
           </Typography>
           <Typography variant="caption" color="text.secondary" sx={{ display: { xs: "none", sm: "block" } }}>
-            Real-time disinformation intelligence · Live global situation awareness
+            Real-time disinformation intelligence · Multi-source event detection
           </Typography>
         </Box>
         <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+          <CollectorStatusBar />
           <Box
             sx={{
               display: "flex",
@@ -84,14 +89,53 @@ export const MonitoringDashboard = () => {
         </Box>
       </Box>
 
-      {/* Metric cards row */}
+      {/* Metric cards row — 6 cards */}
       <Grid container spacing={2}>
-        <Grid item xs={6} sm={3}>
+        <Grid item xs={6} sm={4} md={2}>
           {statsLoading ? (
             <MetricCardSkeleton />
           ) : (
             <MetricCard
-              title="Countries Monitored"
+              title="Articles Ingested"
+              value={globalStats?.articles_ingested ?? 0}
+              icon={<StorageIcon sx={{ fontSize: 24 }} />}
+              color="info"
+              tooltip="Total articles collected from RSS feeds and GDELT"
+            />
+          )}
+        </Grid>
+        <Grid item xs={6} sm={4} md={2}>
+          {statsLoading ? (
+            <MetricCardSkeleton />
+          ) : (
+            <MetricCard
+              title="Active Events"
+              value={globalStats?.active_events ?? 0}
+              icon={<BubbleChartIcon sx={{ fontSize: 24 }} />}
+              color={(globalStats?.active_events ?? 0) > 0 ? "warning" : "success"}
+              tooltip="Detected event clusters currently active"
+            />
+          )}
+        </Grid>
+        <Grid item xs={6} sm={4} md={2}>
+          {statsLoading ? (
+            <MetricCardSkeleton />
+          ) : (
+            <MetricCard
+              title="Narrative Bursts"
+              value={globalStats?.active_bursts ?? 0}
+              icon={<TrendingUpIcon sx={{ fontSize: 24 }} />}
+              color={(globalStats?.active_bursts ?? 0) > 0 ? "error" : "success"}
+              tooltip="Active keyword frequency spikes (z-score > 3)"
+            />
+          )}
+        </Grid>
+        <Grid item xs={6} sm={4} md={2}>
+          {statsLoading ? (
+            <MetricCardSkeleton />
+          ) : (
+            <MetricCard
+              title="Countries"
               value={globalStats?.countries_monitored ?? 0}
               icon={<PublicIcon sx={{ fontSize: 24 }} />}
               color="info"
@@ -99,12 +143,12 @@ export const MonitoringDashboard = () => {
             />
           )}
         </Grid>
-        <Grid item xs={6} sm={3}>
+        <Grid item xs={6} sm={4} md={2}>
           {statsLoading ? (
             <MetricCardSkeleton />
           ) : (
             <MetricCard
-              title="Narratives Detected"
+              title="Narratives"
               value={globalStats?.total_narratives_detected ?? 0}
               icon={<WarningAmberIcon sx={{ fontSize: 24 }} />}
               color={
@@ -114,29 +158,14 @@ export const MonitoringDashboard = () => {
             />
           )}
         </Grid>
-        <Grid item xs={6} sm={3}>
+        <Grid item xs={6} sm={4} md={2}>
           {statsLoading ? (
             <MetricCardSkeleton />
           ) : (
             <MetricCard
-              title="Active Analyses"
-              value={globalStats?.active_runs ?? 0}
-              icon={<PlayCircleIcon sx={{ fontSize: 24 }} />}
-              color={
-                (globalStats?.active_runs ?? 0) > 0 ? "info" : "success"
-              }
-              tooltip="Analyses currently running or queued"
-            />
-          )}
-        </Grid>
-        <Grid item xs={6} sm={3}>
-          {statsLoading ? (
-            <MetricCardSkeleton />
-          ) : (
-            <MetricCard
-              title="Total Analyses"
+              title="Analyses"
               value={globalStats?.total_analyses ?? 0}
-              icon={<AssessmentIcon sx={{ fontSize: 24 }} />}
+              icon={<PlayCircleIcon sx={{ fontSize: 24 }} />}
               color="info"
               tooltip="Total intelligence reports generated"
             />
@@ -169,15 +198,20 @@ export const MonitoringDashboard = () => {
         </Grid>
       </Grid>
 
-      {/* Bottom row: Narrative Trends + Country Risk Index */}
+      {/* Bottom row: Event Clusters + Narrative Trends + Country Risk */}
       <Grid container spacing={2}>
-        <Grid item xs={12} md={6}>
-          <Box sx={{ height: 300 }}>
+        <Grid item xs={12} md={4}>
+          <Box sx={{ height: 360 }}>
+            <EventClusterPanel />
+          </Box>
+        </Grid>
+        <Grid item xs={12} md={4}>
+          <Box sx={{ height: 360 }}>
             <NarrativeTrendPanel />
           </Box>
         </Grid>
-        <Grid item xs={12} md={6}>
-          <Box sx={{ height: 300 }}>
+        <Grid item xs={12} md={4}>
+          <Box sx={{ height: 360 }}>
             <CountryRiskIndex />
           </Box>
         </Grid>

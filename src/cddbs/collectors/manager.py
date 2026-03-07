@@ -75,7 +75,41 @@ class CollectorManager:
             stored = self._store_articles(all_articles)
             print(f"CollectorManager: collected {len(all_articles)}, stored {stored} new articles")
 
+            # Run processing pipeline on newly stored articles
+            if stored > 0:
+                self._run_processing()
+
         return all_articles
+
+    def _run_processing(self):
+        """Run deduplication, clustering, and burst detection on stored articles."""
+        session = self._db_session_factory()
+        try:
+            from src.cddbs.pipeline.deduplication import find_title_duplicates
+            from src.cddbs.pipeline.event_clustering import cluster_articles
+            from src.cddbs.pipeline.burst_detection import detect_bursts
+            from src.cddbs.pipeline.narrative_risk import update_cluster_risk_scores
+
+            dupes = find_title_duplicates(session)
+            if dupes:
+                print(f"CollectorManager: marked {dupes} title duplicates")
+
+            new_clusters = cluster_articles(session)
+            if new_clusters:
+                print(f"CollectorManager: created {len(new_clusters)} event clusters")
+
+            bursts = detect_bursts(session)
+            if bursts:
+                print(f"CollectorManager: detected {len(bursts)} narrative bursts")
+
+            updated = update_cluster_risk_scores(session)
+            if updated:
+                print(f"CollectorManager: updated {updated} cluster risk scores")
+
+        except Exception as exc:
+            print(f"CollectorManager: processing error: {exc}")
+        finally:
+            session.close()
 
     def _store_articles(self, articles: list[RawArticleData]) -> int:
         """Store articles in database, skipping duplicates. Returns count stored."""
