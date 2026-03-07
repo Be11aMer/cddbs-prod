@@ -566,6 +566,10 @@ class GlobalStatsResponse(BaseModel):
     completed_runs: int
     failed_runs: int
     avg_quality_score: Optional[float] = None
+    # Event intelligence pipeline stats
+    active_events: int = 0
+    active_bursts: int = 0
+    articles_ingested: int = 0
 
 
 class CountryStatItem(BaseModel):
@@ -638,6 +642,11 @@ def get_global_stats(db: Session = Depends(get_db)):
 
     avg_quality = round(sum(quality_scores) / len(quality_scores), 1) if quality_scores else None
 
+    # Event intelligence pipeline counts
+    active_events = db.query(EventCluster).filter_by(status="active").count()
+    active_bursts = db.query(NarrativeBurst).filter(NarrativeBurst.resolved_at == None).count()
+    articles_ingested = db.query(RawArticle).count()
+
     return GlobalStatsResponse(
         total_analyses=total,
         countries_monitored=len(countries),
@@ -646,6 +655,9 @@ def get_global_stats(db: Session = Depends(get_db)):
         completed_runs=completed,
         failed_runs=failed,
         avg_quality_score=avg_quality,
+        active_events=active_events,
+        active_bursts=active_bursts,
+        articles_ingested=articles_ingested,
     )
 
 
@@ -734,72 +746,52 @@ def get_narrative_trends(db: Session = Depends(get_db)):
     return results[:15]
 
 
-_gdelt_cache: dict = {"items": [], "fetched_at": None, "error": None}
-_GDELT_CACHE_TTL = 300  # seconds (5 minutes)
-
-
 @app.get("/monitoring/feed", response_model=MonitoringFeedResponse)
-def get_monitoring_feed():
-    """Proxy GDELT news feed filtered for disinformation-relevant events."""
-    import requests as req
-    from datetime import datetime, UTC
+def get_monitoring_feed(
+    source_type: Optional[str] = None,
+    limit: int = 50,
+    db: Session = Depends(get_db),
+):
+    """Return recent articles from the multi-source collector pipeline."""
+    from datetime import timedelta
 
-    now = datetime.now(UTC)
-    cached_at = _gdelt_cache["fetched_at"]
-    if cached_at and (now - cached_at).total_seconds() < _GDELT_CACHE_TTL:
-        return MonitoringFeedResponse(
-            items=_gdelt_cache["items"],
-            source="GDELT Project (cached)",
-            fetched_at=cached_at.isoformat(),
-            error=_gdelt_cache["error"],
-        )
-
-    gdelt_url = (
-        "https://api.gdeltproject.org/api/v2/doc/doc"
-        "?query=disinformation%20OR%20propaganda%20OR%20misinformation%20OR%20cyberattack"
-        "%20OR%20election%20interference%20OR%20fake%20news"
-        "&mode=ArtList&maxrecords=25&format=json&timespan=1d&sort=DateDesc"
+    query = db.query(RawArticle).filter(
+        RawArticle.is_duplicate == False,
     )
 
-    items: List[FeedItem] = []
-    feed_error: Optional[str] = None
-    try:
-        resp = req.get(gdelt_url, timeout=20)
-        if resp.status_code == 200:
-            payload = resp.json()
-            for article in payload.get("articles", []):
-                raw_date = article.get("seendate", "")
-                try:
-                    # GDELT format: YYYYMMDDTHHMMSSz
-                    parsed = datetime.strptime(raw_date[:15], "%Y%m%dT%H%M%S")
-                    formatted = parsed.strftime("%Y-%m-%dT%H:%M:%SZ")
-                except Exception:
-                    formatted = raw_date
-                items.append(FeedItem(
-                    title=article.get("title", "No title"),
-                    url=article.get("url", ""),
-                    domain=article.get("domain", ""),
-                    source_country=article.get("sourcecountry", None),
-                    published=formatted,
-                    language=article.get("language", "English"),
-                ))
-        else:
-            feed_error = f"GDELT returned HTTP {resp.status_code}"
-            print(f"DEBUG monitoring: {feed_error}")
-    except Exception as exc:
-        feed_error = str(exc)
-        print(f"DEBUG monitoring: GDELT feed error: {exc}")
+    if source_type:
+        query = query.filter(RawArticle.source_type == source_type)
 
-    if items:
-        _gdelt_cache["items"] = items
-        _gdelt_cache["fetched_at"] = now
-        _gdelt_cache["error"] = None
+    articles = (
+        query.order_by(RawArticle.created_at.desc())
+        .limit(limit)
+        .all()
+    )
+
+    items = []
+    for a in articles:
+        published = ""
+        if a.published_at:
+            published = a.published_at.strftime("%Y-%m-%dT%H:%M:%SZ")
+        elif a.created_at:
+            published = a.created_at.strftime("%Y-%m-%dT%H:%M:%SZ")
+
+        items.append(FeedItem(
+            title=a.title or "No title",
+            url=a.url or "",
+            domain=a.source_domain or "",
+            source_country=a.country,
+            published=published,
+            language=a.language or "en",
+        ))
+
+    total = db.query(RawArticle).filter(RawArticle.is_duplicate == False).count()
+    source_label = f"Multi-source ({source_type})" if source_type else "Multi-source (RSS + GDELT)"
 
     return MonitoringFeedResponse(
         items=items,
-        source="GDELT Project",
+        source=source_label,
         fetched_at=datetime.now(UTC).isoformat(),
-        error=feed_error,
     )
 
 

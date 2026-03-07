@@ -187,15 +187,15 @@ export const IntelFeed = () => {
             Intel Feed
           </Typography>
           <Chip
-            label="GDELT"
+            label="MULTI-SRC"
             size="small"
             sx={{
               height: 16,
               fontSize: "0.55rem",
               fontWeight: 700,
-              backgroundColor: "rgba(245,158,11,0.1)",
-              color: "#f59e0b",
-              border: "1px solid rgba(245,158,11,0.2)",
+              backgroundColor: "rgba(139,92,246,0.1)",
+              color: "#8b5cf6",
+              border: "1px solid rgba(139,92,246,0.2)",
               "& .MuiChip-label": { px: 0.75 },
             }}
           />
@@ -242,10 +242,10 @@ export const IntelFeed = () => {
         {isError && !isLoading && (
           <Box sx={{ p: 3, textAlign: "center" }}>
             <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
-              Unable to reach GDELT feed
+              Unable to reach intel feed
             </Typography>
             <Typography variant="caption" color="text.disabled">
-              Check backend connectivity
+              Collectors may still be starting up
             </Typography>
           </Box>
         )}

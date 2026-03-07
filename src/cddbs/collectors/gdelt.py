@@ -58,7 +58,22 @@ class GDELTCollector(BaseCollector):
                     print(f"GDELT collector: HTTP {resp.status_code}")
                     return articles
 
-                payload = resp.json()
+                # GDELT sometimes returns HTML error pages instead of JSON
+                content_type = resp.headers.get("content-type", "")
+                if "json" not in content_type and "javascript" not in content_type:
+                    print(f"GDELT collector: unexpected content-type '{content_type}', skipping")
+                    return articles
+
+                text = resp.text.strip()
+                if not text or text.startswith("<") or text.startswith("<!"):
+                    print(f"GDELT collector: got HTML instead of JSON, skipping")
+                    return articles
+
+                try:
+                    payload = resp.json()
+                except Exception:
+                    print(f"GDELT collector: failed to parse JSON (first 200 chars: {text[:200]})")
+                    return articles
 
             for item in payload.get("articles", []):
                 url = item.get("url", "")

@@ -199,6 +199,10 @@ export interface GlobalStats {
   completed_runs: number;
   failed_runs: number;
   avg_quality_score: number | null;
+  // Event intelligence pipeline
+  active_events: number;
+  active_bursts: number;
+  articles_ingested: number;
 }
 
 export interface CountryStatItem {
@@ -312,4 +316,98 @@ export async function fetchTopicRuns() {
 export async function fetchTopicRun(id: number) {
   const { data } = await api.get<TopicRunDetail>(`/topic-runs/${id}`);
   return data;
+}
+
+
+// ---------------------------------------------------------------------------
+// Event Intelligence Pipeline
+// ---------------------------------------------------------------------------
+
+export interface EventClusterItem {
+  id: number;
+  title: string | null;
+  event_type: string | null;
+  countries: string[] | null;
+  keywords: string[] | null;
+  first_seen: string | null;
+  last_seen: string | null;
+  article_count: number;
+  source_count: number;
+  burst_score: number;
+  narrative_risk_score: number;
+  status: string;
+  created_at: string | null;
+}
+
+export interface EventClusterDetail extends EventClusterItem {
+  entities: Record<string, string[]> | null;
+  articles: {
+    id: number;
+    title: string;
+    url: string;
+    source_name: string;
+    source_domain: string;
+    source_type: string;
+    published_at: string | null;
+    country: string | null;
+  }[];
+}
+
+export interface NarrativeBurstItem {
+  id: number;
+  keyword: string;
+  baseline_frequency: number | null;
+  current_frequency: number | null;
+  z_score: number | null;
+  cluster_id: number | null;
+  detected_at: string | null;
+  resolved_at: string | null;
+}
+
+export interface EventMapItem {
+  country: string;
+  event_count: number;
+  avg_risk_score: number;
+  top_event_type: string | null;
+}
+
+export interface CollectorStatusItem {
+  name: string;
+  last_run: string | null;
+  last_article_count: number;
+  total_articles_collected: number;
+  last_error: string | null;
+  is_running: boolean;
+}
+
+export async function fetchEventClusters(params?: {
+  event_type?: string;
+  status?: string;
+  min_risk?: number;
+  limit?: number;
+}) {
+  const { data } = await api.get<EventClusterItem[]>("/events", { params });
+  return data;
+}
+
+export async function fetchEventDetail(id: number) {
+  const { data } = await api.get<EventClusterDetail>(`/events/${id}`);
+  return data;
+}
+
+export async function fetchEventMap() {
+  const { data } = await api.get<EventMapItem[]>("/events/map");
+  return data;
+}
+
+export async function fetchNarrativeBursts() {
+  const { data } = await api.get<NarrativeBurstItem[]>("/events/bursts");
+  return data;
+}
+
+export async function fetchCollectorStatus() {
+  const { data } = await api.get<{ collectors: CollectorStatusItem[] }>(
+    "/collector/status"
+  );
+  return data.collectors;
 }
