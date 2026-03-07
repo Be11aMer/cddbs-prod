@@ -44,6 +44,13 @@ EXCLUDED_DOMAINS = REFERENCE_DOMAINS | {
     "aljazeera.com", "euronews.com", "politico.eu", "politico.com",
     "npr.org", "pbs.org", "cbc.ca", "abc.net.au", "google.com",
     "youtube.com", "twitter.com", "facebook.com", "reddit.com",
+    # Non-news / reference / aggregator domains
+    "wikipedia.org", "en.wikipedia.org", "britannica.com",
+    "academia.edu", "researchgate.net", "jstor.org",
+    "amazon.com", "goodreads.com", "imdb.com",
+    "linkedin.com", "instagram.com", "tiktok.com", "pinterest.com",
+    "medium.com", "substack.com", "quora.com",
+    "archive.org", "web.archive.org",
 }
 
 
@@ -54,8 +61,11 @@ EXCLUDED_DOMAINS = REFERENCE_DOMAINS | {
 def _extract_domain(url: str) -> Optional[str]:
     try:
         parsed = urlparse(url)
-        host = parsed.netloc or parsed.path
-        return host.lower().lstrip("www.")
+        host = (parsed.netloc or parsed.path).lower()
+        # Remove www. prefix properly (lstrip strips characters, not prefix)
+        if host.startswith("www."):
+            host = host[4:]
+        return host
     except Exception:
         return None
 
