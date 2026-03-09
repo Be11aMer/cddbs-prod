@@ -16,6 +16,8 @@ import { EventClusterPanel } from "./EventClusterPanel";
 import { CollectorStatusBar } from "./CollectorStatusBar";
 import { MetricCard } from "./MetricCard";
 import { MetricCardSkeleton } from "./Skeletons";
+import { ActivityTimeline } from "./ActivityTimeline";
+import { NarrativeBarChart } from "./NarrativeBarChart";
 
 export const MonitoringDashboard = () => {
   const { data: globalStats, isLoading: statsLoading } = useQuery({
@@ -194,6 +196,20 @@ export const MonitoringDashboard = () => {
         <Grid item xs={12} lg={4}>
           <Box sx={{ height: { xs: 360, md: 380, lg: 420 } }}>
             <IntelFeed />
+          </Box>
+        </Grid>
+      </Grid>
+
+      {/* v1.2 Charts: Activity Timeline + Narrative Bar Chart */}
+      <Grid container spacing={2}>
+        <Grid item xs={12} md={7}>
+          <Box sx={{ height: 280 }}>
+            <ActivityTimeline />
+          </Box>
+        </Grid>
+        <Grid item xs={12} md={5}>
+          <Box sx={{ height: 280 }}>
+            <NarrativeBarChart />
           </Box>
         </Grid>
       </Grid>

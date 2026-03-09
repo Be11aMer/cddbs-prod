@@ -456,6 +456,42 @@ export async function fetchCollectorStatus() {
 
 
 // ---------------------------------------------------------------------------
+// v1.2 Charts: Activity Timeline & Narrative Frequency
+// ---------------------------------------------------------------------------
+
+export interface TimelineBucket {
+  hour: string;
+  count: number;
+  rss: number;
+  gdelt: number;
+}
+
+export interface NarrativeFrequencyItem {
+  narrative_name: string;
+  category: string | null;
+  total_matches: number;
+  high: number;
+  medium: number;
+  low: number;
+}
+
+export async function fetchActivityTimeline(hours = 48) {
+  const { data } = await api.get<TimelineBucket[]>("/stats/activity-timeline", {
+    params: { hours },
+  });
+  return data;
+}
+
+export async function fetchNarrativeFrequency(limit = 15) {
+  const { data } = await api.get<NarrativeFrequencyItem[]>(
+    "/stats/narrative-frequency",
+    { params: { limit } }
+  );
+  return data;
+}
+
+
+// ---------------------------------------------------------------------------
 // Social Media Analysis
 // ---------------------------------------------------------------------------
 

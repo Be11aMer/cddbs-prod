@@ -1174,6 +1174,106 @@ def get_collector_status():
 
 
 # ---------------------------------------------------------------------------
+# v1.2 Charts: Activity Timeline & Narrative Frequency
+# ---------------------------------------------------------------------------
+
+
+class TimelineBucket(BaseModel):
+    hour: str  # ISO-formatted hour, e.g. "2026-03-09T14:00:00"
+    count: int
+    rss: int = 0
+    gdelt: int = 0
+
+
+class NarrativeFrequencyItem(BaseModel):
+    narrative_name: str
+    category: Optional[str] = None
+    total_matches: int
+    high: int = 0
+    medium: int = 0
+    low: int = 0
+
+
+@app.get("/stats/activity-timeline", response_model=List[TimelineBucket])
+def get_activity_timeline(
+    hours: int = 48,
+    db: Session = Depends(get_db),
+):
+    """Article ingestion count grouped by hour for the last N hours."""
+    from datetime import timedelta
+    from sqlalchemy import func, case
+
+    cutoff = datetime.now(UTC) - timedelta(hours=hours)
+
+    # Group by hour using date_trunc
+    rows = (
+        db.query(
+            func.date_trunc("hour", RawArticle.created_at).label("hour"),
+            func.count().label("count"),
+            func.sum(case((RawArticle.source_type == "rss", 1), else_=0)).label("rss"),
+            func.sum(case((RawArticle.source_type == "gdelt", 1), else_=0)).label("gdelt"),
+        )
+        .filter(RawArticle.created_at >= cutoff)
+        .group_by(func.date_trunc("hour", RawArticle.created_at))
+        .order_by(func.date_trunc("hour", RawArticle.created_at))
+        .all()
+    )
+
+    return [
+        TimelineBucket(
+            hour=row.hour.isoformat() if row.hour else "",
+            count=row.count,
+            rss=row.rss or 0,
+            gdelt=row.gdelt or 0,
+        )
+        for row in rows
+    ]
+
+
+@app.get("/stats/narrative-frequency", response_model=List[NarrativeFrequencyItem])
+def get_narrative_frequency(
+    limit: int = 15,
+    db: Session = Depends(get_db),
+):
+    """Top narratives by match count, with confidence breakdown for bar chart."""
+    from collections import defaultdict
+
+    matches = db.query(NarrativeMatch).all()
+    narr_data: dict = defaultdict(lambda: {
+        "name": "", "category": None, "total": 0,
+        "high": 0, "medium": 0, "low": 0,
+    })
+
+    for m in matches:
+        d = narr_data[m.narrative_id]
+        d["name"] = m.narrative_name
+        d["category"] = m.category
+        d["total"] += m.match_count
+        conf = (m.confidence or "").lower()
+        if conf == "high":
+            d["high"] += 1
+        elif conf == "medium":
+            d["medium"] += 1
+        else:
+            d["low"] += 1
+
+    items = [
+        NarrativeFrequencyItem(
+            narrative_name=d["name"],
+            category=d["category"],
+            total_matches=d["total"],
+            high=d["high"],
+            medium=d["medium"],
+            low=d["low"],
+        )
+        for d in narr_data.values()
+        if d["total"] > 0
+    ]
+    items.sort(key=lambda x: x.total_matches, reverse=True)
+    return items[:limit]
+
+
+# ---------------------------------------------------------------------------
 # Social Media Analysis endpoints (Sprint 3 integration)
 # ---------------------------------------------------------------------------
 
