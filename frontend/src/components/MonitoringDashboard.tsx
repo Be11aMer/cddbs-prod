@@ -18,6 +18,7 @@ import { MetricCard } from "./MetricCard";
 import { MetricCardSkeleton } from "./Skeletons";
 import { ActivityTimeline } from "./ActivityTimeline";
 import { NarrativeBarChart } from "./NarrativeBarChart";
+import { OutletNetworkGraph } from "./OutletNetworkGraph";
 
 export const MonitoringDashboard = () => {
   const { data: globalStats, isLoading: statsLoading } = useQuery({
@@ -229,6 +230,15 @@ export const MonitoringDashboard = () => {
         <Grid item xs={12} md={4}>
           <Box sx={{ height: 360 }}>
             <CountryRiskIndex />
+          </Box>
+        </Grid>
+      </Grid>
+
+      {/* v1.3 Network Graph */}
+      <Grid container spacing={2}>
+        <Grid item xs={12}>
+          <Box sx={{ height: 400 }}>
+            <OutletNetworkGraph />
           </Box>
         </Grid>
       </Grid>

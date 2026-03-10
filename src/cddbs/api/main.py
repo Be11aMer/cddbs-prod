@@ -73,12 +73,24 @@ def root():
 # ---------------------------------------------------------------------------
 
 
+class ArticleAnalysis(BaseModel):
+    propaganda_score: Optional[float] = None
+    sentiment: Optional[str] = None
+    framing: Optional[str] = None
+    key_claims: Optional[List[str]] = None
+    key_actors: Optional[List[str]] = None
+    narrative_themes: Optional[List[str]] = None
+    unverified_statements: Optional[List[str]] = None
+    analysis_notes: Optional[str] = None
+
+
 class ArticleSummary(BaseModel):
     id: int
     title: str
     link: Optional[str] = None
     snippet: Optional[str] = None
     date: Optional[str] = None
+    analysis: Optional[ArticleAnalysis] = None
 
     model_config = {
         "from_attributes": True
@@ -324,10 +336,23 @@ def get_analysis_run(report_id: int, db: Session = Depends(get_db)):
         except Exception:  # noqa: BLE001
             meta = None
 
-    # Return articles linked to this specific report
-    article_summaries: List[ArticleSummary] = [
-        ArticleSummary.model_validate(a) for a in report.articles
-    ]
+    # Return articles linked to this specific report with per-article analysis
+    article_summaries: List[ArticleSummary] = []
+    for a in report.articles:
+        analysis_data = None
+        if isinstance(a.meta, dict) and "analysis" in a.meta:
+            try:
+                analysis_data = ArticleAnalysis(**a.meta["analysis"])
+            except Exception:
+                analysis_data = None
+        article_summaries.append(ArticleSummary(
+            id=a.id,
+            title=a.title,
+            link=a.link,
+            snippet=a.snippet,
+            date=a.date,
+            analysis=analysis_data,
+        ))
 
     status, msg = _get_report_status(report)
 
@@ -1271,6 +1296,115 @@ def get_narrative_frequency(
     ]
     items.sort(key=lambda x: x.total_matches, reverse=True)
     return items[:limit]
+
+
+# ---------------------------------------------------------------------------
+# v1.3 Network Graph: Outlet relationship network
+# ---------------------------------------------------------------------------
+
+
+class NetworkNode(BaseModel):
+    id: str
+    label: str
+    type: str = "outlet"  # outlet / narrative / event
+    size: int = 1
+    color: Optional[str] = None
+
+
+class NetworkEdge(BaseModel):
+    source: str
+    target: str
+    weight: int = 1
+    label: Optional[str] = None
+
+
+class NetworkGraphResponse(BaseModel):
+    nodes: List[NetworkNode]
+    edges: List[NetworkEdge]
+
+
+@app.get("/stats/outlet-network", response_model=NetworkGraphResponse)
+def get_outlet_network(db: Session = Depends(get_db)):
+    """Build an outlet relationship network from shared narrative matches.
+
+    Outlets that amplify the same narratives get connected. Edge weight
+    reflects the number of shared narratives.
+    """
+    from collections import defaultdict
+
+    # Gather which outlets have which narratives
+    reports = db.query(Report).filter(Report.final_report.isnot(None)).all()
+    outlet_narratives: dict[str, set[str]] = defaultdict(set)
+    outlet_report_count: dict[str, int] = defaultdict(int)
+
+    for r in reports:
+        if not r.outlet:
+            continue
+        outlet_report_count[r.outlet] += 1
+        matches = db.query(NarrativeMatch).filter(
+            NarrativeMatch.report_id == r.id
+        ).all()
+        for m in matches:
+            outlet_narratives[r.outlet].add(m.narrative_id)
+
+    # Build nodes for outlets with at least 1 narrative
+    nodes: list[NetworkNode] = []
+    outlet_ids: set[str] = set()
+    for outlet, narrs in outlet_narratives.items():
+        if narrs:
+            outlet_ids.add(outlet)
+            nodes.append(NetworkNode(
+                id=outlet,
+                label=outlet,
+                type="outlet",
+                size=outlet_report_count.get(outlet, 1),
+            ))
+
+    # Build edges: outlets sharing narratives
+    edges: list[NetworkEdge] = []
+    outlets_list = sorted(outlet_ids)
+    for i, a in enumerate(outlets_list):
+        for b in outlets_list[i + 1:]:
+            shared = outlet_narratives[a] & outlet_narratives[b]
+            if shared:
+                edges.append(NetworkEdge(
+                    source=a,
+                    target=b,
+                    weight=len(shared),
+                    label=f"{len(shared)} shared narratives",
+                ))
+
+    # Also add narrative nodes for context (top 10 most connected)
+    from collections import Counter
+    all_narr_ids = Counter()
+    for narrs in outlet_narratives.values():
+        all_narr_ids.update(narrs)
+
+    # Get narrative names
+    narr_names: dict[str, str] = {}
+    all_matches = db.query(NarrativeMatch).all()
+    for m in all_matches:
+        narr_names[m.narrative_id] = m.narrative_name
+
+    for narr_id, count in all_narr_ids.most_common(10):
+        narr_node_id = f"narr:{narr_id}"
+        nodes.append(NetworkNode(
+            id=narr_node_id,
+            label=narr_names.get(narr_id, narr_id),
+            type="narrative",
+            size=count,
+            color="#f59e0b",
+        ))
+        # Connect narratives to their outlets
+        for outlet in outlets_list:
+            if narr_id in outlet_narratives.get(outlet, set()):
+                edges.append(NetworkEdge(
+                    source=outlet,
+                    target=narr_node_id,
+                    weight=1,
+                ))
+
+    return NetworkGraphResponse(nodes=nodes, edges=edges)
 
 
 # ---------------------------------------------------------------------------

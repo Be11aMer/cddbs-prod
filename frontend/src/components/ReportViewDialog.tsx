@@ -36,6 +36,7 @@ import ReactMarkdown from "react-markdown";
 import { QualityBadge } from "./QualityBadge";
 import { QualityRadarChart } from "./QualityRadarChart";
 import { NarrativeTags } from "./NarrativeTags";
+import { AnnotatedArticleCards } from "./AnnotatedArticleCards";
 import { Prism as SyntaxHighlighter } from "react-syntax-highlighter";
 import { vscDarkPlus } from "react-syntax-highlighter/dist/esm/styles/prism";
 import { useNotification } from "../contexts/NotificationContext";
@@ -708,20 +709,25 @@ export const ReportViewDialog = ({ open, onClose, runId }: Props) => {
                                             Analysis based on {data.articles.length} processed source{data.articles.length !== 1 ? "s" : ""}
                                         </Typography>
 
-                                        <Stack spacing={2}>
-                                            {data.articles.map((article) => (
-                                                <Box key={article.id} sx={{ borderLeft: "2px solid", borderColor: "primary.main", pl: 2, py: 0.5 }}>
-                                                    <Tooltip title={article.title}>
-                                                        <Typography variant="body2" fontWeight={600} noWrap>{article.title}</Typography>
-                                                    </Tooltip>
-                                                    {article.link && (
-                                                        <MuiLink href={article.link} target="_blank" variant="caption" color="text.secondary" noWrap display="block">
-                                                            {new URL(article.link).hostname}
-                                                        </MuiLink>
-                                                    )}
-                                                </Box>
-                                            ))}
-                                        </Stack>
+                                        {/* Annotated article cards with propaganda scores, sentiment, framing */}
+                                        {data.articles.some((a) => a.analysis) ? (
+                                            <AnnotatedArticleCards articles={data.articles} />
+                                        ) : (
+                                            <Stack spacing={2}>
+                                                {data.articles.map((article) => (
+                                                    <Box key={article.id} sx={{ borderLeft: "2px solid", borderColor: "primary.main", pl: 2, py: 0.5 }}>
+                                                        <Tooltip title={article.title}>
+                                                            <Typography variant="body2" fontWeight={600} noWrap>{article.title}</Typography>
+                                                        </Tooltip>
+                                                        {article.link && (
+                                                            <MuiLink href={article.link} target="_blank" variant="caption" color="text.secondary" noWrap display="block">
+                                                                {new URL(article.link).hostname}
+                                                            </MuiLink>
+                                                        )}
+                                                    </Box>
+                                                ))}
+                                            </Stack>
+                                        )}
                                     </Paper>
                                 </Stack>
                             </Grid>
