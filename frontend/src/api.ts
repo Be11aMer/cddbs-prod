@@ -40,12 +40,24 @@ export interface RunStatus {
   narrative_count?: number | null;
 }
 
+export interface ArticleAnalysis {
+  propaganda_score?: number | null;
+  sentiment?: string | null;
+  framing?: string | null;
+  key_claims?: string[] | null;
+  key_actors?: string[] | null;
+  narrative_themes?: string[] | null;
+  unverified_statements?: string[] | null;
+  analysis_notes?: string | null;
+}
+
 export interface ArticleSummary {
   id: number;
   title: string;
   link?: string | null;
   snippet?: string | null;
   date?: string | null;
+  analysis?: ArticleAnalysis | null;
 }
 
 export interface ReportMeta {
@@ -299,6 +311,36 @@ export async function fetchNarrativeTrends() {
 
 export async function fetchMonitoringFeed() {
   const { data } = await api.get<MonitoringFeedResponse>("/monitoring/feed");
+  return data;
+}
+
+
+// ---------------------------------------------------------------------------
+// v1.3 Network Graph
+// ---------------------------------------------------------------------------
+
+export interface NetworkNode {
+  id: string;
+  label: string;
+  type: string;
+  size: number;
+  color?: string | null;
+}
+
+export interface NetworkEdge {
+  source: string;
+  target: string;
+  weight: number;
+  label?: string | null;
+}
+
+export interface NetworkGraphData {
+  nodes: NetworkNode[];
+  edges: NetworkEdge[];
+}
+
+export async function fetchOutletNetwork() {
+  const { data } = await api.get<NetworkGraphData>("/stats/outlet-network");
   return data;
 }
 
