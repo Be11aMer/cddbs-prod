@@ -1,6 +1,5 @@
 """TF-IDF based event clustering — groups related articles into events."""
 
-from collections import Counter
 from datetime import datetime, timedelta, UTC
 
 from sklearn.cluster import AgglomerativeClustering

@@ -30,7 +30,7 @@ import ShareIcon from "@mui/icons-material/Share";
 import { forwardRef, ReactElement, Ref } from "react";
 import { TransitionProps } from "@mui/material/transitions";
 import { useQuery } from "@tanstack/react-query";
-import { fetchRun, fetchQuality, fetchNarrativeMatches } from "../api";
+import { fetchRun, fetchQuality, fetchNarrativeMatches, exportAnalysisRun } from "../api";
 import type { QualityResponse, NarrativeMatchItem, StructuredBriefing } from "../api";
 import ReactMarkdown from "react-markdown";
 import { QualityBadge } from "./QualityBadge";
@@ -638,6 +638,7 @@ export const ReportViewDialog = ({ open, onClose, runId }: Props) => {
                     <Stack direction="row" spacing={0.5}>
                         <Button color="inherit" startIcon={<ContentCopyIcon />} onClick={handleCopyToClipboard} disabled={!data?.final_report} sx={{ textTransform: "none", borderRadius: 2, display: { xs: "none", sm: "inline-flex" } }}>Copy</Button>
                         <Button color="inherit" startIcon={<DownloadIcon />} onClick={handleDownloadMarkdown} disabled={!data?.final_report} sx={{ textTransform: "none", borderRadius: 2, display: { xs: "none", sm: "inline-flex" } }}>Download</Button>
+                        <Button color="inherit" startIcon={<DownloadIcon />} onClick={() => runId && exportAnalysisRun(runId)} disabled={!data?.final_report} sx={{ textTransform: "none", borderRadius: 2, display: { xs: "none", sm: "inline-flex" } }}>Export JSON</Button>
                         <Button color="inherit" startIcon={<ShareIcon />} onClick={handleShare} sx={{ textTransform: "none", borderRadius: 2, display: { xs: "none", sm: "inline-flex" } }}>Share</Button>
                         <Tooltip title="Copy to clipboard">
                             <span><IconButton color="inherit" onClick={handleCopyToClipboard} disabled={!data?.final_report} sx={{ display: { xs: "inline-flex", sm: "none" } }}><ContentCopyIcon fontSize="small" /></IconButton></span>

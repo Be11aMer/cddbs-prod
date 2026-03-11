@@ -1,4 +1,3 @@
-from src.cddbs.utils.system_prompt import get_system_prompt
 
 
 def get_consolidated_prompt(outlet: str, country: str, articles_data: str) -> str:

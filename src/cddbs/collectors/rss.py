@@ -1,7 +1,6 @@
 """RSS feed collector using feedparser."""
 
 import json
-import os
 from datetime import datetime, UTC
 from email.utils import parsedate_to_datetime
 from pathlib import Path

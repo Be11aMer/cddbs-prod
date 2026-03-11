@@ -4,7 +4,7 @@ import statistics
 from collections import Counter, defaultdict
 from datetime import datetime, timedelta, UTC
 
-from src.cddbs.models import RawArticle, NarrativeBurst, EventCluster
+from src.cddbs.models import RawArticle, NarrativeBurst
 
 
 Z_SCORE_THRESHOLD = 3.0

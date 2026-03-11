@@ -1,15 +1,17 @@
+import json
 from datetime import datetime, UTC
 from typing import List, Optional, Tuple
 
 from fastapi import BackgroundTasks, Depends, FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 
 from src.cddbs.config import settings
 from src.cddbs.database import SessionLocal, init_db
 from src.cddbs.models import (
-    Article, Outlet, Report, Briefing, NarrativeMatch, Feedback,
+    Outlet, Report, Briefing, NarrativeMatch, Feedback,
     TopicRun, TopicOutletResult,
     RawArticle, EventCluster, NarrativeBurst,
 )
@@ -634,7 +636,6 @@ class MonitoringFeedResponse(BaseModel):
 @app.get("/stats/global", response_model=GlobalStatsResponse)
 def get_global_stats(db: Session = Depends(get_db)):
     """Aggregate global stats for the monitoring dashboard metric bar."""
-    from sqlalchemy import func
 
     reports = db.query(Report).all()
     total = len(reports)
@@ -776,7 +777,6 @@ def get_monitoring_feed(
     db: Session = Depends(get_db),
 ):
     """Return recent articles from the multi-source collector pipeline."""
-    from datetime import timedelta
 
     query = db.query(RawArticle).filter(
         RawArticle.is_duplicate == False,
@@ -808,7 +808,6 @@ def get_monitoring_feed(
             language=a.language or "en",
         ))
 
-    total = db.query(RawArticle).filter(RawArticle.is_duplicate == False).count()
     source_label = f"Multi-source ({source_type})" if source_type else "Multi-source (RSS + GDELT)"
 
     return MonitoringFeedResponse(
@@ -1564,3 +1563,287 @@ def api_status():
     }
 
     return status
+
+
+# ---------------------------------------------------------------------------
+# JSON Export endpoint
+# ---------------------------------------------------------------------------
+
+
+@app.get("/analysis-runs/{report_id}/export")
+def export_analysis_run(report_id: int, db: Session = Depends(get_db)):
+    """Export a completed analysis run as a structured JSON download.
+
+    Returns the full briefing data including quality scorecard, narrative
+    matches, article analyses, and metadata — suitable for archiving or
+    inter-system exchange.
+    """
+    report = db.query(Report).filter(Report.id == report_id).first()
+    if not report:
+        raise HTTPException(status_code=404, detail="Report not found")
+
+    status, msg = _get_report_status(report)
+    data = report.data or {}
+
+    # Structured briefing
+    structured_briefing = None
+    if isinstance(data, dict):
+        structured_briefing = data.get("structured_briefing")
+    if not structured_briefing and report.raw_response:
+        try:
+            import re as _re
+            _json_match = _re.search(r'(\{.*\})', report.raw_response, _re.DOTALL)
+            if _json_match:
+                _parsed = json.loads(_json_match.group(1))
+                structured_briefing = _parsed.get("structured_briefing")
+        except Exception:
+            pass
+
+    # Quality scorecard
+    briefing_row = db.query(Briefing).filter(Briefing.report_id == report_id).first()
+    quality = None
+    if briefing_row:
+        quality = {
+            "total_score": briefing_row.quality_score,
+            "max_score": 70,
+            "rating": briefing_row.quality_rating,
+            "dimensions": briefing_row.quality_details.get("dimensions") if briefing_row.quality_details else None,
+            "prompt_version": briefing_row.prompt_version,
+        }
+
+    # Narrative matches
+    matches = db.query(NarrativeMatch).filter(
+        NarrativeMatch.report_id == report_id
+    ).order_by(NarrativeMatch.match_count.desc()).all()
+    narratives = [
+        {
+            "narrative_id": m.narrative_id,
+            "narrative_name": m.narrative_name,
+            "category": m.category,
+            "confidence": m.confidence,
+            "matched_keywords": m.matched_keywords,
+            "match_count": m.match_count,
+        }
+        for m in matches
+    ]
+
+    # Articles
+    articles = [
+        {
+            "id": a.id,
+            "title": a.title,
+            "link": a.link,
+            "snippet": a.snippet,
+            "date": a.date,
+            "analysis": a.meta.get("analysis") if isinstance(a.meta, dict) else None,
+        }
+        for a in report.articles
+    ]
+
+    export_payload = {
+        "export_version": "1.0",
+        "exported_at": datetime.now(UTC).isoformat(),
+        "report": {
+            "id": report.id,
+            "outlet": report.outlet,
+            "country": report.country,
+            "created_at": report.created_at.isoformat() if report.created_at else None,
+            "status": status,
+            "meta": {
+                "outlet": data.get("outlet", report.outlet) if isinstance(data, dict) else report.outlet,
+                "url": data.get("url", "") if isinstance(data, dict) else "",
+                "country": data.get("country", report.country or "") if isinstance(data, dict) else "",
+                "analysis_date": data.get("analysis_date") if isinstance(data, dict) else None,
+                "articles_analyzed": data.get("articles_analyzed", 0) if isinstance(data, dict) else 0,
+            },
+        },
+        "final_report": report.final_report,
+        "structured_briefing": structured_briefing,
+        "quality": quality,
+        "narrative_matches": narratives,
+        "articles": articles,
+    }
+
+    filename = f"cddbs-export-{report.outlet.replace(' ', '_')}-{report.id}.json"
+    return JSONResponse(
+        content=export_payload,
+        headers={
+            "Content-Disposition": f'attachment; filename="{filename}"',
+        },
+    )
+
+
+# ---------------------------------------------------------------------------
+# Metrics endpoint (operational stats)
+# ---------------------------------------------------------------------------
+
+
+class MetricsResponse(BaseModel):
+    total_analyses: int
+    completed_analyses: int
+    failed_analyses: int
+    success_rate: Optional[float] = None
+    avg_quality_score: Optional[float] = None
+    avg_duration_seconds: Optional[float] = None
+    total_narratives_matched: int
+    total_articles_ingested: int
+    active_event_clusters: int
+    active_narrative_bursts: int
+    top_countries: List[dict] = Field(default_factory=list)
+    top_narratives: List[dict] = Field(default_factory=list)
+
+
+@app.get("/metrics", response_model=MetricsResponse)
+def get_metrics(db: Session = Depends(get_db)):
+    """Operational metrics for the CDDBS platform.
+
+    Returns success rate, average quality, throughput, and top-level
+    breakdowns useful for monitoring and reporting.
+    """
+    from sqlalchemy import func
+
+    reports = db.query(Report).all()
+    total = len(reports)
+    completed = 0
+    failed = 0
+    quality_scores = []
+    durations = []
+    country_counts: dict[str, int] = {}
+
+    for r in reports:
+        st, _ = _get_report_status(r)
+        if st == "completed":
+            completed += 1
+        elif st == "failed":
+            failed += 1
+
+        rdata = r.data or {}
+        if isinstance(rdata, dict) and rdata.get("quality_score"):
+            quality_scores.append(rdata["quality_score"])
+
+        # Estimate duration from creation to analysis_date
+        if isinstance(rdata, dict) and rdata.get("analysis_date") and r.created_at:
+            try:
+                from datetime import timezone
+                analysis_dt = datetime.fromisoformat(rdata["analysis_date"])
+                if analysis_dt.tzinfo is None:
+                    analysis_dt = analysis_dt.replace(tzinfo=timezone.utc)
+                created = r.created_at
+                if created.tzinfo is None:
+                    created = created.replace(tzinfo=timezone.utc)
+                diff = (analysis_dt - created).total_seconds()
+                if 0 < diff < 3600:
+                    durations.append(diff)
+            except Exception:
+                pass
+
+        if r.country:
+            country_counts[r.country] = country_counts.get(r.country, 0) + 1
+
+    success_rate = round(completed / total * 100, 1) if total else None
+    avg_quality = round(sum(quality_scores) / len(quality_scores), 1) if quality_scores else None
+    avg_duration = round(sum(durations) / len(durations), 1) if durations else None
+
+    total_narratives = db.query(func.count(NarrativeMatch.id)).scalar() or 0
+    articles_ingested = db.query(func.count(RawArticle.id)).scalar() or 0
+    active_events = db.query(func.count(EventCluster.id)).filter(EventCluster.status == "active").scalar() or 0
+    active_bursts = db.query(func.count(NarrativeBurst.id)).filter(NarrativeBurst.resolved_at == None).scalar() or 0
+
+    top_countries = sorted(
+        [{"country": c, "count": n} for c, n in country_counts.items()],
+        key=lambda x: x["count"], reverse=True,
+    )[:10]
+
+    # Top narratives
+    from collections import defaultdict
+    narr_totals: dict[str, dict] = defaultdict(lambda: {"name": "", "count": 0})
+    for m in db.query(NarrativeMatch).all():
+        narr_totals[m.narrative_id]["name"] = m.narrative_name
+        narr_totals[m.narrative_id]["count"] += m.match_count
+    top_narr = sorted(
+        [{"narrative_id": nid, "name": d["name"], "total_matches": d["count"]}
+         for nid, d in narr_totals.items()],
+        key=lambda x: x["total_matches"], reverse=True,
+    )[:10]
+
+    return MetricsResponse(
+        total_analyses=total,
+        completed_analyses=completed,
+        failed_analyses=failed,
+        success_rate=success_rate,
+        avg_quality_score=avg_quality,
+        avg_duration_seconds=avg_duration,
+        total_narratives_matched=total_narratives,
+        total_articles_ingested=articles_ingested,
+        active_event_clusters=active_events,
+        active_narrative_bursts=active_bursts,
+        top_countries=top_countries,
+        top_narratives=top_narr,
+    )
+
+
+# ---------------------------------------------------------------------------
+# Quality Trends endpoint (per-outlet quality over time)
+# ---------------------------------------------------------------------------
+
+
+class QualityTrendPoint(BaseModel):
+    report_id: int
+    outlet: str
+    created_at: datetime
+    quality_score: Optional[int] = None
+    quality_rating: Optional[str] = None
+
+
+class QualityTrendsResponse(BaseModel):
+    trends: List[QualityTrendPoint]
+    outlet_averages: dict  # {outlet: avg_score}
+
+
+@app.get("/stats/quality-trends", response_model=QualityTrendsResponse)
+def get_quality_trends(
+    outlet: Optional[str] = None,
+    limit: int = 100,
+    db: Session = Depends(get_db),
+):
+    """Quality score trends over time, optionally filtered by outlet.
+
+    Returns chronological quality data points and per-outlet averages,
+    useful for tracking whether briefing quality is improving.
+    """
+    query = db.query(Report).join(Briefing, Briefing.report_id == Report.id)
+
+    if outlet:
+        query = query.filter(Report.outlet == outlet)
+
+    reports = query.order_by(Report.created_at.desc()).limit(limit).all()
+
+    points = []
+    outlet_scores: dict[str, list[int]] = {}
+
+    for r in reports:
+        b = db.query(Briefing).filter(Briefing.report_id == r.id).first()
+        if b:
+            points.append(QualityTrendPoint(
+                report_id=r.id,
+                outlet=r.outlet,
+                created_at=r.created_at,
+                quality_score=b.quality_score,
+                quality_rating=b.quality_rating,
+            ))
+            if b.quality_score is not None:
+                outlet_scores.setdefault(r.outlet, []).append(b.quality_score)
+
+    outlet_averages = {
+        name: round(sum(scores) / len(scores), 1)
+        for name, scores in outlet_scores.items()
+        if scores
+    }
+
+    # Return in chronological order
+    points.reverse()
+
+    return QualityTrendsResponse(
+        trends=points,
+        outlet_averages=outlet_averages,
+    )

@@ -1,10 +1,9 @@
 """Narrative risk scoring for event clusters."""
 
 import json
-from datetime import timedelta
 from pathlib import Path
 
-from src.cddbs.models import EventCluster, RawArticle, NarrativeBurst
+from src.cddbs.models import EventCluster, NarrativeBurst
 
 
 _KNOWN_NARRATIVES_PATH = Path(__file__).parent.parent / "data" / "known_narratives.json"

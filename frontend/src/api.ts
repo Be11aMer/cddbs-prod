@@ -566,3 +566,75 @@ export interface ApiStatusExtended {
   twitter: { configured: boolean; status: string; message: string | null };
   telegram: { configured: boolean; status: string; message: string | null };
 }
+
+
+// ---------------------------------------------------------------------------
+// JSON Export
+// ---------------------------------------------------------------------------
+
+export async function exportAnalysisRun(reportId: number): Promise<void> {
+  const response = await api.get(`/analysis-runs/${reportId}/export`, {
+    responseType: "blob",
+  });
+  const blob = new Blob([response.data], { type: "application/json" });
+  const url = window.URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  const disposition = response.headers["content-disposition"] || "";
+  const match = disposition.match(/filename="(.+)"/);
+  a.download = match ? match[1] : `cddbs-export-${reportId}.json`;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  window.URL.revokeObjectURL(url);
+}
+
+
+// ---------------------------------------------------------------------------
+// Metrics
+// ---------------------------------------------------------------------------
+
+export interface PlatformMetrics {
+  total_analyses: number;
+  completed_analyses: number;
+  failed_analyses: number;
+  success_rate: number | null;
+  avg_quality_score: number | null;
+  avg_duration_seconds: number | null;
+  total_narratives_matched: number;
+  total_articles_ingested: number;
+  active_event_clusters: number;
+  active_narrative_bursts: number;
+  top_countries: { country: string; count: number }[];
+  top_narratives: { narrative_id: string; name: string; total_matches: number }[];
+}
+
+export async function fetchMetrics() {
+  const { data } = await api.get<PlatformMetrics>("/metrics");
+  return data;
+}
+
+
+// ---------------------------------------------------------------------------
+// Quality Trends
+// ---------------------------------------------------------------------------
+
+export interface QualityTrendPoint {
+  report_id: number;
+  outlet: string;
+  created_at: string;
+  quality_score: number | null;
+  quality_rating: string | null;
+}
+
+export interface QualityTrendsData {
+  trends: QualityTrendPoint[];
+  outlet_averages: Record<string, number>;
+}
+
+export async function fetchQualityTrends(outlet?: string) {
+  const { data } = await api.get<QualityTrendsData>("/stats/quality-trends", {
+    params: outlet ? { outlet } : undefined,
+  });
+  return data;
+}
