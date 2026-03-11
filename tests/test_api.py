@@ -6,7 +6,7 @@ from sqlalchemy.orm import Session
 
 from src.cddbs.api.main import app
 from src.cddbs.database import SessionLocal
-from src.cddbs.models import Report, Outlet, Article
+from src.cddbs.models import Report, Outlet, Article, Briefing, NarrativeMatch
 
 
 @pytest.fixture
@@ -29,6 +29,9 @@ def db_session():
 def cleanup_db(db_session):
     """Clean up test data after each test."""
     yield
+    # Delete in FK-safe order: children before parents
+    db_session.query(NarrativeMatch).delete()
+    db_session.query(Briefing).delete()
     db_session.query(Article).delete()
     db_session.query(Report).delete()
     db_session.query(Outlet).delete()
