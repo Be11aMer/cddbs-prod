@@ -18,7 +18,6 @@ jobs:
         run: |
           pip install --upgrade pip
           pip install ruff
-          pip install -r requirements.txt
       - name: Lint with ruff
         run: ruff check src/ tests/
 
@@ -51,7 +50,7 @@ jobs:
           pip install --upgrade pip
           pip install -r requirements.txt
       - name: Run tests
-        run: pytest tests/ -v --tb=short --co -q 2>/dev/null; pytest tests/ -v --tb=short
+        run: pytest tests/ -v --tb=long
 
   frontend-build:
     runs-on: ubuntu-latest
