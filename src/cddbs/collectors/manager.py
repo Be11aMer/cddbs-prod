@@ -2,8 +2,6 @@
 
 import asyncio
 from datetime import datetime, UTC
-from hashlib import sha256
-from typing import Optional
 
 from src.cddbs.collectors.base import BaseCollector, RawArticleData
 from src.cddbs.collectors.rss import RSSCollector

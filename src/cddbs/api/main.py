@@ -11,7 +11,7 @@ from sqlalchemy.orm import Session
 from src.cddbs.config import settings
 from src.cddbs.database import SessionLocal, init_db
 from src.cddbs.models import (
-    Article, Outlet, Report, Briefing, NarrativeMatch, Feedback,
+    Outlet, Report, Briefing, NarrativeMatch, Feedback,
     TopicRun, TopicOutletResult,
     RawArticle, EventCluster, NarrativeBurst,
 )
@@ -636,7 +636,6 @@ class MonitoringFeedResponse(BaseModel):
 @app.get("/stats/global", response_model=GlobalStatsResponse)
 def get_global_stats(db: Session = Depends(get_db)):
     """Aggregate global stats for the monitoring dashboard metric bar."""
-    from sqlalchemy import func
 
     reports = db.query(Report).all()
     total = len(reports)
@@ -778,7 +777,6 @@ def get_monitoring_feed(
     db: Session = Depends(get_db),
 ):
     """Return recent articles from the multi-source collector pipeline."""
-    from datetime import timedelta
 
     query = db.query(RawArticle).filter(
         RawArticle.is_duplicate == False,
@@ -810,7 +808,6 @@ def get_monitoring_feed(
             language=a.language or "en",
         ))
 
-    total = db.query(RawArticle).filter(RawArticle.is_duplicate == False).count()
     source_label = f"Multi-source ({source_type})" if source_type else "Multi-source (RSS + GDELT)"
 
     return MonitoringFeedResponse(

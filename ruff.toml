@@ -1,0 +1,14 @@
+[lint]
+select = ["E", "F", "W"]
+
+# E501: line too long — existing codebase uses long lines (MUI JSX-style)
+# E711: == None — required by SQLAlchemy .filter() (generates IS NULL)
+# E712: == False — required by SQLAlchemy .filter() (generates IS FALSE)
+# W291/W292/W293: trailing/blank-line whitespace — not worth blocking CI
+ignore = ["E501", "E711", "E712", "W291", "W292", "W293"]
+
+[lint.per-file-ignores]
+# Test files may import fixtures that appear unused
+"tests/*" = ["F401", "F811"]
+# __init__.py re-exports
+"__init__.py" = ["F401"]

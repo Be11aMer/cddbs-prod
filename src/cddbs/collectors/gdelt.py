@@ -66,7 +66,7 @@ class GDELTCollector(BaseCollector):
 
                 text = resp.text.strip()
                 if not text or text.startswith("<") or text.startswith("<!"):
-                    print(f"GDELT collector: got HTML instead of JSON, skipping")
+                    print("GDELT collector: got HTML instead of JSON, skipping")
                     return articles
 
                 try:
