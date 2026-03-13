@@ -70,14 +70,27 @@ def _extract_domain(url: str) -> Optional[str]:
         return None
 
 
+# Map short date_filter codes to Google News 'when:' query values
+_WHEN_MAP = {
+    "h": "1h",
+    "d": "1d",
+    "w": "7d",
+    "m": "30d",
+    "y": "1y",
+}
+
+
 def _serpapi_news(query: str, date_filter: str, limit: int, api_key: str) -> List[Dict]:
+    # google_news engine does NOT support the tbs parameter.
+    # Date filtering must be done via 'when:' operator in the query string.
+    if date_filter:
+        when_value = _WHEN_MAP.get(date_filter, date_filter)
+        query = f"{query} when:{when_value}"
     params = {
         "engine": "google_news",
         "q": query,
         "api_key": api_key,
     }
-    if date_filter:
-        params["tbs"] = f"qdr:{date_filter}"
     try:
         res = requests.get("https://serpapi.com/search.json", params=params, timeout=20)
         res.raise_for_status()

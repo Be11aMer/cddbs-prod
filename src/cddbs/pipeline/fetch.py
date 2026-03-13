@@ -24,6 +24,16 @@ def normalize_gl(country: str) -> str:
     # SAFE DEFAULT
     return "us"
 
+# Map short date_filter codes to Google News 'when:' query values
+_WHEN_MAP = {
+    "h": "1h",
+    "d": "1d",
+    "w": "7d",
+    "m": "30d",
+    "y": "1y",
+}
+
+
 def fetch_articles(outlet: str, country: str, num_articles: int = None, url: str = None, api_key: str = None, time_period: str = "m") -> List[Dict]:
     serpapi_key = api_key or settings.SERPAPI_KEY
     if not serpapi_key:
@@ -41,7 +51,7 @@ def fetch_articles(outlet: str, country: str, num_articles: int = None, url: str
 
     gl_code = country.lower()
     gl_code = normalize_gl(gl_code)
-    
+
     # Simple check: if still not 2 chars, SerpAPI will likely fail
     if len(gl_code) > 2:
         print(f"WARNING: Country code '{gl_code}' is longer than 2 chars, SerpAPI may fail.")
@@ -51,20 +61,21 @@ def fetch_articles(outlet: str, country: str, num_articles: int = None, url: str
     if url:
         clean_url = url.replace("https://", "").replace("http://", "").split("/")[0]
         query = f'"{outlet}" site:{clean_url}'
-        
+
+    # google_news engine does NOT support the tbs parameter.
+    # Date filtering must be done via 'when:' operator in the query string.
+    if time_period:
+        when_value = _WHEN_MAP.get(time_period, time_period)
+        query = f"{query} when:{when_value}"
+
     params = {
         "engine": "google_news",
         "q": query,
         "gl": gl_code,
         "api_key": serpapi_key
     }
-    
-    # Add date filtering if provided
-    # tbs values: qdr:h (hour), qdr:d (day), qdr:w (week), qdr:m (month), qdr:y (year)
-    if time_period:
-        params["tbs"] = f"qdr:{time_period}"
 
-    print(f"DEBUG: fetch_articles calling SerpAPI with query: '{query}', gl: '{gl_code}', tbs: '{params.get('tbs')}'")
+    print(f"DEBUG: fetch_articles calling SerpAPI with query: '{query}', gl: '{gl_code}'")
     try:
         res = requests.get("https://serpapi.com/search.json", params=params, timeout=20)
         res.raise_for_status()

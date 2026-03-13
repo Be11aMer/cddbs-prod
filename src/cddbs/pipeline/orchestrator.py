@@ -44,7 +44,7 @@ def run_pipeline(
             print("DEBUG: No articles data to send to Gemini")
             articles_data = "No articles found for this search."
 
-        prompt = get_consolidated_prompt(outlet, country, articles_data)
+        prompt = get_consolidated_prompt(outlet, country, articles_data, date_filter=date_filter)
 
         # Single Gemini call
         print("DEBUG: Calling Gemini...")

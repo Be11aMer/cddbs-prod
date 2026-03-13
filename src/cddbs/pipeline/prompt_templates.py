@@ -1,6 +1,16 @@
 
 
-def get_consolidated_prompt(outlet: str, country: str, articles_data: str) -> str:
+# Human-readable labels for date filter codes
+_PERIOD_LABELS = {
+    "h": "Last 1 hour",
+    "d": "Last 24 hours",
+    "w": "Last 7 days",
+    "m": "Last 30 days",
+    "y": "Last 1 year",
+}
+
+
+def get_consolidated_prompt(outlet: str, country: str, articles_data: str, date_filter: str = "m") -> str:
     """Build the analysis prompt for a batch of articles.
 
     The system-level instructions (v1.3 enhanced prompt) are loaded separately
@@ -9,10 +19,20 @@ def get_consolidated_prompt(outlet: str, country: str, articles_data: str) -> st
 
     Returns a structured 7-section intelligence briefing as JSON.
     """
+    from datetime import datetime, UTC
+    now = datetime.now(UTC)
+    period_label = _PERIOD_LABELS.get(date_filter, f"Custom ({date_filter})")
+
     return f"""Analyze the following articles from outlet "{outlet}" ({country}).
 
 Outlet: {outlet}
 Country: {country}
+Analysis run date: {now.strftime("%Y-%m-%d %H:%M UTC")}
+Requested time period: {period_label}
+
+IMPORTANT: The "analysis_period" field in subject_profile and methodology MUST reflect the
+requested time period above ("{period_label}"), NOT the individual article dates.
+Use the format: "{now.strftime("%Y-%m-%d")} ({period_label})".
 
 Articles:
 {articles_data}
