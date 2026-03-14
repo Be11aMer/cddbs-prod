@@ -638,3 +638,47 @@ export async function fetchQualityTrends(outlet?: string) {
   });
   return data;
 }
+
+// ---------------------------------------------------------------------------
+// Sprint 6: Webhook Configuration
+// ---------------------------------------------------------------------------
+
+export interface WebhookConfig {
+  id: number;
+  url: string;
+  events: string[];
+  active: boolean;
+  created_at: string;
+  last_triggered_at: string | null;
+  failure_count: number;
+}
+
+export interface WebhookCreatePayload {
+  url: string;
+  events?: string[];
+  secret?: string;
+}
+
+export async function fetchWebhooks() {
+  const { data } = await api.get<WebhookConfig[]>("/webhooks");
+  return data;
+}
+
+export async function createWebhook(payload: WebhookCreatePayload) {
+  const { data } = await api.post<WebhookConfig>("/webhooks", payload);
+  return data;
+}
+
+export async function deleteWebhook(id: number) {
+  const { data } = await api.delete<{ status: string; id: number }>(
+    `/webhooks/${id}`
+  );
+  return data;
+}
+
+export async function testWebhook(id: number) {
+  const { data } = await api.post<{ delivered: number; webhook_id: number }>(
+    `/webhooks/test/${id}`
+  );
+  return data;
+}

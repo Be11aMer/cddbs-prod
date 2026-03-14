@@ -202,3 +202,17 @@ class NarrativeBurst(Base):
     cluster_id = Column(Integer, ForeignKey("event_clusters.id"), nullable=True)
     detected_at = Column(DateTime, default=lambda: datetime.now(UTC))
     resolved_at = Column(DateTime, nullable=True)
+
+
+class WebhookConfig(Base):
+    """Webhook endpoint configuration for alert delivery."""
+    __tablename__ = "webhook_configs"
+    __table_args__ = {'extend_existing': True}
+    id = Column(Integer, primary_key=True, index=True)
+    url = Column(String, nullable=False)
+    events = Column(JSON, default=list)   # ["pipeline_failure", "narrative_burst"]
+    secret = Column(String, nullable=True)
+    active = Column(Boolean, default=True)
+    created_at = Column(DateTime, default=lambda: datetime.now(UTC))
+    last_triggered_at = Column(DateTime, nullable=True)
+    failure_count = Column(Integer, default=0)
