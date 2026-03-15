@@ -35,6 +35,24 @@ The FastAPI backend provides automatic OpenAPI/Swagger documentation:
 - `GET /analysis-runs/{id}` - Get detailed report for a specific run
   - Returns: Complete report with `meta`, `final_report`, and `articles` array
 
+#### Topic Analysis
+
+- `POST /topic-runs` - Create a cross-outlet topic analysis
+- `GET /topic-runs` - List all topic runs
+- `GET /topic-runs/{id}` - Full topic run with per-outlet divergence results
+
+#### Event Intelligence
+
+- `GET /events` - List event clusters
+- `GET /events/{id}` - Event cluster details with articles
+- `GET /events/map` - Events grouped by country for map visualization
+- `GET /events/bursts` - Narrative burst detections
+
+#### Feedback
+
+- `POST /feedback` - Submit tester feedback
+- `GET /feedback` - List all feedback entries
+
 #### Health & Status
 
 - `GET /health` - System health check
