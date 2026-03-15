@@ -1,0 +1,15 @@
+# Default owner for all files — must approve every PR
+*                               @Be11aMer
+
+# CI/CD and infrastructure — extra scrutiny
+.github/                        @Be11aMer
+scripts/                        @Be11aMer
+Dockerfile                      @Be11aMer
+docker-compose.yml              @Be11aMer
+render.yaml                     @Be11aMer
+requirements.txt                @Be11aMer
+
+# Security-sensitive backend code
+src/cddbs/config.py             @Be11aMer
+src/cddbs/database.py           @Be11aMer
+src/cddbs/utils/genai_client.py @Be11aMer
