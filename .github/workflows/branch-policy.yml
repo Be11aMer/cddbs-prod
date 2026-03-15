@@ -1,0 +1,50 @@
+name: Branch Policy
+
+on:
+  pull_request:
+    branches: [main, master, development]
+
+jobs:
+  enforce-branch-policy:
+    name: Enforce Branching Rules
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Check branch policy
+        run: |
+          BASE="${{ github.base_ref }}"
+          HEAD="${{ github.head_ref }}"
+
+          echo "PR: $HEAD → $BASE"
+
+          # Rule 1: Only 'development' can merge into 'main'
+          if [[ "$BASE" == "main" || "$BASE" == "master" ]]; then
+            if [[ "$HEAD" != "development" ]]; then
+              echo "::error::❌ Only the 'development' branch can merge into '$BASE'."
+              echo ""
+              echo "Direct feature/bugfix branches cannot target main."
+              echo "Merge your branch into 'development' first, then create a release PR from 'development' → main."
+              exit 1
+            fi
+            echo "✅ Release PR from 'development' → '$BASE' is allowed."
+          fi
+
+          # Rule 2: Feature branches targeting 'development' must be based on 'development'
+          if [[ "$BASE" == "development" ]]; then
+            git fetch origin development
+            MERGE_BASE=$(git merge-base origin/development HEAD 2>/dev/null || true)
+            MAIN_TIP=$(git rev-parse origin/main 2>/dev/null || true)
+
+            if [[ -n "$MAIN_TIP" && -n "$MERGE_BASE" ]]; then
+              # Check if the branch was created from main instead of development
+              IS_ANCESTOR_OF_DEV=$(git merge-base --is-ancestor "$MERGE_BASE" origin/development 2>/dev/null && echo "yes" || echo "no")
+
+              if [[ "$IS_ANCESTOR_OF_DEV" == "no" ]]; then
+                echo "::warning::⚠️ This branch may not be based on 'development'. Please rebase onto 'development'."
+              fi
+            fi
+            echo "✅ PR targeting 'development' is allowed."
+          fi
