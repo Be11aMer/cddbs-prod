@@ -1,4 +1,5 @@
 """Tests for Sprint 6 webhook delivery and endpoints."""
+import asyncio
 import pytest
 from unittest.mock import AsyncMock, MagicMock, patch
 
@@ -41,60 +42,55 @@ def test_sign_payload_differs_with_different_payloads():
     assert sig1 != sig2
 
 
-@pytest.mark.asyncio
-async def test_deliver_webhook_success():
+def test_deliver_webhook_success():
     with patch("httpx.AsyncClient") as mock_client:
         mock_response = MagicMock()
         mock_response.status_code = 200
         mock_client.return_value.__aenter__ = AsyncMock(return_value=MagicMock(
             post=AsyncMock(return_value=mock_response)
         ))
-        result = await deliver_webhook(
+        result = asyncio.run(deliver_webhook(
             "https://example.com/hook",
             "pipeline_failure",
             {"message": "test"},
-        )
+        ))
     assert result is True
 
 
-@pytest.mark.asyncio
-async def test_deliver_webhook_failure_status():
+def test_deliver_webhook_failure_status():
     with patch("httpx.AsyncClient") as mock_client:
         mock_response = MagicMock()
         mock_response.status_code = 500
         mock_client.return_value.__aenter__ = AsyncMock(return_value=MagicMock(
             post=AsyncMock(return_value=mock_response)
         ))
-        result = await deliver_webhook(
+        result = asyncio.run(deliver_webhook(
             "https://example.com/hook",
             "narrative_burst",
             {},
-        )
+        ))
     assert result is False
 
 
-@pytest.mark.asyncio
-async def test_deliver_webhook_network_error():
+def test_deliver_webhook_network_error():
     with patch("httpx.AsyncClient") as mock_client:
         mock_client.return_value.__aenter__ = AsyncMock(return_value=MagicMock(
             post=AsyncMock(side_effect=Exception("connection refused"))
         ))
-        result = await deliver_webhook(
+        result = asyncio.run(deliver_webhook(
             "https://example.com/hook",
             "collector_failure",
             {},
-        )
+        ))
     assert result is False
 
 
-@pytest.mark.asyncio
-async def test_fire_event_invalid_type():
+def test_fire_event_invalid_type():
     with pytest.raises(ValueError, match="Unknown event type"):
-        await fire_event("not_a_real_event", {})
+        asyncio.run(fire_event("not_a_real_event", {}))
 
 
-@pytest.mark.asyncio
-async def test_fire_event_no_db():
+def test_fire_event_no_db():
     """fire_event with no db_session returns 0 deliveries."""
-    result = await fire_event("pipeline_failure", {"message": "test"}, db_session=None)
+    result = asyncio.run(fire_event("pipeline_failure", {"message": "test"}, db_session=None))
     assert result == 0

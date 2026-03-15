@@ -14,10 +14,12 @@ from src.cddbs.models import (
     Outlet, Report, Briefing, NarrativeMatch, Feedback,
     TopicRun, TopicOutletResult,
     RawArticle, EventCluster, NarrativeBurst,
+    WebhookConfig,
 )
 from src.cddbs.pipeline.orchestrator import run_pipeline
 from src.cddbs.pipeline.topic_pipeline import run_topic_pipeline
 from src.cddbs.narratives import get_all_narratives
+from src.cddbs.webhooks import fire_event, SUPPORTED_EVENTS
 
 
 from contextlib import asynccontextmanager
@@ -1852,9 +1854,6 @@ def get_quality_trends(
 # ---------------------------------------------------------------------------
 # Sprint 6: Webhook Configuration Endpoints
 # ---------------------------------------------------------------------------
-
-from src.cddbs.webhooks import fire_event, SUPPORTED_EVENTS
-from src.cddbs.models import WebhookConfig
 
 
 class WebhookCreateRequest(BaseModel):
