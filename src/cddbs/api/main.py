@@ -14,10 +14,12 @@ from src.cddbs.models import (
     Outlet, Report, Briefing, NarrativeMatch, Feedback,
     TopicRun, TopicOutletResult,
     RawArticle, EventCluster, NarrativeBurst,
+    WebhookConfig,
 )
 from src.cddbs.pipeline.orchestrator import run_pipeline
 from src.cddbs.pipeline.topic_pipeline import run_topic_pipeline
 from src.cddbs.narratives import get_all_narratives
+from src.cddbs.webhooks import fire_event, SUPPORTED_EVENTS
 
 
 from contextlib import asynccontextmanager
@@ -1847,3 +1849,87 @@ def get_quality_trends(
         trends=points,
         outlet_averages=outlet_averages,
     )
+
+
+# ---------------------------------------------------------------------------
+# Sprint 6: Webhook Configuration Endpoints
+# ---------------------------------------------------------------------------
+
+
+class WebhookCreateRequest(BaseModel):
+    url: str
+    events: List[str] = Field(
+        default_factory=lambda: ["pipeline_failure", "narrative_burst"]
+    )
+    secret: Optional[str] = None
+
+
+class WebhookResponse(BaseModel):
+    id: int
+    url: str
+    events: List[str] = Field(default_factory=list)
+    active: bool
+    created_at: datetime
+    last_triggered_at: Optional[datetime] = None
+    failure_count: int = 0
+
+    model_config = {"from_attributes": True}
+
+
+@app.post("/webhooks", response_model=WebhookResponse)
+def create_webhook(
+    payload: WebhookCreateRequest,
+    db: Session = Depends(get_db),
+):
+    """Register a new webhook endpoint for alert delivery."""
+    invalid = [e for e in payload.events if e not in SUPPORTED_EVENTS and e != "*"]
+    if invalid:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Invalid event types: {invalid}. Supported: {SUPPORTED_EVENTS}",
+        )
+    hook = WebhookConfig(
+        url=payload.url,
+        events=payload.events,
+        secret=payload.secret,
+        active=True,
+    )
+    db.add(hook)
+    db.commit()
+    db.refresh(hook)
+    return hook
+
+
+@app.get("/webhooks", response_model=List[WebhookResponse])
+def list_webhooks(db: Session = Depends(get_db)):
+    """List all webhook configurations."""
+    return (
+        db.query(WebhookConfig)
+        .order_by(WebhookConfig.created_at.desc())
+        .all()
+    )
+
+
+@app.delete("/webhooks/{webhook_id}")
+def delete_webhook(webhook_id: int, db: Session = Depends(get_db)):
+    """Deactivate a webhook (soft delete)."""
+    hook = db.query(WebhookConfig).filter(WebhookConfig.id == webhook_id).first()
+    if not hook:
+        raise HTTPException(status_code=404, detail="Webhook not found")
+    hook.active = False
+    db.commit()
+    return {"status": "deactivated", "id": webhook_id}
+
+
+@app.post("/webhooks/test/{webhook_id}")
+async def test_webhook(webhook_id: int, db: Session = Depends(get_db)):
+    """Send a test pipeline_failure event to a webhook endpoint."""
+    hook = db.query(WebhookConfig).filter(WebhookConfig.id == webhook_id).first()
+    if not hook:
+        raise HTTPException(status_code=404, detail="Webhook not found")
+    delivered = await fire_event(
+        "pipeline_failure",
+        {"test": True, "message": "CDDBS webhook test event"},
+        db_session=db,
+    )
+    return {"delivered": delivered, "webhook_id": webhook_id}
