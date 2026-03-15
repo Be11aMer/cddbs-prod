@@ -3,7 +3,7 @@
 > **Version:** 2026.03 (first production release)
 > **Last updated:** 2026-03-11
 
-This is the central developer reference for the **Counter-Disinformation Database System (CDDBS)**. It covers architecture, every module, every API endpoint, data models, pipeline flows, configuration, deployment, testing, and contribution guidelines. **This document must be updated whenever the application changes.**
+This is the central developer reference for the **Cyber Disinformation Detection Briefing System (CDDBS)**. It covers architecture, every module, every API endpoint, data models, pipeline flows, configuration, deployment, testing, and contribution guidelines. **This document must be updated whenever the application changes.**
 
 ---
 
@@ -974,6 +974,10 @@ Triggered on PRs to `main`/`master`/`development`. Enforces the branching strate
 - **PRs to `development`:** Warns if the branch is not based on `development`.
 
 See [Branching Strategy](#13-branching-strategy) for full details.
+
+### Secret Scan (`.github/workflows/secret-scan.yml`)
+
+Triggered on push/PR to `main`/`master`/`development`. Runs `scripts/detect_secrets.py` to scan the codebase for hardcoded API keys, tokens, passwords, and credentials. On PRs, also scans the diff for secrets in changed lines. **Fails the build and rejects the PR if any secrets are found.**
 
 ---
 
