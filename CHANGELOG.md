@@ -1,6 +1,6 @@
 # Changelog
 
-All notable changes to the CDDBS (Counter-Disinformation Database System) project
+All notable changes to the CDDBS (Cyber Disinformation Detection Briefing System) project
 are documented in this file.
 
 ## [2026.03] - 2026-03-11

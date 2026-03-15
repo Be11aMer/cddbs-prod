@@ -1,6 +1,6 @@
 # Contributing to CDDBS
 
-Thank you for your interest in contributing to the Counter-Disinformation Database System.
+Thank you for your interest in contributing to the Cyber Disinformation Detection Briefing System.
 
 ## Getting Started
 

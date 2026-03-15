@@ -3,7 +3,7 @@
 > **Version:** 2026.03 (first production release)
 > **Last updated:** 2026-03-11
 
-This is the central developer reference for the **Counter-Disinformation Database System (CDDBS)**. It covers architecture, every module, every API endpoint, data models, pipeline flows, configuration, deployment, testing, and contribution guidelines. **This document must be updated whenever the application changes.**
+This is the central developer reference for the **Cyber Disinformation Detection Briefing System (CDDBS)**. It covers architecture, every module, every API endpoint, data models, pipeline flows, configuration, deployment, testing, and contribution guidelines. **This document must be updated whenever the application changes.**
 
 ---
 
