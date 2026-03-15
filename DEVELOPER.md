@@ -71,9 +71,11 @@ CDDBS is an AI-powered counter-disinformation analysis platform. It ingests news
 │  └──────────────┘  └─────────────┘  └──────────────┘       │
 ├─────────────────────────────────────────────────────────────┤
 │                    PostgreSQL 15                             │
-│  11 tables — see Data Models section                        │
+│  12 tables — see Data Models section                        │
 └─────────────────────────────────────────────────────────────┘
 ```
+
+**Key backend dependencies:** FastAPI, uvicorn, SQLAlchemy, psycopg2-binary, alembic, python-dotenv, requests, httpx, google-genai, feedparser, scikit-learn.
 
 ### Request flow (outlet analysis)
 
@@ -450,6 +452,24 @@ Base URL: `/api` (proxied by Vite in development)
 | `POST` | `/feedback` | Submit tester feedback |
 | `GET` | `/feedback` | List all feedback entries |
 
+### 5.8 Webhooks
+
+| Method | Path | Description |
+|---|---|---|
+| `POST` | `/webhooks` | Register a new webhook endpoint |
+| `GET` | `/webhooks` | List all registered webhooks |
+| `DELETE` | `/webhooks/{id}` | Unregister a webhook |
+| `POST` | `/webhooks/test/{id}` | Send a test payload to a webhook |
+
+**POST `/webhooks` request body:**
+```json
+{
+  "url": "https://example.com/hook",
+  "events": ["pipeline_failure", "narrative_burst"],
+  "secret": "optional-shared-secret"
+}
+```
+
 ---
 
 ## 6. Data Models
@@ -469,6 +489,8 @@ Outlet 1──* Article *──1 Report
 RawArticle *──1 EventCluster
                      │
               NarrativeBurst
+
+WebhookConfig (standalone)
 ```
 
 ### 6.2 Table Definitions
@@ -628,6 +650,18 @@ RawArticle *──1 EventCluster
 | cluster_id | FK → event_clusters | |
 | detected_at | DateTime | |
 | resolved_at | DateTime | Null = still active |
+
+#### `webhook_configs`
+| Column | Type | Notes |
+|---|---|---|
+| id | Integer PK | |
+| url | String | Webhook delivery URL |
+| events | JSON | List of event types to subscribe to |
+| secret | String | Optional shared secret for HMAC signing |
+| active | Boolean | Default true |
+| created_at | DateTime | |
+| last_triggered_at | DateTime | Null if never fired |
+| failure_count | Integer | Consecutive delivery failures |
 
 ---
 
@@ -925,11 +959,12 @@ Tests use an **in-memory SQLite database** (configured in `tests/conftest.py`) t
 
 ### GitHub Actions (`.github/workflows/ci.yml`)
 
-Triggered on push/PR to `main`/`master`. Three jobs:
+Triggered on push/PR to `main`/`master`. Four jobs:
 
 1. **lint** — Installs `ruff`, runs `ruff check src/ tests/`
 2. **test** — Spins up PostgreSQL 15 service, runs `pytest tests/ -v`
-3. **frontend-build** — Installs npm dependencies, runs `npm run build` (type-check + bundle)
+3. **docs-drift** — Runs `scripts/check_docs_drift.py` to verify README.md and DEVELOPER.md are in sync with the codebase. Checks API endpoints, database models, environment variables, frontend components, and Python dependencies. **Fails the build if documentation has drifted** — required for EU CRA compliance.
+4. **frontend-build** — Installs npm dependencies, runs `npm run build` (type-check + bundle)
 
 ---
 
