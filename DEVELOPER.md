@@ -975,6 +975,10 @@ Triggered on PRs to `main`/`master`/`development`. Enforces the branching strate
 
 See [Branching Strategy](#13-branching-strategy) for full details.
 
+### Secret Scan (`.github/workflows/secret-scan.yml`)
+
+Triggered on push/PR to `main`/`master`/`development`. Runs `scripts/detect_secrets.py` to scan the codebase for hardcoded API keys, tokens, passwords, and credentials. On PRs, also scans the diff for secrets in changed lines. **Fails the build and rejects the PR if any secrets are found.**
+
 ---
 
 ## 13. Branching Strategy
