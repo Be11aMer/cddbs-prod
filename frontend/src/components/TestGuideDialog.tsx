@@ -19,9 +19,13 @@ import LooksTwoIcon from "@mui/icons-material/LooksTwo";
 import Looks3Icon from "@mui/icons-material/Looks3";
 import Looks4Icon from "@mui/icons-material/Looks4";
 import Looks5Icon from "@mui/icons-material/Looks5";
+import Looks6Icon from "@mui/icons-material/Looks6";
 import TipsAndUpdatesIcon from "@mui/icons-material/TipsAndUpdates";
 import BugReportIcon from "@mui/icons-material/BugReport";
 import CheckCircleOutlineIcon from "@mui/icons-material/CheckCircleOutline";
+import TopicIcon from "@mui/icons-material/Hub";
+import DashboardIcon from "@mui/icons-material/DashboardCustomize";
+import AssessmentIcon from "@mui/icons-material/Assessment";
 import { forwardRef, ReactElement, Ref } from "react";
 import { TransitionProps } from "@mui/material/transitions";
 
@@ -163,8 +167,10 @@ export const TestGuideDialog = ({ open, onClose }: Props) => {
             Welcome, Tester!
           </Typography>
           <Typography variant="body2">
-            This guide walks you through using CDDBS from start to finish. Follow each step, then check the
-            results listed under each section. Use the "Leave Feedback" button in the sidebar when you're done.
+            CDDBS has grown beyond single-outlet analysis. You can now run cross-outlet topic analyses, explore a
+            real-time monitoring dashboard, and browse historical reports with quality metrics. This guide walks you
+            through every feature. Please test them all and use the "Leave Feedback" button in the sidebar when
+            you're done — your feedback directly shapes the product.
           </Typography>
         </Alert>
 
@@ -212,9 +218,12 @@ export const TestGuideDialog = ({ open, onClose }: Props) => {
           </Typography>
         </Paper>
 
-        {/* Steps */}
-        <Typography variant="h5" fontWeight={800} sx={{ mb: 3 }}>
-          Step-by-Step Test Walkthrough
+        {/* ========== PART 1: OUTLET ANALYSIS ========== */}
+        <Typography variant="h5" fontWeight={800} sx={{ mb: 1 }}>
+          Part 1 — Outlet Analysis
+        </Typography>
+        <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
+          Analyze a single news outlet to generate an AI intelligence briefing with quality scoring and narrative detection.
         </Typography>
         <Stack spacing={3} sx={{ mb: 4 }}>
           <StepCard
@@ -230,51 +239,116 @@ export const TestGuideDialog = ({ open, onClose }: Props) => {
 
           <StepCard
             icon={<LooksTwoIcon />}
-            title='Create a New Analysis (click "New Analysis" button)'
-            description="Fill in the analysis form. The outlet name is the news source you want to analyze. Country helps narrow SerpAPI results. URL is the outlet's website domain."
-            example={`Outlet:  RT\nCountry: Russia\nURL:     rt.com\nArticles: 3\nDate:    Last Month`}
+            title='Create a New Outlet Analysis'
+            description='Click "New Analysis", make sure the toggle is set to "Outlet Mode". Fill in the outlet name, country, domain URL, number of articles, and date filter.'
+            example={`Outlet:   RT\nCountry:  Russia\nURL:      rt.com\nArticles: 3\nDate:     Last Month`}
             checkItems={[
               "Form validates required fields",
-              'Run appears in table with "queued" → "running" status',
+              'Run appears in table with "queued" then "running" status',
               "Status auto-refreshes every few seconds",
             ]}
           />
 
           <StepCard
             icon={<Looks3Icon />}
-            title="Wait for Analysis to Complete"
-            description='The backend fetches articles via SerpAPI, sends them to Gemini for analysis, then stores results. This takes 15-60 seconds depending on article count. The status will change to "completed" or "failed".'
+            title="View the Intelligence Briefing"
+            description='Once the status changes to "completed" (15-60 seconds), click the run to open the full-screen briefing. Check the AI analysis, quality score panel (radar chart with 7 dimensions), and narrative detection tags.'
             checkItems={[
-              "Status transitions: queued → running → completed",
-              "If failed: check error message — usually an invalid API key",
-              "Dashboard cards update (Total Analyses count increases)",
+              "Briefing opens with TL;DR, Source & Context, Narrative, Analysis, Credibility sections",
+              "Article list shows on the left sidebar",
+              "Quality score shows X/70 with a rating (Excellent/Good/Fair/Poor)",
+              "Radar chart renders all 7 dimensions — hover on bars to see specifics",
+              "Narrative tags show matched disinformation patterns with confidence levels",
+              "Keyword chips show which terms triggered each narrative match",
             ]}
           />
+        </Stack>
 
+        <Divider sx={{ my: 4, opacity: 0.2 }} />
+
+        {/* ========== PART 2: TOPIC MODE ========== */}
+        <Typography variant="h5" fontWeight={800} sx={{ mb: 1 }}>
+          Part 2 — Topic Analysis (Cross-Outlet)
+        </Typography>
+        <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
+          Discover how different outlets frame the same topic. The system fetches neutral baseline coverage from wire
+          services (Reuters, AP, BBC), then compares how each discovered outlet diverges in framing and propaganda
+          techniques.
+        </Typography>
+        <Stack spacing={3} sx={{ mb: 4 }}>
           <StepCard
             icon={<Looks4Icon />}
-            title="View the Intelligence Briefing"
-            description='Click a completed run in the table, or click the eye icon, to open the detailed briefing. The full-screen report shows the AI-generated intelligence analysis.'
+            title='Run a Topic Analysis'
+            description='Click "New Analysis" and toggle to "Topic Mode". Enter a topic (e.g. "NATO expansion"), set the max number of outlets to discover (1-10), and choose a date filter. Submit and wait for results.'
+            example={`Topic:        NATO expansion\nMax Outlets:  5\nDate:         Last Week`}
             checkItems={[
-              "Briefing opens in full-screen dialog",
-              "Source & Context, Narrative, Analysis, Credibility sections render",
-              "TL;DR summary appears at the top",
-              "Article list shows on the left sidebar",
-              "Quality score panel appears (if Sprint 4 is deployed)",
-              "Narrative detection tags appear (if Sprint 4 is deployed)",
+              "Toggle switches the form between Outlet Mode and Topic Mode",
+              "Topic run appears in its own table or section",
+              "Status progresses from queued to running to completed",
             ]}
           />
 
           <StepCard
             icon={<Looks5Icon />}
-            title="Inspect Quality & Narrative Results"
-            description="On the left sidebar of the briefing view, check the Quality Score panel (radar chart with 7 dimensions) and Detected Narratives panel (matched disinformation patterns)."
+            title="Review Topic Results"
+            description={"Open a completed topic run. You'll see a ranked list of outlets showing how each one frames the topic relative to the neutral baseline. Check the divergence score (0-100), amplification signal, and propaganda technique breakdown for each outlet."}
             checkItems={[
-              "Quality score shows X/70 with a rating (Excellent/Good/etc.)",
-              "Radar chart renders all 7 dimensions",
-              "Hover on dimension bars to see specific issues",
-              "Narrative tags show matched patterns with confidence levels",
-              "Keyword chips show which terms triggered the match",
+              "Baseline neutral coverage is displayed for comparison",
+              "Each outlet shows a divergence score and amplification signal (Low/Medium/High)",
+              "Propaganda techniques are identified per outlet",
+              "Results make intuitive sense — state media should diverge more than wire services",
+            ]}
+          />
+        </Stack>
+
+        <Divider sx={{ my: 4, opacity: 0.2 }} />
+
+        {/* ========== PART 3: MONITORING DASHBOARD ========== */}
+        <Typography variant="h5" fontWeight={800} sx={{ mb: 1 }}>
+          Part 3 — Monitoring Dashboard
+        </Typography>
+        <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
+          The real-time intelligence dashboard shows a global overview of articles being collected, event clusters,
+          narrative bursts, and country-level risk. Switch to the "Monitoring" view from the sidebar.
+        </Typography>
+        <Stack spacing={3} sx={{ mb: 4 }}>
+          <StepCard
+            icon={<Looks6Icon />}
+            title="Explore the Dashboard"
+            description='Click "Monitoring" in the sidebar to open the dashboard. Explore each panel: the global map, intel feed, activity timeline, narrative bar chart, event clusters, narrative trends, country risk index, and outlet network graph.'
+            checkItems={[
+              "Global map loads and shows country-level event dots",
+              "Intel feed streams recent articles from GDELT/RSS sources",
+              "Activity timeline shows a 48-hour ingestion chart",
+              "Narrative bar chart displays top narratives by frequency",
+              "Event cluster panel groups related articles into events with keywords",
+              "Narrative trend panel shows how narratives evolve over time",
+              "Country risk index ranks countries by risk score",
+              "Outlet network graph visualizes connections between outlets by narrative similarity",
+            ]}
+          />
+        </Stack>
+
+        <Divider sx={{ my: 4, opacity: 0.2 }} />
+
+        {/* ========== PART 4: REPORTS ========== */}
+        <Typography variant="h5" fontWeight={800} sx={{ mb: 1 }}>
+          Part 4 — Reports & Metrics
+        </Typography>
+        <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
+          The Reports view shows all your past analyses with summary statistics. Switch to "Reports" in the sidebar.
+        </Typography>
+        <Stack spacing={3} sx={{ mb: 4 }}>
+          <StepCard
+            icon={<AssessmentIcon />}
+            title="Browse Reports"
+            description={"Open the \"Reports\" view. You'll see summary cards (Total Analyses, Average Quality Score, Total Narratives Detected, Success Rate) and a filterable table of all past runs. Click any completed run to revisit its full briefing."}
+            checkItems={[
+              "Summary cards show accurate totals matching your test runs",
+              "Runs table lists all outlet and topic analyses",
+              "Table is filterable and sortable",
+              "Clicking a completed run opens its detailed briefing",
+              "Export button lets you download analysis results as JSON",
             ]}
           />
         </Stack>
@@ -285,7 +359,11 @@ export const TestGuideDialog = ({ open, onClose }: Props) => {
         <Typography variant="h5" fontWeight={800} sx={{ mb: 3 }}>
           Recommended Test Scenarios
         </Typography>
-        <Stack spacing={2} sx={{ mb: 4 }}>
+
+        <Typography variant="subtitle2" fontWeight={700} color="primary.light" sx={{ mb: 2 }}>
+          Outlet Analysis Scenarios
+        </Typography>
+        <Stack spacing={2} sx={{ mb: 3 }}>
           {[
             {
               label: "State Media",
@@ -338,6 +416,61 @@ export const TestGuideDialog = ({ open, onClose }: Props) => {
           ))}
         </Stack>
 
+        <Typography variant="subtitle2" fontWeight={700} color="primary.light" sx={{ mb: 2 }}>
+          Topic Analysis Scenarios
+        </Typography>
+        <Stack spacing={2} sx={{ mb: 4 }}>
+          {[
+            {
+              label: "Geopolitical",
+              topic: "NATO expansion",
+              outlets: 5,
+              expect:
+                "Should surface RT, CGTN, and others with high divergence from the neutral baseline. Western wire services should show low divergence.",
+            },
+            {
+              label: "Economic",
+              topic: "US-China trade war",
+              outlets: 5,
+              expect:
+                "Expect divergent framing between Chinese state media and Western outlets. Look for economic nationalism narratives.",
+            },
+            {
+              label: "Narrow Topic",
+              topic: "Nord Stream pipeline sabotage",
+              outlets: 3,
+              expect:
+                "A specific event with competing narratives. Check if the system correctly identifies blame-shifting patterns.",
+            },
+            {
+              label: "Edge Case: Obscure Topic",
+              topic: "xyznonexistenttopic123",
+              outlets: 3,
+              expect: "Should handle gracefully when no outlets or articles are found for the topic.",
+            },
+          ].map((scenario, i) => (
+            <Paper
+              key={i}
+              sx={{
+                p: 2.5,
+                borderRadius: 2,
+                border: "1px solid rgba(148,163,184,0.1)",
+                backgroundColor: "rgba(148,163,184,0.03)",
+              }}
+            >
+              <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mb: 1 }}>
+                <Chip label={scenario.label} size="small" color="secondary" variant="outlined" sx={{ fontWeight: 700 }} />
+              </Stack>
+              <Typography variant="body2" sx={{ fontFamily: "monospace", fontSize: "0.8rem", mb: 1 }}>
+                Topic: {scenario.topic} | Max Outlets: {scenario.outlets}
+              </Typography>
+              <Typography variant="caption" color="text.secondary">
+                {scenario.expect}
+              </Typography>
+            </Paper>
+          ))}
+        </Stack>
+
         <Divider sx={{ my: 4, opacity: 0.2 }} />
 
         {/* What to Look For */}
@@ -353,6 +486,7 @@ export const TestGuideDialog = ({ open, onClose }: Props) => {
                 "Does the app crash on any action?",
                 "Are error messages clear and helpful?",
                 "Does a failed analysis leave the UI in a broken state?",
+                "Does switching between Outlet Mode and Topic Mode work cleanly?",
               ],
             },
             {
@@ -361,8 +495,21 @@ export const TestGuideDialog = ({ open, onClose }: Props) => {
               items: [
                 "Does the briefing contain hallucinated URLs or fake claims?",
                 "Are confidence levels reasonable or inflated?",
-                "Does the narrative detection make false positives?",
+                "Does narrative detection produce false positives?",
+                "In Topic Mode, do divergence scores make intuitive sense?",
+                "Is the baseline neutral coverage accurate and well-sourced?",
                 "Is the output professional enough for an analyst?",
+              ],
+            },
+            {
+              icon: <DashboardIcon sx={{ color: "#3b82f6" }} />,
+              title: "Dashboard & Monitoring",
+              items: [
+                "Do all dashboard panels load and render data?",
+                "Does the global map display correctly?",
+                "Do event clusters and narrative trends update?",
+                "Is the intel feed showing recent articles?",
+                "Does the outlet network graph render relationships?",
               ],
             },
             {
@@ -373,6 +520,8 @@ export const TestGuideDialog = ({ open, onClose }: Props) => {
                 "Do buttons/links do what you expect?",
                 "Does the layout break on smaller screens?",
                 "Is loading state clear (do you know something is happening)?",
+                "Is navigation between Monitoring, Reports, and Analysis intuitive?",
+                "Do keyboard shortcuts work? (Ctrl+N for new analysis, Ctrl+R to refresh, Shift+? for help)",
               ],
             },
           ].map((section, i) => (
@@ -414,8 +563,9 @@ export const TestGuideDialog = ({ open, onClose }: Props) => {
             Done testing?
           </Typography>
           <Typography variant="body2">
-            Please use the <strong>"Leave Feedback"</strong> button in the sidebar to submit your findings.
-            Your feedback directly improves this tool — be honest and specific!
+            Please use the <strong>"Leave Feedback"</strong> button in the sidebar to submit your findings. Cover
+            every feature you tested — Outlet Analysis, Topic Analysis, Monitoring Dashboard, and Reports. Be honest
+            and specific — your feedback directly improves this tool!
           </Typography>
         </Alert>
       </Container>
