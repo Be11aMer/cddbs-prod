@@ -21,7 +21,8 @@ This is the central developer reference for the **Counter-Disinformation Databas
 10. [Deployment](#10-deployment)
 11. [Testing](#11-testing)
 12. [CI/CD](#12-cicd)
-13. [Contributor Guide](#13-contributor-guide)
+13. [Branching Strategy](#13-branching-strategy)
+14. [Contributor Guide](#14-contributor-guide)
 
 ---
 
@@ -959,22 +960,105 @@ Tests use an **in-memory SQLite database** (configured in `tests/conftest.py`) t
 
 ### GitHub Actions (`.github/workflows/ci.yml`)
 
-Triggered on push/PR to `main`/`master`. Four jobs:
+Triggered on push/PR to `main`/`master`/`development`. Four jobs:
 
 1. **lint** — Installs `ruff`, runs `ruff check src/ tests/`
 2. **test** — Spins up PostgreSQL 15 service, runs `pytest tests/ -v`
 3. **docs-drift** — Runs `scripts/check_docs_drift.py` to verify README.md and DEVELOPER.md are in sync with the codebase. Checks API endpoints, database models, environment variables, frontend components, and Python dependencies. **Fails the build if documentation has drifted** — required for EU CRA compliance.
 4. **frontend-build** — Installs npm dependencies, runs `npm run build` (type-check + bundle)
 
+### Branch Policy (`.github/workflows/branch-policy.yml`)
+
+Triggered on PRs to `main`/`master`/`development`. Enforces the branching strategy:
+- **PRs to `main`:** Only the `development` branch is allowed as source. All other branches are rejected.
+- **PRs to `development`:** Warns if the branch is not based on `development`.
+
+See [Branching Strategy](#13-branching-strategy) for full details.
+
 ---
 
-## 13. Contributor Guide
+## 13. Branching Strategy
 
-### 13.1 Development Setup
+### 13.1 Overview
+
+This project uses a **two-tier branching model**:
+
+- **`main`** — Production-only. Contains tested, release-ready code. Deployments are made from this branch. **No direct commits or feature branches are allowed from `main`.**
+- **`development`** — Active development branch. All feature branches, bugfix branches, and other work branches **must be created from `development`** and merged back into `development`.
+
+```
+main  ◄──────────────── (release merges only) ──── development
+                                                       │
+                                          ┌────────────┼────────────┐
+                                          │            │            │
+                                     feature/X    bugfix/Y    feature/Z
+```
+
+### 13.2 Rules
+
+1. **All new branches must be created from `development`**, never from `main`.
+2. **All feature/bugfix PRs must target `development`**, never `main`.
+3. **Only `development` can merge into `main`**, via a release PR after testing.
+4. **Direct commits to `main` are not allowed** (enforce via GitHub branch protection).
+5. **Direct commits to `development` are discouraged** — use feature branches.
+
+### 13.3 Workflow
+
+**Starting new work:**
+```bash
+git checkout development
+git pull origin development
+git checkout -b feature/my-feature    # or bugfix/my-bug, chore/my-task
+# ... make changes ...
+git push -u origin feature/my-feature
+# Create PR targeting 'development'
+```
+
+**Releasing to production:**
+```bash
+git checkout development
+git pull origin development
+# Ensure all tests pass and code is stable
+# Create PR: development → main
+# After review and merge, main is deployed
+```
+
+### 13.4 Enforcement
+
+Branch policy is enforced at three levels:
+
+| Level | Mechanism | What It Does |
+|---|---|---|
+| **CI** | `.github/workflows/branch-policy.yml` | Fails PRs to `main` from any branch except `development`. Warns on PRs to `development` that are not based on `development`. |
+| **Local** | `scripts/install-hooks.sh` (pre-push hook) | Blocks pushing feature branches that were created from `main` instead of `development`. |
+| **GitHub** | Branch protection rules (manual setup) | Require PR reviews, require status checks to pass, restrict who can push to `main`. |
+
+**Setting up local enforcement:**
+```bash
+bash scripts/install-hooks.sh
+```
+
+**Recommended GitHub branch protection settings for `main`:**
+- Require pull request reviews before merging
+- Require status checks to pass (CI, branch-policy)
+- Restrict pushes to `main` (no direct pushes)
+- Do not allow bypassing the above settings
+
+---
+
+## 14. Contributor Guide
+
+### 14.1 Development Setup
 
 ```bash
 # Clone and enter the project
 git clone <repo-url> && cd cddbs-prod
+
+# Switch to the development branch (all work starts here)
+git checkout development
+
+# Install git hooks for branch policy enforcement
+bash scripts/install-hooks.sh
 
 # Create a .env file from the template
 cp .env.example .env  # edit with your API keys
@@ -991,7 +1075,7 @@ uvicorn src.cddbs.api.main:app --reload --port 8000
 cd frontend && npm install && npm run dev
 ```
 
-### 13.2 Adding a New API Endpoint
+### 14.2 Adding a New API Endpoint
 
 1. Add Pydantic request/response models in `src/cddbs/api/main.py`
 2. Add the endpoint function with `@app.get()` or `@app.post()`
@@ -999,14 +1083,14 @@ cd frontend && npm install && npm run dev
 4. Write tests in `tests/test_api.py`
 5. Update this documentation
 
-### 13.3 Adding a New Collector
+### 14.3 Adding a New Collector
 
 1. Create `src/cddbs/collectors/my_source.py` extending `BaseCollector`
 2. Implement `name`, `source_type`, and `collect()` method
 3. Add the collector instance to `CollectorManager.__init__()` in `manager.py`
 4. Test by running the application and checking `/collector/status`
 
-### 13.4 Adding a New Narrative
+### 14.4 Adding a New Narrative
 
 Edit `src/cddbs/data/known_narratives.json`:
 ```json
@@ -1022,7 +1106,7 @@ Edit `src/cddbs/data/known_narratives.json`:
 
 The keyword threshold for a match is 2 by default — ensure at least 2 distinctive keywords.
 
-### 13.5 Modifying the Briefing Prompt
+### 14.5 Modifying the Briefing Prompt
 
 The system prompt is in `src/cddbs/data/system_prompt_v1.3.txt`. The user prompt template is in `src/cddbs/pipeline/prompt_templates.py`. If you change the briefing JSON structure:
 
@@ -1032,7 +1116,7 @@ The system prompt is in `src/cddbs/data/system_prompt_v1.3.txt`. The user prompt
 4. Update `ReportViewDialog.tsx` rendering
 5. Bump the prompt version in `Briefing.prompt_version`
 
-### 13.6 Documentation Updates
+### 14.6 Documentation Updates
 
 **This file (`DEVELOPER.md`) is the single source of truth for developer documentation.** Update it whenever you:
 - Add/remove an API endpoint
