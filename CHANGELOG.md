@@ -3,6 +3,50 @@
 All notable changes to the CDDBS (Cyber Disinformation Detection Briefing System) project
 are documented in this file.
 
+## [2026.03.1] - 2026-03-18
+
+### Sprint 7: Intelligence Layer
+
+This release adds the intelligence layer that transforms raw ingested articles
+into actionable event clusters with risk scoring.
+
+### Added
+
+- **TF-IDF event clustering pipeline** (`pipeline/event_clustering.py`) —
+  Agglomerative clustering on TF-IDF vectors groups related articles into
+  EventCluster records with title, keywords, countries, and event type
+  classification (conflict, protest, diplomacy, disaster, cyber, info_warfare).
+- **Z-score burst detection** (`pipeline/burst_detection.py`) — Detects
+  keyword frequency spikes using rolling 24h baseline and z-score threshold
+  (default 3.0). Creates NarrativeBurst records for active spikes.
+- **Narrative risk scoring** (`pipeline/narrative_risk.py`) — 4-signal
+  composite score (0-1) per event cluster: source concentration, burst
+  magnitude, timing synchronization, and known narrative match.
+- **Automated processing pipeline** — Clustering, burst detection, and risk
+  scoring run automatically after each collector cycle via CollectorManager.
+- **Events API endpoints**:
+  - `GET /events` — List event clusters with filters (type, country, status,
+    min_risk, limit, offset)
+  - `GET /events/{id}` — Event detail with full article list and keywords
+  - `GET /events/map` — Events grouped by country for map visualization
+  - `GET /events/bursts` — Active narrative bursts with z-scores
+- **BurstTimeline.tsx** — New dashboard component showing active keyword
+  frequency spikes ranked by z-score, with threshold indicator and frequency
+  bars.
+- **GlobalMap event overlay** — Map now shows event cluster data: countries
+  with active events get highlighted borders, tooltips show event counts and
+  risk scores.
+- **MonitoringDashboard layout update** — Bottom row now includes 4 panels:
+  Event Clusters, Burst Timeline, Active Narratives, and Country Risk Index.
+- **49 new Sprint 7 tests** across 3 test files:
+  - `test_event_clustering.py` — 12 tests (classification, cluster creation,
+    edge cases)
+  - `test_burst_detection.py` — 14 tests (z-score, hourly frequencies, spike
+    detection)
+  - `test_narrative_risk.py` — 23 tests (all 4 risk signals, composite score,
+    edge cases)
+  - `test_events_api.py` — Events API endpoint integration tests
+
 ## [2026.03] - 2026-03-11
 
 ### First production release

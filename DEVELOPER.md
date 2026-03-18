@@ -812,7 +812,8 @@ The Gemini response produces this 7-section structure:
 | `NarrativeBarChart` | `NarrativeBarChart.tsx` | Top narratives bar chart |
 | `NarrativeTrendPanel` | `NarrativeTrendPanel.tsx` | Narrative trends over time |
 | `OutletNetworkGraph` | `OutletNetworkGraph.tsx` | Outlet relationship graph |
-| `EventClusterPanel` | `EventClusterPanel.tsx` | Active event clusters |
+| `EventClusterPanel` | `EventClusterPanel.tsx` | Active event clusters with detail dialog |
+| `BurstTimeline` | `BurstTimeline.tsx` | Narrative burst keyword frequency spikes (z-score) |
 | `CountryRiskIndex` | `CountryRiskIndex.tsx` | Country risk ranking |
 | `QualityRadarChart` | `QualityRadarChart.tsx` | 7-dimension quality radar |
 | `QualityBadge` | `QualityBadge.tsx` | Quality rating badge |
