@@ -13,6 +13,7 @@ import { IntelFeed } from "./IntelFeed";
 import { NarrativeTrendPanel } from "./NarrativeTrendPanel";
 import { CountryRiskIndex } from "./CountryRiskIndex";
 import { EventClusterPanel } from "./EventClusterPanel";
+import { BurstTimeline } from "./BurstTimeline";
 import { CollectorStatusBar } from "./CollectorStatusBar";
 import { MetricCard } from "./MetricCard";
 import { MetricCardSkeleton } from "./Skeletons";
@@ -215,19 +216,24 @@ export const MonitoringDashboard = () => {
         </Grid>
       </Grid>
 
-      {/* Bottom row: Event Clusters + Narrative Trends + Country Risk */}
+      {/* Bottom row: Event Clusters + Burst Timeline + Narrative Trends + Country Risk */}
       <Grid container spacing={2}>
-        <Grid item xs={12} md={4}>
+        <Grid item xs={12} md={3}>
           <Box sx={{ height: 360 }}>
             <EventClusterPanel />
           </Box>
         </Grid>
-        <Grid item xs={12} md={4}>
+        <Grid item xs={12} md={3}>
+          <Box sx={{ height: 360 }}>
+            <BurstTimeline />
+          </Box>
+        </Grid>
+        <Grid item xs={12} md={3}>
           <Box sx={{ height: 360 }}>
             <NarrativeTrendPanel />
           </Box>
         </Grid>
-        <Grid item xs={12} md={4}>
+        <Grid item xs={12} md={3}>
           <Box sx={{ height: 360 }}>
             <CountryRiskIndex />
           </Box>
