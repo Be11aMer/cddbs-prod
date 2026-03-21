@@ -16,7 +16,9 @@ import CloseFullscreenIcon from "@mui/icons-material/CloseFullscreen";
 import CloseIcon from "@mui/icons-material/Close";
 import PublicIcon from "@mui/icons-material/Public";
 import { ComposableMap, Geographies, Geography, ZoomableGroup } from "react-simple-maps";
-import type { CountryStatItem } from "../api";
+import { useQuery } from "@tanstack/react-query";
+import type { CountryStatItem, EventMapItem } from "../api";
+import { fetchEventMap } from "../api";
 
 const GEO_URL = "https://cdn.jsdelivr.net/npm/world-atlas@2/countries-110m.json";
 
@@ -69,23 +71,26 @@ interface HoveredCountry {
   x: number;
   y: number;
   stat?: CountryStatItem;
+  event?: EventMapItem;
 }
 
 interface MapViewProps {
   countryData: Map<string, CountryStatItem>;
+  eventData?: Map<string, EventMapItem>;
   expanded?: boolean;
 }
 
-const MapView = memo(({ countryData, expanded = false }: MapViewProps) => {
+const MapView = memo(({ countryData, eventData, expanded = false }: MapViewProps) => {
   const [hovered, setHovered] = useState<HoveredCountry | null>(null);
 
   const handleMouseEnter = useCallback(
     (geo: { properties: { name: string } }, evt: React.MouseEvent) => {
       const name = geo.properties.name;
       const stat = countryData.get(name);
-      setHovered({ name, x: evt.clientX, y: evt.clientY, stat });
+      const event = eventData?.get(name);
+      setHovered({ name, x: evt.clientX, y: evt.clientY, stat, event });
     },
-    [countryData]
+    [countryData, eventData]
   );
 
   const handleMouseMove = useCallback((evt: React.MouseEvent) => {
@@ -113,7 +118,10 @@ const MapView = memo(({ countryData, expanded = false }: MapViewProps) => {
                     break;
                   }
                 }
+                const eventStat = eventData?.get(geo.properties.name);
                 const risk = stat?.risk_score ?? 0;
+                const hasEvents = eventStat && eventStat.event_count > 0;
+                const effectiveRisk = hasEvents ? Math.max(risk, eventStat.avg_risk_score * 100) : risk;
                 const isHovered = hovered?.name === geo.properties.name;
 
                 return (
@@ -124,20 +132,20 @@ const MapView = memo(({ countryData, expanded = false }: MapViewProps) => {
                     onMouseLeave={handleMouseLeave}
                     style={{
                       default: {
-                        fill: getRiskColor(risk, stat ? 0.85 : 0.15),
-                        stroke: "rgba(148,163,184,0.15)",
-                        strokeWidth: 0.5,
+                        fill: getRiskColor(effectiveRisk, stat || hasEvents ? 0.85 : 0.15),
+                        stroke: hasEvents ? "rgba(239,68,68,0.4)" : "rgba(148,163,184,0.15)",
+                        strokeWidth: hasEvents ? 1 : 0.5,
                         outline: "none",
                       },
                       hover: {
-                        fill: getRiskColor(risk, 1),
+                        fill: getRiskColor(effectiveRisk, 1),
                         stroke: "rgba(255,255,255,0.4)",
                         strokeWidth: 1,
                         outline: "none",
                         cursor: "pointer",
                       },
                       pressed: {
-                        fill: getRiskColor(risk, 1),
+                        fill: getRiskColor(effectiveRisk, 1),
                         stroke: "rgba(255,255,255,0.6)",
                         strokeWidth: 1,
                         outline: "none",
@@ -200,6 +208,21 @@ const MapView = memo(({ countryData, expanded = false }: MapViewProps) => {
                     Avg quality: {hovered.stat.avg_quality}/70
                   </Typography>
                 )}
+                {hovered.event && hovered.event.event_count > 0 && (
+                  <Typography variant="caption" sx={{ display: "block", color: "#ef4444", mt: 0.25 }}>
+                    {hovered.event.event_count} active events · risk: {(hovered.event.avg_risk_score * 100).toFixed(0)}%
+                  </Typography>
+                )}
+              </>
+            ) : hovered.event && hovered.event.event_count > 0 ? (
+              <>
+                <Typography variant="caption" sx={{ display: "block", color: "#ef4444" }}>
+                  {hovered.event.event_count} active events
+                </Typography>
+                <Typography variant="caption" color="text.secondary" sx={{ display: "block" }}>
+                  Avg risk: {(hovered.event.avg_risk_score * 100).toFixed(0)}%
+                  {hovered.event.top_event_type && ` · ${hovered.event.top_event_type}`}
+                </Typography>
               </>
             ) : (
               <Typography variant="caption" color="text.secondary">
@@ -231,9 +254,10 @@ const MapView = memo(({ countryData, expanded = false }: MapViewProps) => {
           { color: "rgba(245, 158, 11, 0.85)", label: "Elevated" },
           { color: "rgba(59, 130, 246, 0.85)", label: "Monitored" },
           { color: "rgba(30, 58, 138, 0.15)", label: "No Data" },
-        ].map(({ color, label }) => (
+          { color: "rgba(239, 68, 68, 0.4)", label: "Active Events", border: true },
+        ].map(({ color, label, border }) => (
           <Box key={label} sx={{ display: "flex", alignItems: "center", gap: 1 }}>
-            <Box sx={{ width: 10, height: 10, borderRadius: 0.5, backgroundColor: color, flexShrink: 0 }} />
+            <Box sx={{ width: 10, height: 10, borderRadius: 0.5, backgroundColor: border ? "transparent" : color, border: border ? `2px solid ${color}` : "none", flexShrink: 0 }} />
             <Typography variant="caption" sx={{ fontSize: "0.62rem", color: "text.secondary", lineHeight: 1 }}>
               {label}
             </Typography>
@@ -253,8 +277,19 @@ interface GlobalMapProps {
 export const GlobalMap = ({ countryStats }: GlobalMapProps) => {
   const [expanded, setExpanded] = useState(false);
 
+  const { data: eventMapData } = useQuery({
+    queryKey: ["event-map"],
+    queryFn: fetchEventMap,
+    refetchInterval: 30 * 1000,
+    staleTime: 15 * 1000,
+  });
+
   const countryData = new Map<string, CountryStatItem>(
     countryStats.map((s) => [s.country, s])
+  );
+
+  const eventData = new Map<string, EventMapItem>(
+    (eventMapData ?? []).map((e) => [e.country, e])
   );
 
   const monitoredCount = countryStats.length;
@@ -327,7 +362,7 @@ export const GlobalMap = ({ countryStats }: GlobalMapProps) => {
 
         {/* Map */}
         <Box sx={{ flexGrow: 1, minHeight: 0, position: "relative" }}>
-          <MapView countryData={countryData} />
+          <MapView countryData={countryData} eventData={eventData} />
         </Box>
       </Box>
 
@@ -406,7 +441,7 @@ export const GlobalMap = ({ countryStats }: GlobalMapProps) => {
         <DialogContent sx={{ p: 0, flexGrow: 1, display: "flex", overflow: "hidden" }}>
           {/* Expanded map */}
           <Box sx={{ flexGrow: 1, position: "relative", minWidth: 0 }}>
-            <MapView countryData={countryData} expanded />
+            <MapView countryData={countryData} eventData={eventData} expanded />
           </Box>
 
           {/* Side panel: country risk list - hidden on mobile */}
