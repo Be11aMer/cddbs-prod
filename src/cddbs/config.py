@@ -21,6 +21,11 @@ class Settings:
     DB_POOL_SIZE = int(os.getenv("DB_POOL_SIZE", "5"))
     DB_MAX_OVERFLOW = int(os.getenv("DB_MAX_OVERFLOW", "10"))
 
+    # GDELT proxy — Cloudflare Worker URL that forwards to GDELT Doc API.
+    # Bypasses datacenter IP rate-limiting on Render/Fly free tiers.
+    # Leave empty to hit GDELT directly (likely blocked on shared IPs).
+    GDELT_PROXY_URL = os.getenv("GDELT_PROXY_URL", "")
+
     # Twitter/X API v2 credentials
     TWITTER_BEARER_TOKEN = os.getenv("TWITTER_BEARER_TOKEN", "")
     TWITTER_API_KEY = os.getenv("TWITTER_API_KEY", "")
