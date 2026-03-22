@@ -89,6 +89,8 @@ class TopicRun(Base):
     status           = Column(String, default="pending")   # pending/running/completed/failed
     baseline_summary = Column(Text, nullable=True)         # Gemini neutral baseline prose
     baseline_raw     = Column(Text, nullable=True)         # raw Gemini JSON response
+    coordination_signal = Column(Float, nullable=True)     # 0.0-1.0 — fraction of high-divergence outlets sharing ≥2 techniques
+    coordination_detail = Column(JSON, nullable=True)      # {shared_techniques: [...], coordinated_outlets: [...]}
     created_at       = Column(DateTime, default=lambda: datetime.now(UTC))
     completed_at     = Column(DateTime, nullable=True)
     error            = Column(Text, nullable=True)
@@ -111,6 +113,8 @@ class TopicOutletResult(Base):
     propaganda_techniques = Column(JSON, nullable=True)     # list[str]
     framing_summary       = Column(Text, nullable=True)
     divergence_explanation = Column(Text, nullable=True)
+    key_claims            = Column(JSON, nullable=True)     # list[str] — specific claims made by outlet
+    omissions             = Column(JSON, nullable=True)     # list[str] — key facts omitted vs baseline
     gemini_raw            = Column(Text, nullable=True)
     article_links         = Column(JSON, nullable=True)     # [{title, url, date}]
     created_at            = Column(DateTime, default=lambda: datetime.now(UTC))
