@@ -11,3 +11,6 @@ google-genai
 pytest-cov
 feedparser>=6.0
 scikit-learn>=1.4
+# CI / supply chain security (not imported at runtime)
+cyclonedx-bom>=4.0
+pip-audit>=2.7

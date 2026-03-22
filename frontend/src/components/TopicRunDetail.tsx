@@ -10,15 +10,17 @@ import {
   Tooltip,
   Link,
   CircularProgress,
+  Alert,
 } from "@mui/material";
 import ExpandMoreIcon from "@mui/icons-material/ExpandMore";
 import ExpandLessIcon from "@mui/icons-material/ExpandLess";
 import TravelExploreIcon from "@mui/icons-material/TravelExplore";
 import VerifiedIcon from "@mui/icons-material/Verified";
 import WarningAmberIcon from "@mui/icons-material/WarningAmber";
+import ReportProblemIcon from "@mui/icons-material/ReportProblem";
 import OpenInNewIcon from "@mui/icons-material/OpenInNew";
 import { useQuery } from "@tanstack/react-query";
-import { fetchTopicRun, type TopicOutletResult } from "../api";
+import { fetchTopicRun, type TopicOutletResult, type CoordinationDetail } from "../api";
 import { useState } from "react";
 
 // ---------------------------------------------------------------------------
@@ -46,6 +48,106 @@ function getAmplificationColor(signal: string | null): string {
   if (signal === "medium") return "#f59e0b";
   return "#10b981";
 }
+
+// ---------------------------------------------------------------------------
+// Coordination banner
+// ---------------------------------------------------------------------------
+
+function CoordinationBanner({
+  signal,
+  detail,
+}: {
+  signal: number;
+  detail: CoordinationDetail | null;
+}) {
+  const [expanded, setExpanded] = useState(false);
+  const pct = Math.round(signal * 100);
+  const isHigh = signal >= 0.5;
+  const color = isHigh ? "#ef4444" : signal >= 0.25 ? "#f59e0b" : "#3b82f6";
+  const label = isHigh ? "HIGH COORDINATION RISK" : signal >= 0.25 ? "MODERATE COORDINATION RISK" : "LOW COORDINATION SIGNAL";
+
+  return (
+    <Paper
+      sx={{
+        border: `1px solid ${color}33`,
+        backgroundColor: `${color}08`,
+        borderRadius: 2,
+        overflow: "hidden",
+      }}
+    >
+      <Box
+        sx={{
+          display: "flex", alignItems: "center", gap: 1.5, px: 2, py: 1.25,
+          cursor: detail ? "pointer" : "default",
+          "&:hover": detail ? { backgroundColor: `${color}06` } : {},
+        }}
+        onClick={() => detail && setExpanded((e) => !e)}
+      >
+        <ReportProblemIcon sx={{ fontSize: 16, color, flexShrink: 0 }} />
+        <Box sx={{ flex: 1, minWidth: 0 }}>
+          <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+            <Typography variant="caption" fontWeight={800} sx={{ fontSize: "0.72rem", color, letterSpacing: "0.04em" }}>
+              {label}
+            </Typography>
+            <Chip
+              label={`${pct}%`}
+              size="small"
+              sx={{
+                height: 16, fontSize: "0.6rem", fontWeight: 800,
+                backgroundColor: `${color}18`, color,
+                border: `1px solid ${color}33`,
+                "& .MuiChip-label": { px: 0.75 },
+              }}
+            />
+          </Box>
+          <Typography variant="caption" color="text.secondary" sx={{ fontSize: "0.65rem" }}>
+            {detail
+              ? `${detail.coordinated_outlets.length} of ${detail.total_outlet_count} outlets share narrative techniques — potential coordinated messaging`
+              : "No significant coordination detected across high-divergence outlets"}
+          </Typography>
+        </Box>
+        {detail && (
+          <IconButton size="small" sx={{ p: 0.25, color }}>
+            {expanded ? <ExpandLessIcon fontSize="small" /> : <ExpandMoreIcon fontSize="small" />}
+          </IconButton>
+        )}
+      </Box>
+
+      {detail && (
+        <Collapse in={expanded}>
+          <Divider sx={{ borderColor: `${color}18` }} />
+          <Box sx={{ px: 2, py: 1.25 }}>
+            <Typography variant="caption" fontWeight={700} color="text.disabled" sx={{ fontSize: "0.62rem", textTransform: "uppercase", letterSpacing: "0.06em" }}>
+              Shared Techniques
+            </Typography>
+            <Box sx={{ mt: 0.5, mb: 1.25, display: "flex", flexWrap: "wrap", gap: 0.5 }}>
+              {detail.shared_techniques.map((t, i) => (
+                <Chip
+                  key={i}
+                  label={t}
+                  size="small"
+                  sx={{
+                    height: 18, fontSize: "0.62rem", fontWeight: 600,
+                    backgroundColor: `${color}12`, color,
+                    border: `1px solid ${color}28`,
+                    "& .MuiChip-label": { px: 0.75 },
+                  }}
+                />
+              ))}
+            </Box>
+            <Typography variant="caption" fontWeight={700} color="text.disabled" sx={{ fontSize: "0.62rem", textTransform: "uppercase", letterSpacing: "0.06em" }}>
+              Coordinated Outlets
+            </Typography>
+            <Typography variant="caption" color="text.secondary" sx={{ fontSize: "0.72rem", display: "block", mt: 0.5 }}>
+              {detail.coordinated_outlets.join(" · ")}
+            </Typography>
+          </Box>
+        </Collapse>
+      )}
+    </Paper>
+  );
+}
+
 
 // ---------------------------------------------------------------------------
 // Outlet card
@@ -146,7 +248,7 @@ function OutletCard({ result }: { result: TopicOutletResult }) {
       )}
 
       {/* Expandable detail */}
-      {(result.divergence_explanation || (result.article_links && result.article_links.length > 0)) && (
+      {(result.divergence_explanation || result.key_claims?.length || result.omissions?.length || result.article_links?.length) && (
         <>
           <Box
             sx={{
@@ -165,15 +267,51 @@ function OutletCard({ result }: { result: TopicOutletResult }) {
           </Box>
 
           <Collapse in={expanded}>
-            <Box sx={{ px: 2, pb: 1.5 }}>
+            <Box sx={{ px: 2, pb: 1.5, display: "flex", flexDirection: "column", gap: 1.5 }}>
               {result.divergence_explanation && (
-                <Box sx={{ mb: 1.5 }}>
+                <Box>
                   <Typography variant="caption" fontWeight={700} color="text.disabled" sx={{ fontSize: "0.65rem", textTransform: "uppercase", letterSpacing: "0.06em" }}>
                     Analyst Notes
                   </Typography>
                   <Typography variant="body2" sx={{ mt: 0.5, fontSize: "0.78rem", lineHeight: 1.55, color: "text.secondary" }}>
                     {result.divergence_explanation}
                   </Typography>
+                </Box>
+              )}
+
+              {/* Key claims made by this outlet (not in neutral baseline) */}
+              {result.key_claims && result.key_claims.length > 0 && (
+                <Box>
+                  <Typography variant="caption" fontWeight={700} color="text.disabled" sx={{ fontSize: "0.65rem", textTransform: "uppercase", letterSpacing: "0.06em" }}>
+                    Key Claims by Outlet
+                  </Typography>
+                  <Box component="ul" sx={{ mt: 0.5, mb: 0, pl: 2, display: "flex", flexDirection: "column", gap: 0.3 }}>
+                    {result.key_claims.map((claim, i) => (
+                      <Box component="li" key={i}>
+                        <Typography variant="caption" sx={{ fontSize: "0.74rem", color: "text.secondary", lineHeight: 1.5 }}>
+                          {claim}
+                        </Typography>
+                      </Box>
+                    ))}
+                  </Box>
+                </Box>
+              )}
+
+              {/* Facts omitted vs. neutral baseline */}
+              {result.omissions && result.omissions.length > 0 && (
+                <Box>
+                  <Typography variant="caption" fontWeight={700} sx={{ fontSize: "0.65rem", textTransform: "uppercase", letterSpacing: "0.06em", color: "#f59e0b" }}>
+                    Baseline Facts Omitted
+                  </Typography>
+                  <Box component="ul" sx={{ mt: 0.5, mb: 0, pl: 2, display: "flex", flexDirection: "column", gap: 0.3 }}>
+                    {result.omissions.map((omission, i) => (
+                      <Box component="li" key={i}>
+                        <Typography variant="caption" sx={{ fontSize: "0.74rem", color: "#d97706", lineHeight: 1.5 }}>
+                          {omission}
+                        </Typography>
+                      </Box>
+                    ))}
+                  </Box>
                 </Box>
               )}
 
@@ -350,6 +488,14 @@ export const TopicRunDetail = ({ topicRunId }: Props) => {
             </Box>
           </Collapse>
         </Paper>
+      )}
+
+      {/* Coordination signal — shown once pipeline completes */}
+      {data.status === "completed" && data.coordination_signal !== null && data.coordination_signal !== undefined && data.coordination_signal > 0 && (
+        <CoordinationBanner
+          signal={data.coordination_signal}
+          detail={data.coordination_detail ?? null}
+        />
       )}
 
       {/* Outlet results */}

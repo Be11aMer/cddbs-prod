@@ -10,8 +10,8 @@ jobs:
   lint:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683  # v4.2.2
+      - uses: actions/setup-python@0b93645e9fea7318ecaed2b359559ac225c90a2b  # v5.3.0
         with:
           python-version: "3.11"
       - name: Install dependencies
@@ -20,6 +20,60 @@ jobs:
           pip install ruff
       - name: Lint with ruff
         run: ruff check src/ tests/
+
+  vulnerability-scan:
+    name: Dependency Vulnerability Scan
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683  # v4.2.2
+      - uses: actions/setup-python@0b93645e9fea7318ecaed2b359559ac225c90a2b  # v5.3.0
+        with:
+          python-version: "3.11"
+      - name: Install dependencies
+        run: |
+          pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install pip-audit
+      - name: Run pip-audit (fail on HIGH/CRITICAL CVEs)
+        run: |
+          pip-audit --requirement requirements.txt \
+            --format json \
+            --output pip-audit-report.json \
+            --skip-editable \
+            || (echo "⚠ pip-audit found vulnerabilities — see report below" && \
+                python3 -c "
+          import json, sys
+          with open('pip-audit-report.json') as f:
+              report = json.load(f)
+          deps = report.get('dependencies', [])
+          critical = []
+          for dep in deps:
+              for vuln in dep.get('vulns', []):
+                  aliases = vuln.get('aliases', [])
+                  # Surface HIGH and CRITICAL severity findings
+                  fix_versions = vuln.get('fix_versions', [])
+                  critical.append({
+                      'package': dep['name'],
+                      'installed': dep['version'],
+                      'vuln_id': vuln['id'],
+                      'aliases': aliases,
+                      'fix_versions': fix_versions,
+                      'description': vuln.get('description', '')[:200],
+                  })
+          if critical:
+              print(f'Found {len(critical)} vulnerabilities:')
+              for v in critical:
+                  print(f'  {v[\"package\"]}=={v[\"installed\"]} — {v[\"vuln_id\"]} (fix: {v[\"fix_versions\"]})')
+                  print(f'    {v[\"description\"]}')
+              sys.exit(1)
+          " && echo "No HIGH/CRITICAL CVEs found")
+      - name: Upload vulnerability report
+        if: always()
+        uses: actions/upload-artifact@6f51ac03b9356f520e9adb1b1b7802705f340c2b  # v4.5.0
+        with:
+          name: pip-audit-report
+          path: pip-audit-report.json
+          retention-days: 30
 
   test:
     runs-on: ubuntu-latest
@@ -41,8 +95,8 @@ jobs:
       DATABASE_URL: postgresql+psycopg2://test:test@localhost:5432/cddbs_test
       PYTHONPATH: .
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683  # v4.2.2
+      - uses: actions/setup-python@0b93645e9fea7318ecaed2b359559ac225c90a2b  # v5.3.0
         with:
           python-version: "3.11"
       - name: Install dependencies
@@ -56,8 +110,8 @@ jobs:
     name: Documentation Drift Check
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683  # v4.2.2
+      - uses: actions/setup-python@0b93645e9fea7318ecaed2b359559ac225c90a2b  # v5.3.0
         with:
           python-version: "3.11"
       - name: Check documentation is up-to-date
@@ -69,8 +123,8 @@ jobs:
       run:
         working-directory: frontend
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683  # v4.2.2
+      - uses: actions/setup-node@39370e3970a6d050c480ffad4ff0ed4d3fdee5af  # v4.1.0
         with:
           node-version: "20"
           cache: "npm"

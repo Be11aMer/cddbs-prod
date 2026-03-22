@@ -286,6 +286,8 @@ def run_topic_pipeline(
                 propaganda_techniques=comp.get("propaganda_techniques"),
                 framing_summary=comp.get("framing_summary"),
                 divergence_explanation=comp.get("divergence_explanation"),
+                key_claims=comp.get("key_claims_by_outlet"),
+                omissions=comp.get("omissions"),
                 gemini_raw=comp_raw,
                 article_links=article_links,
             )
@@ -294,7 +296,52 @@ def run_topic_pipeline(
             print(f"DEBUG topic: Committed result for {domain}, divergence_score={result.divergence_score}")
 
         # ------------------------------------------------------------------
-        # Step 5 — Finalize
+        # Step 5 — Coordination signal
+        # Detect potential coordinated narrative pushing: outlets with divergence ≥60
+        # that share ≥2 propaganda techniques are flagged as a coordination cluster.
+        # ------------------------------------------------------------------
+        print("DEBUG topic: Step 5 — computing coordination signal")
+        all_results = (
+            session.query(models.TopicOutletResult)
+            .filter(models.TopicOutletResult.topic_run_id == topic_run_id)
+            .all()
+        )
+        high_divergence = [
+            r for r in all_results
+            if r.divergence_score is not None and r.divergence_score >= 60
+            and r.propaganda_techniques
+        ]
+
+        coordination_signal = 0.0
+        coordination_detail: Dict = {}
+        if len(high_divergence) >= 2:
+            # Build a frequency map of propaganda techniques across high-divergence outlets
+            technique_outlets: Dict[str, List[str]] = {}
+            for r in high_divergence:
+                for tech in (r.propaganda_techniques or []):
+                    tech_lower = tech.lower().strip()
+                    technique_outlets.setdefault(tech_lower, []).append(r.outlet_domain or r.outlet_name)
+
+            # Techniques shared by ≥2 high-divergence outlets
+            shared = {tech: outlets for tech, outlets in technique_outlets.items() if len(outlets) >= 2}
+
+            if shared:
+                # Coordination signal = fraction of high-divergence outlets involved in any shared technique
+                coordinated_outlet_set = {o for outlets in shared.values() for o in outlets}
+                coordination_signal = round(len(coordinated_outlet_set) / max(len(all_results), 1), 3)
+                coordination_detail = {
+                    "shared_techniques": list(shared.keys()),
+                    "coordinated_outlets": list(coordinated_outlet_set),
+                    "high_divergence_outlet_count": len(high_divergence),
+                    "total_outlet_count": len(all_results),
+                }
+                print(f"DEBUG topic: Coordination signal={coordination_signal}, shared={list(shared.keys())}")
+
+        topic_run.coordination_signal = coordination_signal
+        topic_run.coordination_detail = coordination_detail if coordination_detail else None
+
+        # ------------------------------------------------------------------
+        # Step 6 — Finalize
         # ------------------------------------------------------------------
         topic_run.status = "completed"
         topic_run.completed_at = datetime.now(UTC)
