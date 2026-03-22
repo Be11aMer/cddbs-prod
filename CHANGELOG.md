@@ -3,6 +3,61 @@
 All notable changes to the CDDBS (Cyber Disinformation Detection Briefing System) project
 are documented in this file.
 
+## [2026.04.1] - 2026-03-22
+
+### Sprint 8: Topic Mode Innovations, Supply Chain Security & AI Disclosure
+
+This release delivers three areas of innovation on top of the existing Sprint 7 platform.
+
+### Added
+
+- **Topic Mode: Coordinated Narrative Detection** — After all per-outlet analyses complete,
+  the pipeline computes a `coordination_signal` (0.0-1.0) by identifying high-divergence
+  outlets (score ≥ 60) that share ≥2 propaganda techniques. A `CoordinationBanner` in
+  `TopicRunDetail.tsx` surfaces this signal with shared technique labels and outlet names.
+  Differentiates CDDBS from single-outlet tools — now detects *networks* of coordinated
+  narrative pushing, not just individual divergence.
+
+- **Topic Mode: Key Claims and Omissions** — `GET /topic-runs/{id}` now returns
+  `key_claims` (specific claims made by each outlet diverging from the neutral baseline)
+  and `omissions` (key baseline facts omitted by the outlet). These were already extracted
+  by Gemini but previously discarded. Both are stored in `topic_outlet_results` and
+  displayed in the expandable outlet card in `TopicRunDetail.tsx`.
+
+- **AI Provenance Card (`AIProvenanceCard.tsx`)** — EU AI Act Art. 50 compliance. Every
+  analysis report now displays a persistent, tiered provenance indicator: compact badge
+  (always visible) → expandable detail (model ID, prompt version, generation timestamp,
+  quality score, full legal disclosure text). Replaces the generic "Experimental Research
+  MVP" alert. Machine-readable `ai_metadata` object added to `GET /analysis-runs/{id}`.
+
+- **SBOM generation CI (`sbom.yml`)** — CycloneDX SBOM (`sbom.json`) generated on every
+  push to `main`/`development` using `cyclonedx-py environment` (environment scan, most
+  accurate for pip projects). Artifact retained 90 days. Satisfies EU CRA Art. 13(15).
+
+- **Dependency vulnerability scanning** — `pip-audit` added to `ci.yml` as
+  `vulnerability-scan` job. Queries PyPI Advisory + OSV.dev. Fails CI on known
+  vulnerabilities. JSON report uploaded as artifact. Run locally:
+  `pip-audit -r requirements.txt`.
+
+- **GitHub Actions SHA pinning** — All workflow Action references pinned to commit SHA
+  rather than mutable version tags. Mitigates supply chain attacks via compromised Action
+  releases (GhostAction pattern, 2025). Applies to all 4 workflow files.
+
+- **Sprint 8 tests** (`tests/test_sprint8_topic_innovations.py`) — 10 tests covering:
+  key_claims/omissions DB storage, pipeline wiring from Gemini response, coordination
+  signal logic, API schema completeness, `ai_metadata` structure validation.
+
+### Changed
+
+- `topic_runs` table: added `coordination_signal` (Float) and `coordination_detail` (JSON)
+- `topic_outlet_results` table: added `key_claims` (JSON) and `omissions` (JSON)
+- `GET /topic-runs/{id}` response: includes `coordination_signal`, `coordination_detail`,
+  and per-outlet `key_claims` + `omissions`
+- `GET /analysis-runs/{id}` response: includes `ai_metadata` object
+- `TopicRunDetail.tsx`: renders `CoordinationBanner`, key claims list, omissions list
+- `ReportViewDialog.tsx`: renders `AIProvenanceCard` instead of generic warning alert
+- `requirements.txt`: added `cyclonedx-bom>=4.0` and `pip-audit>=2.7` (CI/dev tools)
+
 ## [2026.03.1] - 2026-03-18
 
 ### Sprint 7: Intelligence Layer

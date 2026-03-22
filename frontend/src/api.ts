@@ -109,6 +109,17 @@ export interface StructuredBriefing {
   methodology?: Record<string, unknown>;
 }
 
+/** Machine-readable AI provenance — EU AI Act Art. 50 compliance. */
+export interface AIMetadata {
+  model_id: string;
+  prompt_version: string | null;
+  generated_at: string;
+  quality_score: number | null;
+  quality_rating: string | null;
+  requires_human_review: boolean;
+  disclosure: string;
+}
+
 export interface ReportResponse {
   id: number;
   outlet: string;
@@ -121,6 +132,7 @@ export interface ReportResponse {
   tldr_summary?: string | null;
   structured_briefing?: StructuredBriefing | null;
   articles: ArticleSummary[];
+  ai_metadata?: AIMetadata | null;
 }
 
 export async function createAnalysisRun(payload: CreateRunPayload) {
@@ -379,11 +391,22 @@ export interface TopicOutletResult {
   propaganda_techniques: string[] | null;
   framing_summary: string | null;
   divergence_explanation: string | null;
+  key_claims: string[] | null;           // specific claims made by this outlet
+  omissions: string[] | null;            // key facts from baseline omitted by this outlet
   article_links: { title: string; url: string; date: string }[] | null;
+}
+
+export interface CoordinationDetail {
+  shared_techniques: string[];
+  coordinated_outlets: string[];
+  high_divergence_outlet_count: number;
+  total_outlet_count: number;
 }
 
 export interface TopicRunDetail extends TopicRunStatus {
   baseline_summary: string | null;
+  coordination_signal: number | null;    // 0.0-1.0 — coordinated narrative pushing score
+  coordination_detail: CoordinationDetail | null;
   outlet_results: TopicOutletResult[];
 }
 
