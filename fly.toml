@@ -19,7 +19,7 @@
 #   fly deploy
 
 app = "cddbs-api"       # change to your app name after `fly apps create`
-primary_region = "iad"  # US East — lowest latency to Neon default region
+primary_region = "fra"  # Frankfurt — matches Neon's AWS eu-central-1 (Frankfurt) region
 
 [build]
   dockerfile = "Dockerfile"
