@@ -6,6 +6,7 @@ from urllib.parse import urlparse
 import httpx
 
 from src.cddbs.collectors.base import BaseCollector, RawArticleData
+from src.cddbs.config import settings
 
 
 # GDELT disinformation-relevant query terms
@@ -15,11 +16,16 @@ _GDELT_QUERY = (
     "OR influence operation"
 )
 
-_GDELT_DOC_URL = "https://api.gdeltproject.org/api/v2/doc/doc"
+_GDELT_DIRECT_URL = "https://api.gdeltproject.org/api/v2/doc/doc"
 
 
 class GDELTCollector(BaseCollector):
-    """Collects articles from GDELT Project Doc API v2."""
+    """Collects articles from GDELT Project Doc API v2.
+
+    Routes through a Cloudflare Worker proxy when GDELT_PROXY_URL is set,
+    bypassing the IP-based rate limits GDELT applies to datacenter ranges.
+    Falls back to hitting GDELT directly (likely blocked on Render/Fly IPs).
+    """
 
     def __init__(
         self,
@@ -30,6 +36,10 @@ class GDELTCollector(BaseCollector):
         self._query = query
         self._max_records = max_records
         self._timespan = timespan
+        # Use proxy if configured, otherwise fall back to direct GDELT URL
+        self._endpoint = settings.GDELT_PROXY_URL.rstrip("/") or _GDELT_DIRECT_URL
+        if settings.GDELT_PROXY_URL:
+            print(f"GDELT collector: using proxy at {self._endpoint}")
 
     @property
     def name(self) -> str:
@@ -53,7 +63,7 @@ class GDELTCollector(BaseCollector):
         articles: list[RawArticleData] = []
         try:
             async with httpx.AsyncClient(timeout=30) as client:
-                resp = await client.get(_GDELT_DOC_URL, params=params)
+                resp = await client.get(self._endpoint, params=params)
                 if resp.status_code != 200:
                     print(f"GDELT collector: HTTP {resp.status_code}")
                     return articles
