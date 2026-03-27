@@ -1,6 +1,7 @@
 {
   "$schema": "node_modules/wrangler/config-schema.json",
   "name": "cddbs-frontend",
+  "account_id": "e262b9b205ec1bac893990c456b0efed",
   "compatibility_date": "2024-09-23",
 
   // Static asset hosting with SPA fallback.
@@ -14,7 +15,4 @@
   // Deploy:
   //   VITE_API_URL=https://cddbs-api.fly.dev npm run build
   //   npx wrangler deploy
-  //
-  // Set VITE_API_URL in Cloudflare dashboard → Workers & Pages →
-  // cddbs-frontend → Settings → Variables and Secrets (build-time only).
 }
