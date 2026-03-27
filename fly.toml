@@ -18,7 +18,7 @@
 # Subsequent deploys:
 #   fly deploy
 
-app = "cddbs-api"       # change to your app name after `fly apps create`
+app = "app-young-moon-2374"  # name assigned by Fly.io dashboard
 primary_region = "fra"  # Frankfurt — matches Neon's AWS eu-central-1 (Frankfurt) region
 
 [build]
