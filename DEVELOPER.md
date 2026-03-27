@@ -1213,7 +1213,8 @@ cyclonedx-py environment --output-format json --output-file sbom.json
 
 Added to `.github/workflows/ci.yml` as `vulnerability-scan` job:
 - Tool: `pip-audit` (Trail of Bits/Google) — queries PyPI Advisory + OSV.dev database
-- Behaviour: fails CI if any known vulnerability is found; uploads JSON report as artifact
+- Behaviour: **only blocks CI when a fix version is available** (actionable vulnerabilities). CVEs with no released fix are logged as informational notices and do not halt the build — they cannot be remediated and blocking on them would permanently break CI. Uploads JSON report as artifact regardless.
+- A vulnerability is considered actionable when `fix_versions` in the pip-audit JSON output is non-empty.
 - Run locally: `pip install pip-audit && pip-audit -r requirements.txt`
 
 **GitHub Actions SHA pinning**
