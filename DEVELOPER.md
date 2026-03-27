@@ -199,6 +199,7 @@ All configuration is read from environment variables via `python-dotenv`.
 | `ALLOWED_ORIGINS` | `*` | CORS allowed origins (comma-separated) |
 | `DB_POOL_SIZE` | `5` | SQLAlchemy connection pool size |
 | `DB_MAX_OVERFLOW` | `10` | SQLAlchemy max overflow connections |
+| `GDELT_PROXY_URL` | (none) | Cloudflare Worker URL to proxy GDELT requests (bypasses datacenter IP blocks) |
 | `TWITTER_BEARER_TOKEN` | (none) | Twitter API v2 bearer token |
 | `TWITTER_API_KEY` | (none) | Twitter API consumer key |
 | `TWITTER_API_SECRET` | (none) | Twitter API consumer secret |
