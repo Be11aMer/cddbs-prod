@@ -1,54 +1,23 @@
-# Fly.io app configuration — CDDBS backend (FastAPI)
-# Free tier: shared-cpu-1x, 256MB RAM
+# fly.toml app configuration file generated for app-young-moon-2374 on 2026-03-27T19:31:19Z
 #
-# Key benefit over Render free: auto_stop_machines = "off" keeps the
-# process always alive — no cold starts, asyncio scheduler runs continuously.
+# See https://fly.io/docs/reference/configuration/ for information about how to use this file.
 #
-# First-time setup:
-#   fly auth login
-#   fly apps create cddbs-api          # pick any unique name
-#   fly secrets set \
-#     DATABASE_URL="postgresql://..." \
-#     GOOGLE_API_KEY="..." \
-#     SERPAPI_KEY="..." \
-#     ALLOWED_ORIGINS="https://cddbs-frontend.<account>.workers.dev" \
-#     GDELT_PROXY_URL="https://gdelt-proxy.<account>.workers.dev"
-#   fly deploy
-#
-# Subsequent deploys:
-#   fly deploy
 
-app = "cddbs-api"       # change to your app name after `fly apps create`
-primary_region = "fra"  # Frankfurt — matches Neon's AWS eu-central-1 (Frankfurt) region
+app = 'app-young-moon-2374'
+primary_region = 'iad'
 
 [build]
-  dockerfile = "Dockerfile"
-
-[env]
-  PYTHONPATH   = "/app"
-  DB_POOL_SIZE = "2"
-  DB_MAX_OVERFLOW = "3"
 
 [http_service]
-  internal_port       = 8000
-  force_https         = true
-  auto_stop_machines  = "off"   # never sleep — eliminates cold starts
+  internal_port = 8080
+  force_https = true
+  auto_stop_machines = 'stop'
   auto_start_machines = true
-  min_machines_running = 1
-
-  [http_service.concurrency]
-    type       = "connections"
-    hard_limit = 25
-    soft_limit = 20
-
-  [[http_service.checks]]
-    grace_period = "30s"
-    interval     = "15s"
-    method       = "GET"
-    path         = "/health"
-    timeout      = "10s"
+  min_machines_running = 0
+  processes = ['app']
 
 [[vm]]
-  memory   = "256mb"
-  cpu_kind = "shared"
-  cpus     = 1
+  memory = '1gb'
+  cpu_kind = 'shared'
+  cpus = 1
+  memory_mb = 256
