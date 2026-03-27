@@ -26,151 +26,129 @@ Backend → Cloudflare Worker (GDELT proxy)
 
 ---
 
-## Prerequisites
+## No CLI required — everything via dashboards + GitHub Actions
 
-```bash
-# Fly.io CLI
-curl -L https://fly.io/install.sh | sh
-fly auth login
-
-# Wrangler (Cloudflare Workers CLI)
-npm install -g wrangler
-wrangler login
-```
+Subsequent deploys happen automatically on push to `main` via GitHub Actions
+(`.github/workflows/deploy-cloudflare.yml`). The one-time setup below uses
+dashboards only.
 
 ---
 
-## Step 1 — Deploy the GDELT proxy Worker
+## Step 1 — Deploy the GDELT proxy Worker (Cloudflare dashboard)
 
-```bash
-cd cloudflare/gdelt-proxy
-npm init -y                # only needed once
-npx wrangler deploy
-```
+The GDELT proxy is a single JS file — easiest to create directly in the dashboard:
 
-Copy the Worker URL printed after deploy, e.g.:
-`https://gdelt-proxy.<your-account>.workers.dev`
-
----
-
-## Step 2 — Deploy the Fly.io backend
-
-```bash
-# Create the app (once)
-fly apps create cddbs-api   # or any name — must be globally unique
-
-# Set secrets (never commit these)
-fly secrets set \
-  DATABASE_URL="postgresql://user:pass@host/dbname?sslmode=require" \
-  GOOGLE_API_KEY="AIza..." \
-  SERPAPI_KEY="..." \
-  ALLOWED_ORIGINS="https://cddbs-frontend.<your-account>.workers.dev" \
-  GDELT_PROXY_URL="https://gdelt-proxy.<your-account>.workers.dev" \
-  DB_POOL_SIZE="2" \
-  DB_MAX_OVERFLOW="3"
-
-# Deploy (from repo root)
-fly deploy
-```
-
-The API will be live at `https://cddbs-api.fly.dev` (or your chosen name).
-
-> **Neon note:** Copy the DATABASE_URL from Neon dashboard → Connection string.
-> Neon uses `postgres://` — the app's `config.py` automatically rewrites it to
-> `postgresql://` for SQLAlchemy.
+1. Go to **Cloudflare dashboard → Workers & Pages → Create**
+2. Choose **"Hello World"** starter, name it `gdelt-proxy`, click Deploy
+3. Click **"Edit code"**, replace everything with the contents of
+   `cloudflare/gdelt-proxy/src/index.js` from this repo, click **Deploy**
+4. Copy the Worker URL — e.g. `https://gdelt-proxy.<your-account>.workers.dev`
 
 ---
 
-## Step 3 — Deploy the frontend Worker
+## Step 2 — Deploy the Fly.io backend (Fly.io dashboard)
 
-```bash
-cd frontend
-npm install
+1. Go to **fly.io/dashboard → New app → Deploy from GitHub**
+2. Select repository: `Be11aMer/cddbs-prod`
+3. Branch: `main` (after merging the migration branch)
+4. **Current Working Directory**: leave blank (fly.toml is at repo root)
+5. **Config path**: leave blank (defaults to `fly.toml`)
+6. Click **Deploy**
 
-# Build with the Fly.io backend URL baked in
-VITE_API_URL=https://cddbs-api.fly.dev npm run build
+After the first deploy completes, set secrets via **Fly.io dashboard → your app → Secrets**:
 
-# Deploy
-npx wrangler deploy
-```
+| Secret | Value |
+|--------|-------|
+| `DATABASE_URL` | Neon connection string (from Neon dashboard → Connection string) |
+| `GOOGLE_API_KEY` | Your Google Gemini API key |
+| `SERPAPI_KEY` | Your SerpAPI key |
+| `GDELT_PROXY_URL` | `https://gdelt-proxy.<your-account>.workers.dev` (from Step 1) |
+| `ALLOWED_ORIGINS` | `https://cddbs-frontend.<your-account>.workers.dev` (set after Step 3) |
 
-The frontend will be live at `https://cddbs-frontend.<your-account>.workers.dev`.
+> **Neon note:** Neon shows `postgres://` in the dashboard — the app's `config.py`
+> automatically rewrites it to `postgresql://` for SQLAlchemy. Paste as-is.
 
----
-
-## Step 4 — Update ALLOWED_ORIGINS on the backend
-
-After the frontend is deployed, update the backend to only accept requests from
-your Cloudflare Workers domain:
-
-```bash
-fly secrets set ALLOWED_ORIGINS="https://cddbs-frontend.<your-account>.workers.dev"
-fly deploy
-```
+Fly.io redeploys automatically on every push to `main` going forward.
 
 ---
 
-## Subsequent deploys
+## Step 3 — Deploy the frontend + GDELT proxy Workers (GitHub Actions)
 
-**Backend only:**
-```bash
-fly deploy
+The `deploy-cloudflare.yml` workflow builds and deploys both Workers on every
+push to `main`. It needs three secrets added to GitHub once:
+
+1. Go to **GitHub → cddbs-prod → Settings → Secrets and variables → Actions**
+2. Add these three repository secrets:
+
+| Secret | Where to find it |
+|--------|-----------------|
+| `CLOUDFLARE_API_TOKEN` | Cloudflare dashboard → My Profile → API Tokens → Create Token → use the **"Edit Cloudflare Workers"** template |
+| `CLOUDFLARE_ACCOUNT_ID` | Cloudflare dashboard → any page → right sidebar under "Account ID" |
+| `VITE_API_URL` | `https://cddbs-api.fly.dev` (your Fly.io app URL from Step 2) |
+
+3. Push or merge to `main` — GitHub Actions triggers the deployment automatically.
+4. The frontend Worker URL will be printed in the Actions logs:
+   `https://cddbs-frontend.<your-account>.workers.dev`
+
+---
+
+## Step 4 — Update ALLOWED_ORIGINS
+
+Once you have the frontend Worker URL from Step 3:
+
+Go to **Fly.io dashboard → cddbs-api → Secrets** and update:
+
+```
+ALLOWED_ORIGINS = https://cddbs-frontend.<your-account>.workers.dev
 ```
 
-**Frontend only:**
+Fly.io will restart the app automatically.
+
+---
+
+## Step 5 — Verify, then delete Render services
+
 ```bash
-cd frontend
-VITE_API_URL=https://cddbs-api.fly.dev npm run build
-npx wrangler deploy
+# Backend health
+curl https://cddbs-api.fly.dev/health
+
+# Collector status (gdelt should now work via proxy)
+curl https://cddbs-api.fly.dev/collector/status
+
+# Open the frontend Worker URL in a browser
+https://cddbs-frontend.<your-account>.workers.dev
 ```
 
-**GDELT proxy only:**
-```bash
-cd cloudflare/gdelt-proxy
-npx wrangler deploy
-```
+Once verified → **Render dashboard → delete both services** (cddbs-api and cddbs-frontend).
 
 ---
 
 ## Environment variables reference
 
-### Fly.io secrets (`fly secrets set KEY=VALUE`)
+### Fly.io secrets (set in Fly.io dashboard → app → Secrets)
 
 | Key | Description |
 |-----|-------------|
 | `DATABASE_URL` | Neon PostgreSQL connection string |
 | `GOOGLE_API_KEY` | Google Gemini API key |
 | `SERPAPI_KEY` | SerpAPI key for news search |
-| `ALLOWED_ORIGINS` | Comma-separated list of allowed CORS origins |
+| `ALLOWED_ORIGINS` | Cloudflare Workers frontend URL (comma-separated) |
 | `GDELT_PROXY_URL` | Cloudflare Worker URL for GDELT proxy |
-| `DB_POOL_SIZE` | SQLAlchemy pool size (default 2 for free tier) |
-| `DB_MAX_OVERFLOW` | Max overflow connections (default 3) |
+| `DB_POOL_SIZE` | SQLAlchemy pool size (default `2` for free tier) |
+| `DB_MAX_OVERFLOW` | Max overflow connections (default `3`) |
 
-### Cloudflare (frontend build-time)
+### GitHub Actions secrets (set in GitHub → Settings → Secrets → Actions)
 
-| Key | Set via |
-|-----|---------|
-| `VITE_API_URL` | Shell env before `npm run build` |
+| Key | Description |
+|-----|-------------|
+| `CLOUDFLARE_API_TOKEN` | Cloudflare API token with Workers edit permissions |
+| `CLOUDFLARE_ACCOUNT_ID` | Cloudflare account ID |
+| `VITE_API_URL` | Fly.io backend URL baked into the frontend build |
 
 ---
 
 ## Keeping Render running during transition
 
-Until DNS / links are switched, Render can stay up. Both can run in parallel
-since they share the same Neon DB. The `_MIGRATIONS` in `database.py` are
-idempotent — safe to run from multiple instances simultaneously.
-
----
-
-## Verifying the deploy
-
-```bash
-# Backend health
-curl https://cddbs-api.fly.dev/health
-
-# Collector status (should show gdelt + rss running)
-curl https://cddbs-api.fly.dev/collector/status
-
-# GDELT proxy
-curl "https://gdelt-proxy.<account>.workers.dev?query=test&mode=ArtList&maxrecords=1&format=json&timespan=1d&sort=DateDesc"
-```
+Both can run in parallel — they share the same Neon DB. The `_MIGRATIONS` in
+`database.py` are idempotent, safe to run from multiple instances simultaneously.
+Only delete Render after verifying the new stack works end-to-end.
