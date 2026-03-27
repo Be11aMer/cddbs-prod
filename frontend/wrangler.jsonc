@@ -13,6 +13,6 @@
   }
 
   // Deploy:
-  //   VITE_API_URL=https://cddbs-api.fly.dev npm run build
+  //   VITE_API_URL=https://cddbs-prod-<hash>.koyeb.app npm run build
   //   npx wrangler deploy
 }

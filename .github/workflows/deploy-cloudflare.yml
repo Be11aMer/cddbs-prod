@@ -27,7 +27,7 @@ jobs:
       - name: Build
         run: npm run build
         env:
-          # Points the frontend at the Fly.io backend — set this secret in
+          # Points the frontend at the Koyeb backend URL — set this secret in
           # GitHub → Settings → Secrets and variables → Actions
           VITE_API_URL: ${{ secrets.VITE_API_URL }}
 
