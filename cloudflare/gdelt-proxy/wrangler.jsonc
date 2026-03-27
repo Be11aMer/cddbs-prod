@@ -1,0 +1,20 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "gdelt-proxy",
+  "main": "src/index.js",
+  "compatibility_date": "2024-09-23",
+
+  // Optional cron trigger: ping every 3 minutes to pre-warm the Worker.
+  // The actual collection schedule is driven by the Fly.io backend scheduler.
+  // Remove this block if you don't want the automatic keep-warm.
+  "triggers": {
+    "crons": []
+  }
+
+  // Deploy:
+  //   cd cloudflare/gdelt-proxy
+  //   npx wrangler deploy
+  //
+  // After deploy, copy the Worker URL and set it in Fly.io:
+  //   fly secrets set GDELT_PROXY_URL=https://gdelt-proxy.<account>.workers.dev
+}

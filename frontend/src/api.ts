@@ -1,6 +1,8 @@
 import axios from "axios";
 
-export const API_URL = "/api";
+// On Cloudflare Pages set VITE_API_URL to the Fly.io backend URL.
+// Locally and on Render, falls back to /api (nginx proxy handles it).
+export const API_URL = import.meta.env.VITE_API_URL || "/api";
 
 export const api = axios.create({
   baseURL: API_URL,
