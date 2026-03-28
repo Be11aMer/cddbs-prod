@@ -287,7 +287,7 @@ class TestCORSConfig:
             from src.cddbs.config import Settings
             s = Settings()
             assert "*" not in s.ALLOWED_ORIGINS
-            assert "https://cddbs.pages.dev" in s.ALLOWED_ORIGINS
+            assert "https://cddbs-frontend.projectsfiae.workers.dev" in s.ALLOWED_ORIGINS
         finally:
             if original is not None:
                 os.environ["ALLOWED_ORIGINS"] = original

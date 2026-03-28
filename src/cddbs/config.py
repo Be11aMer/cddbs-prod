@@ -15,7 +15,7 @@ class Settings:
     else:
         DATABASE_URL = _db_url
         
-    ALLOWED_ORIGINS = os.getenv("ALLOWED_ORIGINS", "https://cddbs.pages.dev,https://cddbs.onrender.com,http://localhost:5173").split(",")
+    ALLOWED_ORIGINS = os.getenv("ALLOWED_ORIGINS", "https://cddbs-frontend.projectsfiae.workers.dev,https://cddbs-frontend.onrender.com,http://localhost:5173").split(",")
     
     # Database pooling settings
     DB_POOL_SIZE = int(os.getenv("DB_POOL_SIZE", "5"))
