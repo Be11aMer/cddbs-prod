@@ -1,0 +1,236 @@
+name: Dependency Security Scanner
+
+# Custom dependency scanner — replaces GitHub Dependabot.
+# Scans both Python (pip-audit) and Node.js (npm audit) dependencies
+# on a schedule and on every push. Opens issues for new vulnerabilities.
+
+on:
+  schedule:
+    - cron: "0 6 * * 1,4"  # Mon + Thu at 06:00 UTC
+  push:
+    branches: [main, development]
+    paths:
+      - "requirements.txt"
+      - "frontend/package.json"
+      - "frontend/package-lock.json"
+  workflow_dispatch:  # Allow manual trigger
+
+permissions:
+  contents: read
+  issues: write
+
+jobs:
+  python-scan:
+    name: Python Dependency Scan
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683  # v4.2.2
+      - uses: actions/setup-python@0b93645e9fea7318ecaed2b359559ac225c90a2b  # v5.3.0
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: |
+          pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install pip-audit
+
+      - name: Run pip-audit
+        id: pip_audit
+        continue-on-error: true
+        run: |
+          pip-audit --requirement requirements.txt \
+            --format json \
+            --output pip-audit-results.json \
+            --skip-editable 2>&1 || true
+
+      - name: Parse and report Python vulnerabilities
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          python3 << 'PYEOF'
+          import json, os, subprocess, sys
+
+          report_path = "pip-audit-results.json"
+          if not os.path.exists(report_path):
+              print("No pip-audit report generated — skipping")
+              sys.exit(0)
+
+          with open(report_path) as f:
+              report = json.load(f)
+
+          vulns = []
+          for dep in report.get("dependencies", []):
+              for vuln in dep.get("vulns", []):
+                  vulns.append({
+                      "package": dep["name"],
+                      "installed": dep["version"],
+                      "vuln_id": vuln["id"],
+                      "fix_versions": vuln.get("fix_versions", []),
+                      "description": vuln.get("description", "")[:300],
+                  })
+
+          if not vulns:
+              print("No Python vulnerabilities found")
+              sys.exit(0)
+
+          # Build summary
+          actionable = [v for v in vulns if v["fix_versions"]]
+          print(f"Found {len(vulns)} Python vulnerabilities ({len(actionable)} fixable)")
+
+          if not actionable:
+              print("All vulnerabilities have no fix available — noting only")
+              sys.exit(0)
+
+          # Create or update GitHub issue
+          title = f"[Dependency Scanner] {len(actionable)} Python vulnerabilities detected"
+          body_lines = ["## Python Dependency Vulnerabilities\n"]
+          body_lines.append(f"Scan date: {os.popen('date -u').read().strip()}\n")
+          body_lines.append("| Package | Installed | CVE | Fix Available |")
+          body_lines.append("|---------|-----------|-----|---------------|")
+          for v in actionable:
+              fix = ", ".join(v["fix_versions"]) if v["fix_versions"] else "None"
+              body_lines.append(f"| {v['package']} | {v['installed']} | {v['vuln_id']} | {fix} |")
+          body_lines.append("\n### Recommended action")
+          body_lines.append("Update affected packages in `requirements.txt` and run `pip-audit` locally to verify.")
+          body_lines.append("\n*This issue was created automatically by the Dependency Security Scanner workflow.*")
+          body = "\n".join(body_lines)
+
+          # Check if issue already exists
+          result = subprocess.run(
+              ["gh", "issue", "list", "--label", "dependency-security", "--state", "open", "--json", "number,title"],
+              capture_output=True, text=True
+          )
+          existing = json.loads(result.stdout) if result.returncode == 0 else []
+          matching = [i for i in existing if "[Dependency Scanner]" in i.get("title", "") and "Python" in i.get("title", "")]
+
+          if matching:
+              # Update existing issue
+              issue_num = matching[0]["number"]
+              subprocess.run(["gh", "issue", "comment", str(issue_num), "--body", f"Updated scan results:\n\n{body}"])
+              print(f"Updated existing issue #{issue_num}")
+          else:
+              # Create new issue
+              subprocess.run([
+                  "gh", "issue", "create",
+                  "--title", title,
+                  "--body", body,
+                  "--label", "dependency-security",
+              ])
+              print("Created new issue")
+          PYEOF
+
+      - name: Upload scan report
+        if: always()
+        uses: actions/upload-artifact@6f51ac03b9356f520e9adb1b1b7802705f340c2b  # v4.5.0
+        with:
+          name: python-dependency-scan
+          path: pip-audit-results.json
+          retention-days: 90
+
+  node-scan:
+    name: Node.js Dependency Scan
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683  # v4.2.2
+      - uses: actions/setup-node@39370e3970a6d050c480ffad4ff0ed4d3fdee5af  # v4.1.0
+        with:
+          node-version: "20"
+          cache: "npm"
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci || npm install
+
+      - name: Run npm audit
+        id: npm_audit
+        continue-on-error: true
+        run: npm audit --json > npm-audit-results.json 2>&1 || true
+
+      - name: Parse and report Node.js vulnerabilities
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        working-directory: .
+        run: |
+          python3 << 'PYEOF'
+          import json, os, subprocess, sys
+
+          report_path = "frontend/npm-audit-results.json"
+          if not os.path.exists(report_path):
+              print("No npm audit report — skipping")
+              sys.exit(0)
+
+          with open(report_path) as f:
+              try:
+                  report = json.load(f)
+              except json.JSONDecodeError:
+                  print("Invalid npm audit JSON — skipping")
+                  sys.exit(0)
+
+          vulns_data = report.get("vulnerabilities", {})
+          high_crit = []
+          for pkg, info in vulns_data.items():
+              severity = info.get("severity", "")
+              if severity in ("high", "critical"):
+                  high_crit.append({
+                      "package": pkg,
+                      "severity": severity,
+                      "via": [v if isinstance(v, str) else v.get("title", "Unknown") for v in info.get("via", [])],
+                      "fix_available": info.get("fixAvailable", False),
+                  })
+
+          if not high_crit:
+              print("No high/critical Node.js vulnerabilities")
+              sys.exit(0)
+
+          fixable = [v for v in high_crit if v["fix_available"]]
+          print(f"Found {len(high_crit)} high/critical Node.js vulnerabilities ({len(fixable)} fixable)")
+
+          if not fixable:
+              print("No fixable high/critical vulnerabilities — noting only")
+              sys.exit(0)
+
+          title = f"[Dependency Scanner] {len(fixable)} Node.js vulnerabilities detected"
+          body_lines = ["## Node.js Dependency Vulnerabilities\n"]
+          body_lines.append(f"Scan date: {os.popen('date -u').read().strip()}\n")
+          body_lines.append("| Package | Severity | Fix Available | Via |")
+          body_lines.append("|---------|----------|---------------|-----|")
+          for v in fixable:
+              via_str = ", ".join(v["via"][:3])
+              body_lines.append(f"| {v['package']} | {v['severity']} | {'Yes' if v['fix_available'] else 'No'} | {via_str} |")
+          body_lines.append("\n### Recommended action")
+          body_lines.append("Run `cd frontend && npm audit fix` and commit the updated `package-lock.json`.")
+          body_lines.append("\n*This issue was created automatically by the Dependency Security Scanner workflow.*")
+          body = "\n".join(body_lines)
+
+          result = subprocess.run(
+              ["gh", "issue", "list", "--label", "dependency-security", "--state", "open", "--json", "number,title"],
+              capture_output=True, text=True
+          )
+          existing = json.loads(result.stdout) if result.returncode == 0 else []
+          matching = [i for i in existing if "[Dependency Scanner]" in i.get("title", "") and "Node" in i.get("title", "")]
+
+          if matching:
+              issue_num = matching[0]["number"]
+              subprocess.run(["gh", "issue", "comment", str(issue_num), "--body", f"Updated scan results:\n\n{body}"])
+              print(f"Updated existing issue #{issue_num}")
+          else:
+              subprocess.run([
+                  "gh", "issue", "create",
+                  "--title", title,
+                  "--body", body,
+                  "--label", "dependency-security",
+              ])
+              print("Created new issue")
+          PYEOF
+
+      - name: Upload scan report
+        if: always()
+        uses: actions/upload-artifact@6f51ac03b9356f520e9adb1b1b7802705f340c2b  # v4.5.0
+        with:
+          name: node-dependency-scan
+          path: frontend/npm-audit-results.json
+          retention-days: 90

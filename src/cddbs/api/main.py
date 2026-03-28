@@ -1,11 +1,15 @@
 import json
+import logging
 from datetime import datetime, UTC
 from typing import List, Optional, Tuple
 
-from fastapi import BackgroundTasks, Depends, FastAPI, HTTPException
+from fastapi import BackgroundTasks, Depends, FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field
+from slowapi import Limiter, _rate_limit_exceeded_handler
+from slowapi.errors import RateLimitExceeded
+from slowapi.util import get_remote_address
 from sqlalchemy.orm import Session
 
 from src.cddbs.config import settings
@@ -20,11 +24,17 @@ from src.cddbs.pipeline.orchestrator import run_pipeline
 from src.cddbs.pipeline.topic_pipeline import run_topic_pipeline
 from src.cddbs.narratives import get_all_narratives
 from src.cddbs.webhooks import fire_event, SUPPORTED_EVENTS
+from src.cddbs.api.security_headers import SecurityHeadersMiddleware
+from src.cddbs.utils.input_sanitizer import (
+    sanitize_topic, sanitize_outlet, sanitize_handle, sanitize_country,
+)
 
 
 from contextlib import asynccontextmanager
 
 from src.cddbs.collectors.manager import CollectorManager
+
+logger = logging.getLogger(__name__)
 
 # Global collector manager instance
 _collector_manager: CollectorManager | None = None
@@ -48,13 +58,35 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(title="CDDBS API", lifespan=lifespan)
 
+# --- Rate Limiting (OWASP LLM04: Model Denial of Service) ---
+limiter = Limiter(key_func=get_remote_address)
+app.state.limiter = limiter
+app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
+
+# --- Security Headers Middleware ---
+app.add_middleware(SecurityHeadersMiddleware)
+
+# --- CORS Hardening ---
 app.add_middleware(
     CORSMiddleware,
     allow_origins=settings.ALLOWED_ORIGINS,
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
+    allow_credentials=False,
+    allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+    allow_headers=["Content-Type"],
 )
+
+
+# --- Global Error Handler (sanitize error details) ---
+@app.exception_handler(Exception)
+async def global_exception_handler(request: Request, exc: Exception):
+    """Catch unhandled exceptions and return sanitized error responses.
+    Prevents leaking internal details (DB schema, stack traces) to clients.
+    """
+    logger.exception("Unhandled exception on %s %s", request.method, request.url.path)
+    return JSONResponse(
+        status_code=500,
+        content={"detail": "Internal server error"},
+    )
 
 
 def get_db():
@@ -140,8 +172,6 @@ class RunCreateRequest(BaseModel):
     url: str
     country: str
     num_articles: int = Field(5, ge=1, le=20)
-    serpapi_key: Optional[str] = None
-    google_api_key: Optional[str] = None
     date_filter: Optional[str] = Field("m", description="Date filter for articles: h (hour), d (day), w (week), m (month), y (year)")
 
 
@@ -202,8 +232,6 @@ def _run_analysis_job(
     url: str,
     country: str,
     num_articles: int = 5,
-    serpapi_key: Optional[str] = None,
-    google_api_key: Optional[str] = None,
     date_filter: str = "m"
 ):
     """
@@ -213,13 +241,11 @@ def _run_analysis_job(
     try:
         # handle updating the report and articles
         run_pipeline(
-            outlet, 
-            country, 
-            report_id=report_id, 
-            num_articles=num_articles, 
+            outlet,
+            country,
+            report_id=report_id,
+            num_articles=num_articles,
             url=url,
-            serpapi_key=serpapi_key,
-            google_api_key=google_api_key,
             date_filter=date_filter
         )
 
@@ -248,7 +274,9 @@ def _run_analysis_job(
 
 
 @app.post("/analysis-runs", response_model=RunStatusResponse)
+@limiter.limit("5/minute")
 def create_analysis_run(
+    request: Request,
     payload: RunCreateRequest,
     background_tasks: BackgroundTasks,
     db: Session = Depends(get_db),
@@ -259,14 +287,18 @@ def create_analysis_run(
     This immediately creates a placeholder Report row and then schedules
     the long-running analysis in a background task.
     """
+    # Sanitize user-provided inputs (OWASP LLM01)
+    clean_outlet = sanitize_outlet(payload.outlet)
+    clean_country = sanitize_country(payload.country)
+
     report = Report(
-        outlet=payload.outlet,
-        country=payload.country,
+        outlet=clean_outlet,
+        country=clean_country,
         final_report=None,
         data={
-            "outlet": payload.outlet,
+            "outlet": clean_outlet,
             "url": payload.url,
-            "country": payload.country,
+            "country": clean_country,
             "analysis_date": datetime.now(UTC).isoformat(),
             "articles_analyzed": 0,
             "status": "pending",
@@ -279,12 +311,10 @@ def create_analysis_run(
     background_tasks.add_task(
         _run_analysis_job,
         report_id=report.id,
-        outlet=payload.outlet,
+        outlet=clean_outlet,
         url=payload.url,
-        country=payload.country,
+        country=clean_country,
         num_articles=payload.num_articles,
-        serpapi_key=payload.serpapi_key,
-        google_api_key=payload.google_api_key,
         date_filter=payload.date_filter or "m"
     )
 
@@ -426,7 +456,8 @@ def healthcheck(db: Session = Depends(get_db)):
         from sqlalchemy import text
         db.execute(text("SELECT 1"))
     except Exception as exc:  # noqa: BLE001
-        raise HTTPException(status_code=500, detail=f"database_error: {exc}") from exc
+        logger.error("Health check DB failure: %s", exc)
+        raise HTTPException(status_code=500, detail="database_error") from exc
 
     return {"status": "ok"}
 
@@ -850,8 +881,6 @@ class TopicRunCreateRequest(BaseModel):
     topic: str = Field(..., min_length=3, max_length=300)
     num_outlets: int = Field(5, ge=1, le=10)
     date_filter: Optional[str] = Field("m", description="qdr: h/d/w/m/y")
-    serpapi_key: Optional[str] = None
-    google_api_key: Optional[str] = None
 
 
 class TopicRunStatusResponse(BaseModel):
@@ -895,8 +924,6 @@ def _run_topic_job(
     topic: str,
     num_outlets: int,
     date_filter: str,
-    serpapi_key: Optional[str] = None,
-    google_api_key: Optional[str] = None,
 ):
     """Background wrapper for run_topic_pipeline with error handling."""
     db = SessionLocal()
@@ -906,8 +933,6 @@ def _run_topic_job(
             topic=topic,
             num_outlets=num_outlets,
             date_filter=date_filter,
-            serpapi_key=serpapi_key,
-            google_api_key=google_api_key,
         )
     except Exception as exc:
         topic_run = db.query(TopicRun).filter(TopicRun.id == topic_run_id).first()
@@ -920,17 +945,19 @@ def _run_topic_job(
 
 
 @app.post("/topic-runs", response_model=TopicRunStatusResponse)
+@limiter.limit("3/minute")
 def create_topic_run(
+    request: Request,
     payload: TopicRunCreateRequest,
     background_tasks: BackgroundTasks,
     db: Session = Depends(get_db),
 ):
     """Create a new topic-mode analysis run."""
-    serpapi_key = payload.serpapi_key
-    google_api_key = payload.google_api_key
+    # Sanitize user-provided topic (OWASP LLM01)
+    clean_topic = sanitize_topic(payload.topic)
 
     topic_run = TopicRun(
-        topic=payload.topic,
+        topic=clean_topic,
         num_outlets=payload.num_outlets,
         date_filter=payload.date_filter or "m",
         status="pending",
@@ -942,11 +969,9 @@ def create_topic_run(
     background_tasks.add_task(
         _run_topic_job,
         topic_run_id=topic_run.id,
-        topic=payload.topic,
+        topic=clean_topic,
         num_outlets=payload.num_outlets,
         date_filter=payload.date_filter or "m",
-        serpapi_key=serpapi_key,
-        google_api_key=google_api_key,
     )
 
     return TopicRunStatusResponse(
@@ -1446,7 +1471,6 @@ def get_outlet_network(db: Session = Depends(get_db)):
 class SocialMediaRunRequest(BaseModel):
     platform: str = Field(..., description="twitter or telegram")
     handle: str = Field(..., description="Account handle, e.g. @rt_com")
-    google_api_key: Optional[str] = None
 
 
 class SocialMediaStatusResponse(BaseModel):
@@ -1459,7 +1483,9 @@ class SocialMediaStatusResponse(BaseModel):
 
 
 @app.post("/social-media/analyze", response_model=SocialMediaStatusResponse)
+@limiter.limit("5/minute")
 def create_social_media_run(
+    request: Request,
     payload: SocialMediaRunRequest,
     background_tasks: BackgroundTasks,
     db: Session = Depends(get_db),
@@ -1472,26 +1498,32 @@ def create_social_media_run(
     """
     from src.cddbs.config import settings as _settings
 
+    # Sanitize inputs (OWASP LLM01)
+    clean_handle = sanitize_handle(payload.handle)
+    platform = payload.platform
+    if platform not in ("twitter", "telegram"):
+        raise HTTPException(status_code=400, detail="Unsupported platform")
+
     # Check platform API key availability
-    if payload.platform == "twitter" and not _settings.TWITTER_BEARER_TOKEN:
+    if platform == "twitter" and not _settings.TWITTER_BEARER_TOKEN:
         raise HTTPException(
             status_code=400,
-            detail="TWITTER_BEARER_TOKEN not configured. Set it in Render environment variables.",
+            detail="Twitter API not configured",
         )
-    if payload.platform == "telegram" and not _settings.TELEGRAM_BOT_TOKEN:
+    if platform == "telegram" and not _settings.TELEGRAM_BOT_TOKEN:
         raise HTTPException(
             status_code=400,
-            detail="TELEGRAM_BOT_TOKEN not configured. Set it in Render environment variables.",
+            detail="Telegram API not configured",
         )
 
     # Create placeholder report
     report = Report(
-        outlet=payload.handle,
+        outlet=clean_handle,
         country="",
         final_report=None,
         data={
-            "platform": payload.platform,
-            "handle": payload.handle,
+            "platform": platform,
+            "handle": clean_handle,
             "status": "pending",
             "analysis_date": datetime.now(UTC).isoformat(),
         },
@@ -1503,15 +1535,14 @@ def create_social_media_run(
     background_tasks.add_task(
         _run_social_media_job,
         report_id=report.id,
-        platform=payload.platform,
-        handle=payload.handle,
-        google_api_key=payload.google_api_key,
+        platform=platform,
+        handle=clean_handle,
     )
 
     return SocialMediaStatusResponse(
         id=report.id,
-        platform=payload.platform,
-        handle=payload.handle,
+        platform=platform,
+        handle=clean_handle,
         status="queued",
         created_at=report.created_at,
         message="Social media analysis scheduled",
@@ -1522,7 +1553,6 @@ def _run_social_media_job(
     report_id: int,
     platform: str,
     handle: str,
-    google_api_key: Optional[str] = None,
 ):
     """Background job for social media analysis."""
     import asyncio
@@ -1546,7 +1576,6 @@ def _run_social_media_job(
             platform=platform,
             handle=handle,
             report_id=report_id,
-            google_api_key=google_api_key,
             raw_data=raw_data,
         )
 
@@ -1963,3 +1992,61 @@ async def test_webhook(webhook_id: int, db: Session = Depends(get_db)):
         db_session=db,
     )
     return {"delivered": delivered, "webhook_id": webhook_id}
+
+
+# ---------------------------------------------------------------------------
+# Compliance Evidence Endpoint (Sprint 9)
+# ---------------------------------------------------------------------------
+
+
+@app.get("/compliance/evidence")
+def get_compliance_evidence(db: Session = Depends(get_db)):
+    """Machine-readable compliance evidence for EU AI Act / CRA auditing.
+
+    Returns a snapshot of all implemented compliance measures, test counts,
+    security controls, and AI provenance configuration.
+    """
+    total_reports = db.query(Report).count()
+    total_briefings = db.query(Briefing).count()
+    total_topic_runs = db.query(TopicRun).count()
+
+    return {
+        "system": "CDDBS",
+        "version": "1.9.0",
+        "generated_at": datetime.now(UTC).isoformat(),
+        "ai_model": {
+            "provider": "Google",
+            "model_id": settings.GEMINI_MODEL,
+            "type": "cloud_api",
+            "fine_tuned": False,
+        },
+        "security_controls": {
+            "cors_policy": "explicit_origins",
+            "rate_limiting": True,
+            "input_sanitization": True,
+            "output_validation": True,
+            "security_headers": True,
+            "error_sanitization": True,
+            "api_key_hygiene": "server_side_only",
+        },
+        "compliance_measures": {
+            "eu_ai_act": {
+                "art_50_transparency": "AIProvenanceCard + ai_metadata in API",
+                "art_9_quality_management": "7-dimension quality scoring (70pt rubric)",
+                "art_14_human_oversight": "Grounding score + ungrounded claim flagging",
+                "art_12_record_keeping": "This endpoint + CI artifacts",
+            },
+            "cra": {
+                "art_13_15_sbom": "CycloneDX SBOM generated in CI",
+                "art_10_4_vulnerability_handling": "pip-audit + custom dependency scanner in CI",
+            },
+            "dsgvo": {
+                "data_minimization": "No PII collected; analysis operates on public media data",
+            },
+        },
+        "statistics": {
+            "total_analyses": total_reports,
+            "total_briefings": total_briefings,
+            "total_topic_runs": total_topic_runs,
+        },
+    }

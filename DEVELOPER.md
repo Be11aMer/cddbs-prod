@@ -1241,4 +1241,81 @@ All GitHub Actions references in all workflows are pinned to commit SHA rather t
 
 ---
 
+## 16. Sprint 9: AI Trust, Information Security & Compliance Automation
+
+### 16.1 Security Hardening
+
+**CORS** — `allow_origins` changed from wildcard to explicit origin list. Set via `ALLOWED_ORIGINS` env var (comma-separated). Default: `https://cddbs.pages.dev,https://cddbs.onrender.com,http://localhost:5173`.
+
+**Rate limiting** — `slowapi` middleware with per-endpoint limits:
+
+| Endpoint | Limit | Rationale |
+|----------|-------|-----------|
+| `POST /analysis-runs` | 5/min per IP | Each triggers Gemini API call |
+| `POST /topic-runs` | 3/min per IP | Each triggers 2+N Gemini calls |
+| `POST /social-media/analyze` | 5/min per IP | Triggers platform API + Gemini |
+
+Returns HTTP 429 with `Retry-After` header when exceeded.
+
+**Input sanitization** (`utils/input_sanitizer.py`) — Defense-in-depth against prompt injection. Applied to outlet names, topics, handles, and country names before LLM prompt interpolation. Strips control characters, zero-width characters, RTL overrides; escapes prompt delimiters; filters injection patterns; truncates to configurable max lengths.
+
+**Security headers** (`api/security_headers.py`) — Middleware adds: `X-Content-Type-Options: nosniff`, `X-Frame-Options: DENY`, `Referrer-Policy`, `Permissions-Policy`, `Content-Security-Policy`, `Cache-Control: no-store`.
+
+**Error sanitization** — Global exception handler returns generic error messages. Internal details (stack traces, DB schemas) are logged server-side only.
+
+**API key hygiene** — `serpapi_key` and `google_api_key` removed from all request schemas. API keys sourced exclusively from server environment variables.
+
+### 16.2 AI Trust Framework
+
+**Output validation** (`pipeline/output_validator.py`) — Validates Gemini JSON responses before DB storage:
+- Analysis output: checks 7 required structured_briefing fields, validates confidence enums, warns on suspiciously short content
+- Topic baseline: validates required fields (baseline_summary, key_facts, neutral_framing)
+- Topic comparative: validates divergence_score range (0-100), amplification_signal enum, propaganda_techniques type
+
+**Grounding score** — TF-IDF cosine similarity between LLM-generated claims and source article text:
+1. Extract `key_claims` from Gemini response
+2. Extract article titles/snippets from source data
+3. Compute TF-IDF cosine similarity per claim vs. all articles
+4. Claim is "grounded" if max similarity ≥ 0.3 (configurable threshold)
+5. `grounding_score = grounded_claims / total_claims`
+
+Returns per-claim detail: `{claim, max_similarity, grounded}`.
+
+### 16.3 Compliance Automation
+
+**Compliance evidence endpoint** (`GET /compliance/evidence`) — Returns machine-readable JSON with:
+- AI model configuration (provider, model_id, fine-tuning status)
+- Security controls inventory (CORS, rate limiting, sanitization, etc.)
+- EU AI Act / CRA / DSGVO measure mapping
+- System statistics (analyses, briefings, topic runs)
+
+**Custom dependency scanner** (`.github/workflows/dependency-scan.yml`) — Replaces Dependabot:
+- Scans Python deps (pip-audit) and Node.js deps (npm audit)
+- Runs on schedule (Mon/Thu 06:00 UTC) and on dependency file changes
+- Creates/updates GitHub issues for fixable vulnerabilities with severity tables
+- Dependabot disabled via `.github/dependabot.yml`
+
+### 16.4 New Files (Sprint 9)
+
+| File | Purpose |
+|------|---------|
+| `src/cddbs/utils/input_sanitizer.py` | Prompt injection prevention |
+| `src/cddbs/pipeline/output_validator.py` | LLM output validation + grounding score |
+| `src/cddbs/api/security_headers.py` | Security headers middleware |
+| `.github/workflows/dependency-scan.yml` | Custom dependency scanner (Dependabot replacement) |
+| `.github/dependabot.yml` | Disables Dependabot |
+| `tests/test_sprint9_security.py` | 35 Sprint 9 tests |
+
+### 16.5 OWASP LLM Top 10 Coverage
+
+| Risk | Status | Implementation |
+|------|--------|----------------|
+| LLM01 Prompt Injection | Mitigated | Input sanitizer + system_instruction separation + JSON output format |
+| LLM02 Insecure Output | Mitigated | Output validator validates schema before DB commit |
+| LLM04 Model DoS | Mitigated | slowapi rate limiting on all POST endpoints |
+| LLM06 Sensitive Info | Mitigated | Error sanitization + API key removal from requests |
+| LLM09 Overreliance | Mitigated | Grounding score flags ungrounded claims |
+
+---
+
 *End of developer documentation. Keep this file current with every change.*
