@@ -9,6 +9,7 @@ pytest
 httpx
 google-genai
 pytest-cov
+slowapi>=0.1.9
 feedparser>=6.0
 scikit-learn>=1.4
 # CI / supply chain security (not imported at runtime)

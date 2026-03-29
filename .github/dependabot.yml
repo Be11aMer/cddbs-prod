@@ -1,0 +1,5 @@
+# Dependabot is DISABLED in favor of custom dependency-scan.yml workflow.
+# This file exists to prevent Dependabot from auto-creating PRs.
+# See .github/workflows/dependency-scan.yml for the replacement scanner.
+version: 2
+updates: []
