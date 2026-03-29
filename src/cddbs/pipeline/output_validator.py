@@ -7,7 +7,6 @@ OWASP LLM Top 10 — LLM02 (Insecure Output Handling)
 EU AI Act — Art. 9 (Quality management), Art. 14 (Human oversight)
 """
 
-import re
 from typing import Any
 
 

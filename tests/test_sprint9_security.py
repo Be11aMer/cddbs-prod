@@ -11,19 +11,15 @@ These tests are pure unit tests — they do NOT require a database connection.
 The session-scoped DB fixture from conftest.py is disabled here.
 """
 
-import pytest
 import os
 import sys
+
+import pytest
 
 # Ensure PYTHONPATH
 sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
 
-
-# ---------------------------------------------------------------------------
-# Input Sanitization Tests (OWASP LLM01)
-# ---------------------------------------------------------------------------
-
-from src.cddbs.utils.input_sanitizer import (
+from src.cddbs.utils.input_sanitizer import (  # noqa: E402
     sanitize_text,
     sanitize_topic,
     sanitize_outlet,
@@ -31,6 +27,12 @@ from src.cddbs.utils.input_sanitizer import (
     sanitize_country,
     MAX_TOPIC_LENGTH,
     MAX_OUTLET_LENGTH,
+)
+from src.cddbs.pipeline.output_validator import (  # noqa: E402
+    validate_analysis_output,
+    validate_topic_baseline,
+    validate_topic_comparative,
+    compute_grounding_score,
 )
 
 
@@ -110,13 +112,6 @@ class TestInputSanitizer:
 # ---------------------------------------------------------------------------
 # Output Validation Tests (OWASP LLM02)
 # ---------------------------------------------------------------------------
-
-from src.cddbs.pipeline.output_validator import (
-    validate_analysis_output,
-    validate_topic_baseline,
-    validate_topic_comparative,
-    compute_grounding_score,
-)
 
 
 class TestOutputValidator:

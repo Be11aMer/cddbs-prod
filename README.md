@@ -20,7 +20,7 @@ An AI-powered intelligence briefing system that analyzes media narratives for di
 - **Data Sources**: SerpAPI (Google News), GDELT (via Cloudflare Workers proxy), RSS feeds
 - **CI**: GitHub Actions (lint, test, SBOM, pip-audit, dependency scanner, secret scan)
 
-## Quick Start
+## Quick Start & Development
 
 See [QUICK_START.md](./QUICK_START.md) for detailed setup instructions.
 
