@@ -3,7 +3,102 @@
 All notable changes to the CDDBS (Cyber Disinformation Detection Briefing System) project
 are documented in this file.
 
-## [2026.04.1] - 2026-03-22
+## [0.9.0] - 2026-03-28
+
+### Sprint 9: AI Trust, Information Security & Compliance Automation
+
+This release hardens the platform against OWASP LLM Top 10 risks, implements
+an AI trust framework for hallucination detection, and automates compliance
+evidence collection.
+
+### Added
+
+- **Input sanitization layer** (`utils/input_sanitizer.py`) — Defense-in-depth
+  against prompt injection (OWASP LLM01). Strips control characters, zero-width
+  chars, RTL overrides; escapes prompt delimiters (`"""`, `` ``` ``, `---`);
+  filters injection patterns (`IGNORE PREVIOUS INSTRUCTIONS`); truncates to
+  per-field max lengths. Applied to all user inputs before LLM prompt
+  interpolation.
+
+- **AI output validation** (`pipeline/output_validator.py`) — Structural
+  validation of Gemini JSON responses before DB storage (OWASP LLM02). Validates
+  required fields for analysis briefings, topic baselines, and comparative
+  results. Catches malformed outputs, out-of-range scores, and invalid enums.
+
+- **Grounding score computation** — TF-IDF cosine similarity between LLM claims
+  and source article text. Claims with max similarity < 0.3 flagged as
+  "ungrounded". Provides per-claim detail with similarity scores. Implements
+  EU AI Act Art. 14 (human oversight) by surfacing unreliable outputs.
+
+- **Rate limiting** (`slowapi`) — Per-endpoint rate limits to prevent API abuse
+  and Gemini quota exhaustion (OWASP LLM04). POST /analysis-runs: 5/min,
+  POST /topic-runs: 3/min, POST /social-media/analyze: 5/min. Returns 429
+  with Retry-After header.
+
+- **Security headers middleware** (`api/security_headers.py`) — Adds
+  X-Content-Type-Options, X-Frame-Options, Referrer-Policy, Permissions-Policy,
+  Content-Security-Policy, and Cache-Control headers to all API responses.
+
+- **Compliance evidence endpoint** (`GET /compliance/evidence`) — Machine-readable
+  JSON snapshot of all implemented compliance measures, security controls,
+  AI model configuration, and system statistics. Supports EU AI Act Art. 12
+  record-keeping requirements.
+
+- **Custom dependency scanner** (`.github/workflows/dependency-scan.yml`) —
+  Replaces GitHub Dependabot with an in-repo CI workflow. Scans Python
+  (pip-audit) and Node.js (npm audit) dependencies on schedule (Mon/Thu) and
+  on dependency file changes. Creates GitHub issues for fixable vulnerabilities.
+
+- **Global error handler** — Catches unhandled exceptions and returns sanitized
+  error responses. Prevents leaking internal details (DB schema, stack traces,
+  file paths) to clients (OWASP LLM06).
+
+- **Sprint 9 tests** (`tests/test_sprint9_security.py`) — 35 tests covering:
+  input sanitization (17), output validation (10), grounding score (6),
+  CORS config (1), security headers (1).
+
+### Changed
+
+- **CORS hardened** — `allow_origins` changed from wildcard `"*"` to explicit
+  origin list (`cddbs.pages.dev`, `cddbs.onrender.com`, `localhost:5173`).
+  `allow_credentials` set to `False`. `allow_headers` restricted to
+  `Content-Type` only.
+
+- **API key hygiene** — Removed `serpapi_key` and `google_api_key` from all
+  request schemas (`RunCreateRequest`, `TopicRunCreateRequest`,
+  `SocialMediaRunRequest`). API keys are now exclusively sourced from server
+  environment variables. Prevents accidental key exposure in request logs.
+
+- **Error messages sanitized** — Health endpoint and social media endpoint no
+  longer expose internal details (DB connection strings, environment variable
+  names) in error responses.
+
+- **Dependabot disabled** — `.github/dependabot.yml` set to `updates: []`.
+  Custom `dependency-scan.yml` workflow provides equivalent scanning with
+  better control and issue management.
+
+### Security
+
+- OWASP LLM01 (Prompt Injection): Input sanitization layer
+- OWASP LLM02 (Insecure Output): Output validation layer
+- OWASP LLM04 (Model DoS): Rate limiting via slowapi
+- OWASP LLM06 (Sensitive Info): Error sanitization + API key removal
+- OWASP LLM09 (Overreliance): Grounding score for hallucination detection
+
+### Dependencies
+
+- Added: `slowapi>=0.1.9` (runtime)
+- Updated: `axios` 1.7.7→1.13.5, `react-router-dom` 6.28.0→6.30.3,
+  `react-syntax-highlighter` 15.6.6→16.1.1, `vite` 6.0.1→6.3.5
+
+### Versioning
+
+- Adopted semver `0.x.y` scheme. Major version 0 signals pre-release
+  (personal testing + stakeholder demos, not general users). `1.0.0` will
+  be cut when authentication exists and external testers are onboarded.
+- Retagged: `v2026.03` → `v0.5.0`, `2026.04.1` → `v0.8.0`
+
+## [0.8.0] - 2026-03-22
 
 ### Sprint 8: Topic Mode Innovations, Supply Chain Security & AI Disclosure
 
@@ -58,7 +153,7 @@ This release delivers three areas of innovation on top of the existing Sprint 7 
 - `ReportViewDialog.tsx`: renders `AIProvenanceCard` instead of generic warning alert
 - `requirements.txt`: added `cyclonedx-bom>=4.0` and `pip-audit>=2.7` (CI/dev tools)
 
-## [2026.03.1] - 2026-03-18
+## [0.7.0] - 2026-03-18
 
 ### Sprint 7: Intelligence Layer
 
@@ -102,7 +197,7 @@ into actionable event clusters with risk scoring.
     edge cases)
   - `test_events_api.py` — Events API endpoint integration tests
 
-## [2026.03] - 2026-03-11
+## [0.5.0] - 2026-03-11
 
 ### First production release
 
