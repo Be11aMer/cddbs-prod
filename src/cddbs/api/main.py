@@ -44,7 +44,10 @@ _collector_manager: CollectorManager | None = None
 async def lifespan(app: FastAPI):
     global _collector_manager
     # Ensure tables exist on startup
-    init_db()
+    try:
+        init_db()
+    except Exception as exc:
+        logger.error("Failed to initialize database on startup (DB may be unavailable/out of quota): %s", exc)
 
     # Start collector manager for event intelligence pipeline
     _collector_manager = CollectorManager(db_session_factory=SessionLocal)
@@ -455,11 +458,12 @@ def healthcheck(db: Session = Depends(get_db)):
     try:
         from sqlalchemy import text
         db.execute(text("SELECT 1"))
+        db_status = "ok"
     except Exception as exc:  # noqa: BLE001
         logger.error("Health check DB failure: %s", exc)
-        raise HTTPException(status_code=500, detail="database_error") from exc
+        db_status = "error"
 
-    return {"status": "ok"}
+    return {"status": "ok", "database": db_status}
 
 
 # ---------------------------------------------------------------------------
