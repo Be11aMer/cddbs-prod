@@ -51,7 +51,7 @@ async def lifespan(app: FastAPI):
 
     # Start collector manager for event intelligence pipeline
     _collector_manager = CollectorManager(db_session_factory=SessionLocal)
-    _collector_manager.start_background(interval_seconds=180)  # every 3 minutes
+    _collector_manager.start_background(interval_seconds=3600)  # every 60 minutes
 
     yield
 
