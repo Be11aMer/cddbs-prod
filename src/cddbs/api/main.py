@@ -2012,7 +2012,7 @@ def get_compliance_evidence(db: Session = Depends(get_db)):
 
     return {
         "system": "CDDBS",
-        "version": "1.9.0",
+        "version": "0.9.0",
         "generated_at": datetime.now(UTC).isoformat(),
         "ai_model": {
             "provider": "Google",

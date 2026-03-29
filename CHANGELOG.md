@@ -3,7 +3,7 @@
 All notable changes to the CDDBS (Cyber Disinformation Detection Briefing System) project
 are documented in this file.
 
-## [2026.04.2] - 2026-03-28
+## [0.9.0] - 2026-03-28
 
 ### Sprint 9: AI Trust, Information Security & Compliance Automation
 
@@ -91,7 +91,14 @@ evidence collection.
 - Updated: `axios` 1.7.7→1.13.5, `react-router-dom` 6.28.0→6.30.3,
   `react-syntax-highlighter` 15.6.6→16.1.1, `vite` 6.0.1→6.3.5
 
-## [2026.04.1] - 2026-03-22
+### Versioning
+
+- Adopted semver `0.x.y` scheme. Major version 0 signals pre-release
+  (personal testing + stakeholder demos, not general users). `1.0.0` will
+  be cut when authentication exists and external testers are onboarded.
+- Retagged: `v2026.03` → `v0.5.0`, `2026.04.1` → `v0.8.0`
+
+## [0.8.0] - 2026-03-22
 
 ### Sprint 8: Topic Mode Innovations, Supply Chain Security & AI Disclosure
 
@@ -146,7 +153,7 @@ This release delivers three areas of innovation on top of the existing Sprint 7 
 - `ReportViewDialog.tsx`: renders `AIProvenanceCard` instead of generic warning alert
 - `requirements.txt`: added `cyclonedx-bom>=4.0` and `pip-audit>=2.7` (CI/dev tools)
 
-## [2026.03.1] - 2026-03-18
+## [0.7.0] - 2026-03-18
 
 ### Sprint 7: Intelligence Layer
 
@@ -190,7 +197,7 @@ into actionable event clusters with risk scoring.
     edge cases)
   - `test_events_api.py` — Events API endpoint integration tests
 
-## [2026.03] - 2026-03-11
+## [0.5.0] - 2026-03-11
 
 ### First production release
 
