@@ -11,9 +11,9 @@ from src.cddbs.config import settings
 
 # GDELT disinformation-relevant query terms
 _GDELT_QUERY = (
-    "disinformation OR propaganda OR misinformation OR cyberattack "
+    "(disinformation OR propaganda OR misinformation OR cyberattack "
     "OR election interference OR fake news OR information warfare "
-    "OR influence operation"
+    "OR influence operation)"
 )
 
 _GDELT_DIRECT_URL = "https://api.gdeltproject.org/api/v2/doc/doc"
