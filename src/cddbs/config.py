@@ -34,4 +34,28 @@ class Settings:
     # Telegram Bot API credentials
     TELEGRAM_BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN", "")
 
+    # ── Automated Job Scheduling ─────────────────────────────────────
+    # All intervals are in HOURS. Defaults are free-tier-friendly.
+    # See docs/SCHEDULING.md and docs/RESOURCE_CONSTRAINTS.md for
+    # production tuning guidance.
+
+    # Collector: how often RSS + GDELT fetch new articles
+    CDDBS_COLLECTOR_INTERVAL_HOURS = float(os.getenv("CDDBS_COLLECTOR_INTERVAL_HOURS", "1"))
+
+    # SitRep generator: how often to check for high-risk clusters and
+    # generate automated threat briefings (Gemini API call)
+    CDDBS_SITREP_INTERVAL_HOURS = float(os.getenv("CDDBS_SITREP_INTERVAL_HOURS", "12"))
+
+    # SitRep budget: max briefings generated per cycle (limits API calls)
+    CDDBS_SITREP_MAX_PER_CYCLE = int(os.getenv("CDDBS_SITREP_MAX_PER_CYCLE", "3"))
+
+    # SitRep trigger: minimum narrative_risk_score to qualify
+    CDDBS_SITREP_MIN_RISK_SCORE = float(os.getenv("CDDBS_SITREP_MIN_RISK_SCORE", "0.5"))
+
+    # SitRep trigger: minimum article count in cluster to qualify
+    CDDBS_SITREP_MIN_ARTICLES = int(os.getenv("CDDBS_SITREP_MIN_ARTICLES", "5"))
+
+    # Daily threat intel digest: how often to generate (Gemini API call)
+    CDDBS_THREAT_DIGEST_INTERVAL_HOURS = float(os.getenv("CDDBS_THREAT_DIGEST_INTERVAL_HOURS", "24"))
+
 settings = Settings()
