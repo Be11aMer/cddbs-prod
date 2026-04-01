@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, useCallback } from "react";
-import { Box, Typography, Skeleton } from "@mui/material";
+import { Box, Typography, Skeleton, ToggleButtonGroup, ToggleButton } from "@mui/material";
 import HubIcon from "@mui/icons-material/Hub";
 import { useQuery } from "@tanstack/react-query";
 import { fetchOutletNetwork } from "../api";
@@ -112,14 +112,24 @@ function useForceSimulation(
   return simNodes;
 }
 
+const DAYS_OPTIONS = [7, 30, 90] as const;
+type DaysOption = (typeof DAYS_OPTIONS)[number];
+
+function credibilityColor(index: number): string {
+  if (index >= 0.7) return "#10b981";
+  if (index >= 0.4) return "#f59e0b";
+  return "#ef4444";
+}
+
 export const OutletNetworkGraph = () => {
   const containerRef = useRef<HTMLDivElement>(null);
   const [dims, setDims] = useState({ width: 0, height: 0 });
   const [hoveredNode, setHoveredNode] = useState<string | null>(null);
+  const [days, setDays] = useState<DaysOption>(90);
 
   const { data: graph, isLoading } = useQuery({
-    queryKey: ["outlet-network"],
-    queryFn: fetchOutletNetwork,
+    queryKey: ["outlet-network", days],
+    queryFn: () => fetchOutletNetwork(days),
     refetchInterval: 60 * 1000,
     staleTime: 30 * 1000,
   });
@@ -147,6 +157,11 @@ export const OutletNetworkGraph = () => {
   const getNodeColor = (n: SimNode) => {
     if (n.color) return n.color;
     if (n.type === "narrative") return "#f59e0b";
+    if (n.type === "event") return "#22d3ee";
+    // Outlet: use credibility index if available, else neutral blue
+    if (n.type === "outlet" && n.credibility != null) {
+      return credibilityColor(n.credibility);
+    }
     return "#3b82f6";
   };
 
@@ -186,6 +201,8 @@ export const OutletNetworkGraph = () => {
           py: 1.5,
           borderBottom: "1px solid rgba(148,163,184,0.08)",
           flexShrink: 0,
+          flexWrap: "wrap",
+          gap: 1,
         }}
       >
         <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
@@ -194,14 +211,37 @@ export const OutletNetworkGraph = () => {
             Outlet Network
           </Typography>
         </Box>
-        <Box sx={{ display: "flex", gap: 1.5 }}>
-          <Box sx={{ display: "flex", alignItems: "center", gap: 0.5 }}>
-            <Box sx={{ width: 8, height: 8, borderRadius: "50%", backgroundColor: "#3b82f6" }} />
-            <Typography variant="caption" color="text.secondary" sx={{ fontSize: "0.6rem" }}>Outlet</Typography>
-          </Box>
-          <Box sx={{ display: "flex", alignItems: "center", gap: 0.5 }}>
-            <Box sx={{ width: 8, height: 8, borderRadius: "50%", backgroundColor: "#f59e0b" }} />
-            <Typography variant="caption" color="text.secondary" sx={{ fontSize: "0.6rem" }}>Narrative</Typography>
+        <Box sx={{ display: "flex", alignItems: "center", gap: 1.5, flexWrap: "wrap" }}>
+          {/* Temporal filter */}
+          <ToggleButtonGroup
+            size="small"
+            exclusive
+            value={days}
+            onChange={(_, v) => { if (v) setDays(v as DaysOption); }}
+            sx={{ "& .MuiToggleButton-root": { py: 0.25, px: 1, fontSize: "0.6rem", fontWeight: 700, border: "1px solid rgba(148,163,184,0.2)", color: "text.secondary", "&.Mui-selected": { backgroundColor: "rgba(139,92,246,0.15)", color: "#8b5cf6", borderColor: "rgba(139,92,246,0.3)" } } }}
+          >
+            {DAYS_OPTIONS.map((d) => (
+              <ToggleButton key={d} value={d}>{d}d</ToggleButton>
+            ))}
+          </ToggleButtonGroup>
+          {/* Legend */}
+          <Box sx={{ display: "flex", gap: 1 }}>
+            {[
+              { color: "#10b981", label: "Reliable" },
+              { color: "#f59e0b", label: "Caution" },
+              { color: "#ef4444", label: "Adversarial" },
+              { color: "#f59e0b", label: "Narrative", shape: "circle" as const },
+              { color: "#22d3ee", label: "Event", shape: "square" as const },
+            ].map(({ color, label, shape }) => (
+              <Box key={label} sx={{ display: "flex", alignItems: "center", gap: 0.4 }}>
+                {shape === "square" ? (
+                  <Box sx={{ width: 8, height: 8, borderRadius: 0.5, backgroundColor: color }} />
+                ) : (
+                  <Box sx={{ width: 8, height: 8, borderRadius: "50%", backgroundColor: color }} />
+                )}
+                <Typography variant="caption" color="text.secondary" sx={{ fontSize: "0.58rem" }}>{label}</Typography>
+              </Box>
+            ))}
           </Box>
         </Box>
       </Box>
@@ -242,6 +282,7 @@ export const OutletNetworkGraph = () => {
               const color = getNodeColor(n);
               const highlighted = isHighlighted(n.id);
               const isHovered = hoveredNode === n.id;
+              const isEvent = n.type === "event";
               return (
                 <g
                   key={n.id}
@@ -251,17 +292,35 @@ export const OutletNetworkGraph = () => {
                 >
                   {/* Glow */}
                   {isHovered && (
-                    <circle cx={n.x} cy={n.y} r={r + 6} fill={color} opacity={0.15} />
+                    isEvent ? (
+                      <rect x={n.x - r - 6} y={n.y - r - 6} width={(r + 6) * 2} height={(r + 6) * 2} rx={2} fill={color} opacity={0.15} />
+                    ) : (
+                      <circle cx={n.x} cy={n.y} r={r + 6} fill={color} opacity={0.15} />
+                    )
                   )}
-                  <circle
-                    cx={n.x}
-                    cy={n.y}
-                    r={r}
-                    fill={color}
-                    opacity={highlighted ? 0.9 : 0.15}
-                    stroke={isHovered ? "#fff" : "none"}
-                    strokeWidth={1.5}
-                  />
+                  {isEvent ? (
+                    <rect
+                      x={n.x - r}
+                      y={n.y - r}
+                      width={r * 2}
+                      height={r * 2}
+                      rx={2}
+                      fill={color}
+                      opacity={highlighted ? 0.9 : 0.15}
+                      stroke={isHovered ? "#fff" : "none"}
+                      strokeWidth={1.5}
+                    />
+                  ) : (
+                    <circle
+                      cx={n.x}
+                      cy={n.y}
+                      r={r}
+                      fill={color}
+                      opacity={highlighted ? 0.9 : 0.15}
+                      stroke={isHovered ? "#fff" : "none"}
+                      strokeWidth={1.5}
+                    />
+                  )}
                   {/* Label */}
                   {(r >= 8 || isHovered) && (
                     <text

@@ -10,9 +10,10 @@ Usage:
     scheduler.stop()    # graceful shutdown
 
 Jobs managed:
-    1. Article Collection  (RSS + GDELT)       → CDDBS_COLLECTOR_INTERVAL_HOURS
-    2. SitRep Generation   (Gemini API call)   → CDDBS_SITREP_INTERVAL_HOURS
-    3. Daily Threat Digest (Gemini API call)   → CDDBS_THREAT_DIGEST_INTERVAL_HOURS
+    1. Article Collection    (RSS + GDELT)       → CDDBS_COLLECTOR_INTERVAL_HOURS
+    2. SitRep Generation     (Gemini API call)   → CDDBS_SITREP_INTERVAL_HOURS
+    3. Daily Threat Digest   (Gemini API call)   → CDDBS_THREAT_DIGEST_INTERVAL_HOURS
+    4. Source Credibility    (local, zero cost)  → CDDBS_SOURCE_CREDIBILITY_INTERVAL_HOURS
 """
 
 import asyncio
@@ -84,6 +85,11 @@ class CddbsScheduler:
                 interval_hours=settings.CDDBS_THREAT_DIGEST_INTERVAL_HOURS,
                 description="Daily executive threat intelligence digest",
             ),
+            "source_credibility": ScheduledJob(
+                name="source_credibility",
+                interval_hours=settings.CDDBS_SOURCE_CREDIBILITY_INTERVAL_HOURS,
+                description="Source Credibility Index recomputation (local, zero API cost)",
+            ),
         }
 
     @property
@@ -111,6 +117,11 @@ class CddbsScheduler:
         # 3. Daily digest job
         self.jobs["threat_digest"]._task = loop.create_task(
             self._run_periodic("threat_digest", self._threat_digest_run)
+        )
+
+        # 4. Source credibility recomputation (local, zero API cost)
+        self.jobs["source_credibility"]._task = loop.create_task(
+            self._run_periodic("source_credibility", self._source_credibility_run)
         )
 
         logger.info(
@@ -184,6 +195,21 @@ class CddbsScheduler:
                 logger.info("Daily digest skipped: nothing significant to report")
         except Exception as exc:
             logger.error("Daily digest error: %s", exc)
+        finally:
+            session.close()
+
+    async def _source_credibility_run(self):
+        """Recompute Source Credibility Index for all qualifying domains."""
+        if not self._db_session_factory:
+            return
+
+        session = self._db_session_factory()
+        try:
+            from src.cddbs.pipeline.source_credibility import compute_all_source_credibility
+            updated = compute_all_source_credibility(session)
+            logger.info("Source credibility updated for %d domains", updated)
+        except Exception as exc:
+            logger.error("Source credibility error: %s", exc)
         finally:
             session.close()
 

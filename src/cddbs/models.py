@@ -232,6 +232,47 @@ class ThreatBriefing(Base):
     cluster = relationship("EventCluster", backref="threat_briefings")
 
 
+class SourceCredibility(Base):
+    """Per-domain source credibility index — computed from framing analyses, bursts, and risk scores.
+
+    Recomputed on a daily schedule by pipeline/source_credibility.py.
+    Zero Gemini API cost — entirely local aggregation.
+    """
+    __tablename__ = "source_credibility"
+    __table_args__ = {'extend_existing': True}
+    id = Column(Integer, primary_key=True, index=True)
+    source_domain = Column(String, unique=True, index=True, nullable=False)
+
+    # Volume
+    total_articles = Column(Integer, default=0)
+
+    # Propaganda signal (0.0 = clean, 1.0 = high propaganda)
+    # Derived from avg narrative_risk_score of clusters this source appeared in
+    avg_propaganda_score = Column(Float, default=0.0)
+
+    # How often this source diverges from consensus framing (0.0–1.0)
+    framing_divergence_score = Column(Float, default=0.0)
+
+    # Times this domain appeared in coordination_indicators across all framing analyses
+    coordination_count = Column(Integer, default=0)
+
+    # Times this domain appeared in articles during a NarrativeBurst window
+    burst_participation_count = Column(Integer, default=0)
+
+    # Composite reliability index (1.0 = highly reliable, 0.0 = highly adversarial)
+    # Formula: 1 - weighted_avg(propaganda, divergence, coordination_norm, burst_norm)
+    reliability_index = Column(Float, default=0.5)
+
+    # Direction of change vs previous computation
+    trend_direction = Column(String, default="stable")  # improving / stable / degrading
+
+    # Previous reliability_index (for trend calculation)
+    previous_reliability_index = Column(Float, nullable=True)
+
+    last_computed_at = Column(DateTime, nullable=True)
+    created_at = Column(DateTime, default=lambda: datetime.now(UTC))
+
+
 class WebhookConfig(Base):
     """Webhook endpoint configuration for alert delivery."""
     __tablename__ = "webhook_configs"

@@ -58,4 +58,8 @@ class Settings:
     # Daily threat intel digest: how often to generate (Gemini API call)
     CDDBS_THREAT_DIGEST_INTERVAL_HOURS = float(os.getenv("CDDBS_THREAT_DIGEST_INTERVAL_HOURS", "24"))
 
+    # Source Credibility Index recomputation: how often to update per-domain scores
+    # Zero Gemini cost — local aggregation only.
+    CDDBS_SOURCE_CREDIBILITY_INTERVAL_HOURS = float(os.getenv("CDDBS_SOURCE_CREDIBILITY_INTERVAL_HOURS", "24"))
+
 settings = Settings()

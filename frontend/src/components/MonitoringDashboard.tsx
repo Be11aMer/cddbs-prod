@@ -20,6 +20,7 @@ import { MetricCardSkeleton } from "./Skeletons";
 import { ActivityTimeline } from "./ActivityTimeline";
 import { NarrativeBarChart } from "./NarrativeBarChart";
 import { OutletNetworkGraph } from "./OutletNetworkGraph";
+import { SourceCredibilityPanel } from "./SourceCredibilityPanel";
 
 export const MonitoringDashboard = () => {
   const { data: globalStats, isLoading: statsLoading } = useQuery({
@@ -240,9 +241,14 @@ export const MonitoringDashboard = () => {
         </Grid>
       </Grid>
 
-      {/* v1.3 Network Graph */}
+      {/* Phase 4A: Source Credibility + Network Graph */}
       <Grid container spacing={2}>
-        <Grid item xs={12}>
+        <Grid item xs={12} md={4}>
+          <Box sx={{ height: 400 }}>
+            <SourceCredibilityPanel />
+          </Box>
+        </Grid>
+        <Grid item xs={12} md={8}>
           <Box sx={{ height: 400 }}>
             <OutletNetworkGraph />
           </Box>

@@ -19,6 +19,7 @@ from src.cddbs.models import (
     TopicRun, TopicOutletResult,
     RawArticle, EventCluster, NarrativeBurst,
     ThreatBriefing,
+    SourceCredibility,
     WebhookConfig,
 )
 from src.cddbs.pipeline.orchestrator import run_pipeline
@@ -1370,6 +1371,7 @@ class NetworkNode(BaseModel):
     type: str = "outlet"  # outlet / narrative / event
     size: int = 1
     color: Optional[str] = None
+    credibility: Optional[float] = None
 
 
 class NetworkEdge(BaseModel):
@@ -1385,16 +1387,36 @@ class NetworkGraphResponse(BaseModel):
 
 
 @app.get("/stats/outlet-network", response_model=NetworkGraphResponse)
-def get_outlet_network(db: Session = Depends(get_db)):
+def get_outlet_network(
+    days: int = 90,
+    db: Session = Depends(get_db),
+):
     """Build an outlet relationship network from shared narrative matches.
 
     Outlets that amplify the same narratives get connected. Edge weight
-    reflects the number of shared narratives.
-    """
-    from collections import defaultdict
+    reflects the number of shared narratives. Includes EventCluster nodes
+    for active events. Outlet nodes carry a credibility score from the
+    Source Credibility Index when available.
 
-    # Gather which outlets have which narratives
-    reports = db.query(Report).filter(Report.final_report.isnot(None)).all()
+    Args:
+        days: lookback window in days (default 90, min 7, max 365)
+    """
+    from collections import defaultdict, Counter
+    from datetime import timedelta
+
+    days = max(7, min(365, days))
+    cutoff = datetime.now(UTC) - timedelta(days=days)
+
+    # --- Source credibility map (domain → reliability_index) ---
+    cred_rows = db.query(SourceCredibility).all()
+    cred_map: dict[str, float] = {row.source_domain: row.reliability_index for row in cred_rows}
+
+    # --- Gather outlet → narratives within the time window ---
+    reports = (
+        db.query(Report)
+        .filter(Report.final_report.isnot(None), Report.created_at >= cutoff)
+        .all()
+    )
     outlet_narratives: dict[str, set[str]] = defaultdict(set)
     outlet_report_count: dict[str, int] = defaultdict(int)
 
@@ -1414,11 +1436,13 @@ def get_outlet_network(db: Session = Depends(get_db)):
     for outlet, narrs in outlet_narratives.items():
         if narrs:
             outlet_ids.add(outlet)
+            cred = cred_map.get(outlet)
             nodes.append(NetworkNode(
                 id=outlet,
                 label=outlet,
                 type="outlet",
                 size=outlet_report_count.get(outlet, 1),
+                credibility=cred,
             ))
 
     # Build edges: outlets sharing narratives
@@ -1435,13 +1459,11 @@ def get_outlet_network(db: Session = Depends(get_db)):
                     label=f"{len(shared)} shared narratives",
                 ))
 
-    # Also add narrative nodes for context (top 10 most connected)
-    from collections import Counter
-    all_narr_ids = Counter()
+    # --- Add narrative nodes for context (top 10 most connected) ---
+    all_narr_ids: Counter = Counter()
     for narrs in outlet_narratives.values():
         all_narr_ids.update(narrs)
 
-    # Get narrative names
     narr_names: dict[str, str] = {}
     all_matches = db.query(NarrativeMatch).all()
     for m in all_matches:
@@ -1456,7 +1478,6 @@ def get_outlet_network(db: Session = Depends(get_db)):
             size=count,
             color="#f59e0b",
         ))
-        # Connect narratives to their outlets
         for outlet in outlets_list:
             if narr_id in outlet_narratives.get(outlet, set()):
                 edges.append(NetworkEdge(
@@ -1465,7 +1486,119 @@ def get_outlet_network(db: Session = Depends(get_db)):
                     weight=1,
                 ))
 
+    # --- Add EventCluster nodes (active clusters within the window) ---
+    clusters = (
+        db.query(EventCluster)
+        .filter(EventCluster.last_seen >= cutoff)
+        .order_by(EventCluster.article_count.desc())
+        .limit(8)
+        .all()
+    )
+    cluster_outlet_map: dict[int, set[str]] = defaultdict(set)
+    if clusters:
+        cluster_ids = [c.id for c in clusters]
+        cluster_articles = (
+            db.query(RawArticle)
+            .filter(
+                RawArticle.cluster_id.in_(cluster_ids),
+                RawArticle.published_at >= cutoff,
+            )
+            .all()
+        )
+        for art in cluster_articles:
+            if art.source_domain and art.cluster_id:
+                cluster_outlet_map[art.cluster_id].add(art.source_domain)
+
+        for cluster in clusters:
+            node_id = f"event:{cluster.id}"
+            label = (cluster.title or f"Event #{cluster.id}")[:30]
+            nodes.append(NetworkNode(
+                id=node_id,
+                label=label,
+                type="event",
+                size=max(1, cluster.article_count // 5),
+                color="#22d3ee",
+            ))
+            # Connect event to outlets that contributed articles
+            for outlet in cluster_outlet_map.get(cluster.id, set()):
+                if outlet in outlet_ids:
+                    edges.append(NetworkEdge(
+                        source=node_id,
+                        target=outlet,
+                        weight=1,
+                        label="covers",
+                    ))
+
     return NetworkGraphResponse(nodes=nodes, edges=edges)
+
+
+# ---------------------------------------------------------------------------
+# Source Credibility Index (Phase 4A)
+# ---------------------------------------------------------------------------
+
+
+class SourceCredibilityItem(BaseModel):
+    id: int
+    source_domain: str
+    total_articles: int = 0
+    avg_propaganda_score: float = 0.0
+    framing_divergence_score: float = 0.0
+    coordination_count: int = 0
+    burst_participation_count: int = 0
+    reliability_index: float = 0.5
+    trend_direction: str = "stable"
+    previous_reliability_index: Optional[float] = None
+    last_computed_at: Optional[datetime] = None
+
+    model_config = {"from_attributes": True}
+
+
+@app.get("/stats/source-credibility", response_model=List[SourceCredibilityItem])
+def get_source_credibility(
+    min_articles: int = 5,
+    trend_direction: Optional[str] = None,
+    limit: int = 100,
+    db: Session = Depends(get_db),
+):
+    """Get per-domain source credibility scores, sorted by reliability_index ascending
+    (least reliable first — most useful for analyst review).
+
+    Args:
+        min_articles: Filter out domains with fewer than this many articles.
+        trend_direction: Filter by trend — 'improving', 'stable', or 'degrading'.
+        limit: Max results to return.
+    """
+    query = db.query(SourceCredibility).filter(
+        SourceCredibility.total_articles >= min_articles
+    )
+    if trend_direction:
+        query = query.filter(SourceCredibility.trend_direction == trend_direction)
+
+    results = (
+        query.order_by(SourceCredibility.reliability_index.asc())
+        .limit(limit)
+        .all()
+    )
+    return results
+
+
+@app.post("/stats/source-credibility/refresh")
+async def refresh_source_credibility(background_tasks: BackgroundTasks):
+    """Manually trigger a Source Credibility Index recomputation.
+
+    Runs in the background; returns immediately.
+    """
+    def _run():
+        from src.cddbs.database import SessionLocal as _SL
+        from src.cddbs.pipeline.source_credibility import compute_all_source_credibility
+        session = _SL()
+        try:
+            compute_all_source_credibility(session)
+        finally:
+            session.close()
+
+    background_tasks.add_task(_run)
+    return {"status": "recomputation started"}
 
 
 # ---------------------------------------------------------------------------
