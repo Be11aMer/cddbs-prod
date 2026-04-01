@@ -208,6 +208,30 @@ class NarrativeBurst(Base):
     resolved_at = Column(DateTime, nullable=True)
 
 
+class ThreatBriefing(Base):
+    """Automated threat intelligence briefing — SitReps, framing analyses, digests, quarterly reports."""
+    __tablename__ = "threat_briefings"
+    __table_args__ = {'extend_existing': True}
+    id = Column(Integer, primary_key=True, index=True)
+    cluster_id = Column(Integer, ForeignKey("event_clusters.id"), nullable=True)
+    briefing_type = Column(String, nullable=False)  # sitrep, framing, daily_digest, quarterly_report
+    title = Column(String, nullable=True)
+    executive_summary = Column(Text, nullable=True)
+    briefing_json = Column(JSON, nullable=True)      # Full structured output
+    framing_analysis = Column(JSON, nullable=True)   # Cross-source framing comparison
+    raw_response = Column(Text, nullable=True)       # Raw Gemini response
+    articles_analyzed = Column(Integer, default=0)
+    sources_compared = Column(Integer, default=0)
+    gemini_tokens_used = Column(Integer, nullable=True)
+    quality_score = Column(Integer, nullable=True)
+    quality_rating = Column(String, nullable=True)
+    period_start = Column(DateTime, nullable=True)   # For digests/quarterly: coverage period
+    period_end = Column(DateTime, nullable=True)
+    created_at = Column(DateTime, default=lambda: datetime.now(UTC))
+
+    cluster = relationship("EventCluster", backref="threat_briefings")
+
+
 class WebhookConfig(Base):
     """Webhook endpoint configuration for alert delivery."""
     __tablename__ = "webhook_configs"
