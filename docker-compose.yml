@@ -34,3 +34,5 @@ services:
 
 volumes:
   pgdata:
+    external: true
+    name: cddbs_pgdata
