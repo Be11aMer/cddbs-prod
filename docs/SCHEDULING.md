@@ -32,6 +32,12 @@ no ambiguity about which job an interval controls.
 **What it does**: Aggregates recent SitReps and `NarrativeBurst` rows from the last period into an executive digest via a single compact Gemini call. If nothing was produced in the period, **no API call is made**.
 **Gemini cost**: max 1 call per run.
 
+### 4. Source Credibility Recomputation
+**Env var**: `CDDBS_SOURCE_CREDIBILITY_INTERVAL_HOURS`
+**Default**: `24` hours
+**What it does**: Scans all domains in `raw_articles` with ≥5 articles and computes a `reliability_index` (0–1) from four signals: propaganda score (narrative risk proxy), framing divergence, coordination indicators, and burst participation. Results upserted into `source_credibility` table with trend direction tracking.
+**Zero Gemini API cost** — pure local SQL aggregation.
+
 ---
 
 ## All Environment Variables
@@ -44,6 +50,7 @@ no ambiguity about which job an interval controls.
 | `CDDBS_SITREP_MIN_RISK_SCORE` | `0.5` | 0.0–1.0 | Minimum `narrative_risk_score` for a cluster to qualify for SitRep |
 | `CDDBS_SITREP_MIN_ARTICLES` | `5` | count | Minimum article count in a cluster to qualify for SitRep |
 | `CDDBS_THREAT_DIGEST_INTERVAL_HOURS` | `24` | hours | How often to generate the daily threat intel digest |
+| `CDDBS_SOURCE_CREDIBILITY_INTERVAL_HOURS` | `24` | hours | How often to recompute domain reliability scores (zero API cost) |
 
 ---
 
@@ -83,6 +90,7 @@ intervals can be reduced for higher freshness.
 | SitRep min risk | 0.5 | 0.35 | Lower threshold catches emerging threats earlier |
 | SitRep min articles | 5 | 3 | Smaller threshold for faster reaction to breaking news |
 | Daily digest | 24h | 6–12h | Becomes "shift digest" for 24/7 analyst coverage |
+| Source credibility | 24h | 6–12h | No API cost — safe to run more frequently once data volume grows |
 
 ### Neon DB Compute-Hour Budget (Free Tier: 100 hours/month)
 
