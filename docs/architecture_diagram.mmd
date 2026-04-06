@@ -1,0 +1,40 @@
+flowchart LR
+    subgraph CURRENT["CURRENT (Working)"]
+        RSS["RSS Collector"] --> RA[("raw_articles")]
+        GDELT["GDELT Collector"] --> RA
+        RA --> DEDUP["Deduplication"]
+        DEDUP --> CLUSTER["TF-IDF Clustering"]
+        CLUSTER --> EC[("event_clusters")]
+        CLUSTER --> BURST["Burst Detection"]
+        BURST --> NB[("narrative_bursts")]
+        EC --> RISK["Risk Scoring"]
+    end
+
+    subgraph PHASE1["PHASE 1 — Automated SitReps"]
+        EC -->|"high-risk trigger"| SITREP["SitRep Generator"]
+        SITREP -->|"Gemini call"| SR[("threat_briefings")]
+    end
+
+    subgraph PHASE2["PHASE 2 — Cross-Source Framing"]
+        EC -->|"cluster articles"| FRAMING["Framing Analyzer"]
+        FRAMING -->|"Gemini call"| FD[("framing_discrepancies")]
+    end
+
+    subgraph PHASE3["PHASE 3 — Automated Digests"]
+        SR --> DIGEST["Daily Digest"]
+        FD --> DIGEST
+        NB --> DIGEST
+        DIGEST -->|"Gemini call"| DD[("threat_digests")]
+        DD --> QUARTERLY["Quarterly Roll-up"]
+    end
+
+    subgraph PHASE4["PHASE 4 — Network Graph + ML"]
+        FD --> SRCIDX["Source Credibility Index"]
+        SRCIDX --> NETGRAPH["Disinformation Network Graph"]
+        NETGRAPH --> PREDICT["ML Prediction"]
+    end
+
+    style SITREP fill:#1e40af,color:#fff
+    style FRAMING fill:#7c3aed,color:#fff
+    style DIGEST fill:#059669,color:#fff
+    style NETGRAPH fill:#dc2626,color:#fff

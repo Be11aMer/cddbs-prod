@@ -18,6 +18,8 @@ from src.cddbs.models import (
     Outlet, Report, Briefing, NarrativeMatch, Feedback,
     TopicRun, TopicOutletResult,
     RawArticle, EventCluster, NarrativeBurst,
+    ThreatBriefing,
+    SourceCredibility,
     WebhookConfig,
 )
 from src.cddbs.pipeline.orchestrator import run_pipeline
@@ -32,32 +34,32 @@ from src.cddbs.utils.input_sanitizer import (
 
 from contextlib import asynccontextmanager
 
-from src.cddbs.collectors.manager import CollectorManager
+from src.cddbs.scheduler import CddbsScheduler
 
 logger = logging.getLogger(__name__)
 
-# Global collector manager instance
-_collector_manager: CollectorManager | None = None
+# Global scheduler instance
+_scheduler: CddbsScheduler | None = None
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    global _collector_manager
+    global _scheduler
     # Ensure tables exist on startup
     try:
         init_db()
     except Exception as exc:
         logger.error("Failed to initialize database on startup (DB may be unavailable/out of quota): %s", exc)
 
-    # Start collector manager for event intelligence pipeline
-    _collector_manager = CollectorManager(db_session_factory=SessionLocal)
-    _collector_manager.start_background(interval_seconds=3600)  # every 60 minutes
+    # Start central scheduler for all automated background jobs
+    _scheduler = CddbsScheduler(db_session_factory=SessionLocal)
+    _scheduler.start()
 
     yield
 
-    # Shutdown collectors
-    if _collector_manager:
-        _collector_manager.stop()
+    # Shutdown scheduler
+    if _scheduler:
+        _scheduler.stop()
 
 app = FastAPI(title="CDDBS API", lifespan=lifespan)
 
@@ -1253,8 +1255,8 @@ def get_event_detail(event_id: int, db: Session = Depends(get_db)):
 @app.get("/collector/status", response_model=CollectorStatusResponse)
 def get_collector_status():
     """Get health status of all news collectors."""
-    if _collector_manager:
-        return CollectorStatusResponse(collectors=_collector_manager.statuses)
+    if _scheduler:
+        return CollectorStatusResponse(collectors=_scheduler.collector_statuses)
     return CollectorStatusResponse(collectors=[])
 
 
@@ -1369,6 +1371,7 @@ class NetworkNode(BaseModel):
     type: str = "outlet"  # outlet / narrative / event
     size: int = 1
     color: Optional[str] = None
+    credibility: Optional[float] = None
 
 
 class NetworkEdge(BaseModel):
@@ -1384,16 +1387,36 @@ class NetworkGraphResponse(BaseModel):
 
 
 @app.get("/stats/outlet-network", response_model=NetworkGraphResponse)
-def get_outlet_network(db: Session = Depends(get_db)):
+def get_outlet_network(
+    days: int = 90,
+    db: Session = Depends(get_db),
+):
     """Build an outlet relationship network from shared narrative matches.
 
     Outlets that amplify the same narratives get connected. Edge weight
-    reflects the number of shared narratives.
-    """
-    from collections import defaultdict
+    reflects the number of shared narratives. Includes EventCluster nodes
+    for active events. Outlet nodes carry a credibility score from the
+    Source Credibility Index when available.
 
-    # Gather which outlets have which narratives
-    reports = db.query(Report).filter(Report.final_report.isnot(None)).all()
+    Args:
+        days: lookback window in days (default 90, min 7, max 365)
+    """
+    from collections import defaultdict, Counter
+    from datetime import timedelta
+
+    days = max(7, min(365, days))
+    cutoff = datetime.now(UTC) - timedelta(days=days)
+
+    # --- Source credibility map (domain → reliability_index) ---
+    cred_rows = db.query(SourceCredibility).all()
+    cred_map: dict[str, float] = {row.source_domain: row.reliability_index for row in cred_rows}
+
+    # --- Gather outlet → narratives within the time window ---
+    reports = (
+        db.query(Report)
+        .filter(Report.final_report.isnot(None), Report.created_at >= cutoff)
+        .all()
+    )
     outlet_narratives: dict[str, set[str]] = defaultdict(set)
     outlet_report_count: dict[str, int] = defaultdict(int)
 
@@ -1413,11 +1436,13 @@ def get_outlet_network(db: Session = Depends(get_db)):
     for outlet, narrs in outlet_narratives.items():
         if narrs:
             outlet_ids.add(outlet)
+            cred = cred_map.get(outlet)
             nodes.append(NetworkNode(
                 id=outlet,
                 label=outlet,
                 type="outlet",
                 size=outlet_report_count.get(outlet, 1),
+                credibility=cred,
             ))
 
     # Build edges: outlets sharing narratives
@@ -1434,13 +1459,11 @@ def get_outlet_network(db: Session = Depends(get_db)):
                     label=f"{len(shared)} shared narratives",
                 ))
 
-    # Also add narrative nodes for context (top 10 most connected)
-    from collections import Counter
-    all_narr_ids = Counter()
+    # --- Add narrative nodes for context (top 10 most connected) ---
+    all_narr_ids: Counter = Counter()
     for narrs in outlet_narratives.values():
         all_narr_ids.update(narrs)
 
-    # Get narrative names
     narr_names: dict[str, str] = {}
     all_matches = db.query(NarrativeMatch).all()
     for m in all_matches:
@@ -1455,7 +1478,6 @@ def get_outlet_network(db: Session = Depends(get_db)):
             size=count,
             color="#f59e0b",
         ))
-        # Connect narratives to their outlets
         for outlet in outlets_list:
             if narr_id in outlet_narratives.get(outlet, set()):
                 edges.append(NetworkEdge(
@@ -1464,7 +1486,119 @@ def get_outlet_network(db: Session = Depends(get_db)):
                     weight=1,
                 ))
 
+    # --- Add EventCluster nodes (active clusters within the window) ---
+    clusters = (
+        db.query(EventCluster)
+        .filter(EventCluster.last_seen >= cutoff)
+        .order_by(EventCluster.article_count.desc())
+        .limit(8)
+        .all()
+    )
+    cluster_outlet_map: dict[int, set[str]] = defaultdict(set)
+    if clusters:
+        cluster_ids = [c.id for c in clusters]
+        cluster_articles = (
+            db.query(RawArticle)
+            .filter(
+                RawArticle.cluster_id.in_(cluster_ids),
+                RawArticle.published_at >= cutoff,
+            )
+            .all()
+        )
+        for art in cluster_articles:
+            if art.source_domain and art.cluster_id:
+                cluster_outlet_map[art.cluster_id].add(art.source_domain)
+
+        for cluster in clusters:
+            node_id = f"event:{cluster.id}"
+            label = (cluster.title or f"Event #{cluster.id}")[:30]
+            nodes.append(NetworkNode(
+                id=node_id,
+                label=label,
+                type="event",
+                size=max(1, cluster.article_count // 5),
+                color="#22d3ee",
+            ))
+            # Connect event to outlets that contributed articles
+            for outlet in cluster_outlet_map.get(cluster.id, set()):
+                if outlet in outlet_ids:
+                    edges.append(NetworkEdge(
+                        source=node_id,
+                        target=outlet,
+                        weight=1,
+                        label="covers",
+                    ))
+
     return NetworkGraphResponse(nodes=nodes, edges=edges)
+
+
+# ---------------------------------------------------------------------------
+# Source Credibility Index (Phase 4A)
+# ---------------------------------------------------------------------------
+
+
+class SourceCredibilityItem(BaseModel):
+    id: int
+    source_domain: str
+    total_articles: int = 0
+    avg_propaganda_score: float = 0.0
+    framing_divergence_score: float = 0.0
+    coordination_count: int = 0
+    burst_participation_count: int = 0
+    reliability_index: float = 0.5
+    trend_direction: str = "stable"
+    previous_reliability_index: Optional[float] = None
+    last_computed_at: Optional[datetime] = None
+
+    model_config = {"from_attributes": True}
+
+
+@app.get("/stats/source-credibility", response_model=List[SourceCredibilityItem])
+def get_source_credibility(
+    min_articles: int = 5,
+    trend_direction: Optional[str] = None,
+    limit: int = 100,
+    db: Session = Depends(get_db),
+):
+    """Get per-domain source credibility scores, sorted by reliability_index ascending
+    (least reliable first — most useful for analyst review).
+
+    Args:
+        min_articles: Filter out domains with fewer than this many articles.
+        trend_direction: Filter by trend — 'improving', 'stable', or 'degrading'.
+        limit: Max results to return.
+    """
+    query = db.query(SourceCredibility).filter(
+        SourceCredibility.total_articles >= min_articles
+    )
+    if trend_direction:
+        query = query.filter(SourceCredibility.trend_direction == trend_direction)
+
+    results = (
+        query.order_by(SourceCredibility.reliability_index.asc())
+        .limit(limit)
+        .all()
+    )
+    return results
+
+
+@app.post("/stats/source-credibility/refresh")
+async def refresh_source_credibility(background_tasks: BackgroundTasks):
+    """Manually trigger a Source Credibility Index recomputation.
+
+    Runs in the background; returns immediately.
+    """
+    def _run():
+        from src.cddbs.database import SessionLocal as _SL
+        from src.cddbs.pipeline.source_credibility import compute_all_source_credibility
+        session = _SL()
+        try:
+            compute_all_source_credibility(session)
+        finally:
+            session.close()
+
+    background_tasks.add_task(_run)
+    return {"status": "recomputation started"}
 
 
 # ---------------------------------------------------------------------------
@@ -1996,6 +2130,264 @@ async def test_webhook(webhook_id: int, db: Session = Depends(get_db)):
         db_session=db,
     )
     return {"delivered": delivered, "webhook_id": webhook_id}
+
+
+# ---------------------------------------------------------------------------
+# Threat Briefings (Phases 1-3: SitReps, Framing, Digests, Quarterly Reports)
+# ---------------------------------------------------------------------------
+
+
+class ThreatBriefingResponse(BaseModel):
+    id: int
+    cluster_id: Optional[int] = None
+    briefing_type: str  # sitrep, daily_digest, quarterly_report
+    title: Optional[str] = None
+    executive_summary: Optional[str] = None
+    articles_analyzed: int = 0
+    sources_compared: int = 0
+    quality_score: Optional[int] = None
+    quality_rating: Optional[str] = None
+    period_start: Optional[datetime] = None
+    period_end: Optional[datetime] = None
+    created_at: Optional[datetime] = None
+    has_framing_analysis: bool = False
+
+    model_config = {"from_attributes": True}
+
+
+class ThreatBriefingDetailResponse(ThreatBriefingResponse):
+    briefing_json: Optional[dict] = None
+    framing_analysis: Optional[dict] = None
+
+
+class QuarterlyReportRequest(BaseModel):
+    year: int = Field(..., ge=2024, le=2030, description="Year, e.g. 2026")
+    quarter: int = Field(..., ge=1, le=4, description="Quarter (1-4)")
+
+
+@app.get("/threat-briefings", response_model=List[ThreatBriefingResponse])
+def list_threat_briefings(
+    briefing_type: Optional[str] = None,
+    limit: int = 50,
+    offset: int = 0,
+    db: Session = Depends(get_db),
+):
+    """List auto-generated threat briefings (SitReps, digests, quarterly reports), newest first."""
+    query = db.query(ThreatBriefing)
+    if briefing_type:
+        query = query.filter(ThreatBriefing.briefing_type == briefing_type)
+    briefings = (
+        query.order_by(ThreatBriefing.created_at.desc())
+        .offset(offset)
+        .limit(limit)
+        .all()
+    )
+    result = []
+    for b in briefings:
+        r = ThreatBriefingResponse(
+            id=b.id,
+            cluster_id=b.cluster_id,
+            briefing_type=b.briefing_type,
+            title=b.title,
+            executive_summary=b.executive_summary,
+            articles_analyzed=b.articles_analyzed or 0,
+            sources_compared=b.sources_compared or 0,
+            quality_score=b.quality_score,
+            quality_rating=b.quality_rating,
+            period_start=b.period_start,
+            period_end=b.period_end,
+            created_at=b.created_at,
+            has_framing_analysis=b.framing_analysis is not None,
+        )
+        result.append(r)
+    return result
+
+
+@app.get("/threat-briefings/latest", response_model=List[ThreatBriefingResponse])
+def get_latest_threat_briefings(
+    n: int = 5,
+    db: Session = Depends(get_db),
+):
+    """Get the latest N threat briefings for dashboard widget use."""
+    briefings = (
+        db.query(ThreatBriefing)
+        .order_by(ThreatBriefing.created_at.desc())
+        .limit(max(1, min(n, 20)))
+        .all()
+    )
+    return [
+        ThreatBriefingResponse(
+            id=b.id,
+            cluster_id=b.cluster_id,
+            briefing_type=b.briefing_type,
+            title=b.title,
+            executive_summary=b.executive_summary,
+            articles_analyzed=b.articles_analyzed or 0,
+            sources_compared=b.sources_compared or 0,
+            quality_score=b.quality_score,
+            quality_rating=b.quality_rating,
+            period_start=b.period_start,
+            period_end=b.period_end,
+            created_at=b.created_at,
+            has_framing_analysis=b.framing_analysis is not None,
+        )
+        for b in briefings
+    ]
+
+
+@app.get("/threat-briefings/{briefing_id}", response_model=ThreatBriefingDetailResponse)
+def get_threat_briefing(briefing_id: int, db: Session = Depends(get_db)):
+    """Get full threat briefing detail including JSON payload and framing analysis."""
+    b = db.query(ThreatBriefing).filter(ThreatBriefing.id == briefing_id).first()
+    if not b:
+        raise HTTPException(status_code=404, detail="Threat briefing not found")
+    return ThreatBriefingDetailResponse(
+        id=b.id,
+        cluster_id=b.cluster_id,
+        briefing_type=b.briefing_type,
+        title=b.title,
+        executive_summary=b.executive_summary,
+        articles_analyzed=b.articles_analyzed or 0,
+        sources_compared=b.sources_compared or 0,
+        quality_score=b.quality_score,
+        quality_rating=b.quality_rating,
+        period_start=b.period_start,
+        period_end=b.period_end,
+        created_at=b.created_at,
+        has_framing_analysis=b.framing_analysis is not None,
+        briefing_json=b.briefing_json,
+        framing_analysis=b.framing_analysis,
+    )
+
+
+@app.post("/threat-briefings/quarterly", response_model=ThreatBriefingDetailResponse)
+def trigger_quarterly_report(
+    request: QuarterlyReportRequest,
+    background_tasks: BackgroundTasks,
+    db: Session = Depends(get_db),
+):
+    """Manually trigger a quarterly threat assessment report from the UI.
+
+    Checks for an existing report for the requested quarter before generating.
+    Generation runs in the background; returns 202-style response immediately.
+    """
+    import calendar
+    from datetime import timezone
+
+    start_month = (request.quarter - 1) * 3 + 1
+    end_month = start_month + 2
+    _, last_day = calendar.monthrange(request.year, end_month)
+    period_start = datetime(request.year, start_month, 1, tzinfo=timezone.utc)
+    period_end = datetime(request.year, end_month, last_day, 23, 59, 59, tzinfo=timezone.utc)
+
+    existing = (
+        db.query(ThreatBriefing)
+        .filter(
+            ThreatBriefing.briefing_type == "quarterly_report",
+            ThreatBriefing.period_start == period_start,
+        )
+        .first()
+    )
+    if existing:
+        return ThreatBriefingDetailResponse(
+            id=existing.id,
+            cluster_id=existing.cluster_id,
+            briefing_type=existing.briefing_type,
+            title=existing.title,
+            executive_summary=existing.executive_summary,
+            articles_analyzed=existing.articles_analyzed or 0,
+            sources_compared=existing.sources_compared or 0,
+            quality_score=existing.quality_score,
+            quality_rating=existing.quality_rating,
+            period_start=existing.period_start,
+            period_end=existing.period_end,
+            created_at=existing.created_at,
+            has_framing_analysis=False,
+            briefing_json=existing.briefing_json,
+            framing_analysis=None,
+        )
+
+    # Create a placeholder so the frontend can poll
+    placeholder = ThreatBriefing(
+        briefing_type="quarterly_report",
+        title=f"CDDBS Quarterly Threat Assessment — Q{request.quarter} {request.year} (generating...)",
+        executive_summary=None,
+        articles_analyzed=0,
+        sources_compared=0,
+        period_start=period_start,
+        period_end=period_end,
+    )
+    db.add(placeholder)
+    db.commit()
+    db.refresh(placeholder)
+    briefing_id = placeholder.id
+
+    def _generate(year: int, quarter: int, bid: int):
+        from src.cddbs.database import SessionLocal as _SL
+        from src.cddbs.pipeline.threat_digest import generate_quarterly_report
+        session = _SL()
+        try:
+            result = generate_quarterly_report(session, year, quarter)
+            if result:
+                # Remove the placeholder since generate_quarterly_report persists its own row
+                session.query(ThreatBriefing).filter(ThreatBriefing.id == bid).delete()
+                session.commit()
+        except Exception as exc:
+            logger.error("Quarterly report generation failed: %s", exc)
+            session.query(ThreatBriefing).filter(ThreatBriefing.id == bid).delete()
+            session.commit()
+        finally:
+            session.close()
+
+    background_tasks.add_task(_generate, request.year, request.quarter, briefing_id)
+
+    return ThreatBriefingDetailResponse(
+        id=placeholder.id,
+        cluster_id=None,
+        briefing_type="quarterly_report",
+        title=placeholder.title,
+        executive_summary=None,
+        articles_analyzed=0,
+        sources_compared=0,
+        quality_score=None,
+        quality_rating=None,
+        period_start=period_start,
+        period_end=period_end,
+        created_at=placeholder.created_at,
+        has_framing_analysis=False,
+        briefing_json=None,
+        framing_analysis=None,
+    )
+
+
+# ---------------------------------------------------------------------------
+# Scheduler Status
+# ---------------------------------------------------------------------------
+
+
+class SchedulerJobStatus(BaseModel):
+    name: str
+    description: str
+    interval_hours: float
+    last_run: Optional[datetime] = None
+    next_run: Optional[datetime] = None
+    run_count: int
+    last_error: Optional[str] = None
+    is_running: bool
+
+
+class SchedulerStatusResponse(BaseModel):
+    jobs: List[SchedulerJobStatus]
+
+
+@app.get("/scheduler/status", response_model=SchedulerStatusResponse)
+def get_scheduler_status():
+    """Get status of all scheduled background jobs (collector, sitrep, digest)."""
+    if _scheduler is None:
+        return SchedulerStatusResponse(jobs=[])
+    return SchedulerStatusResponse(
+        jobs=[SchedulerJobStatus(**j) for j in _scheduler.statuses]
+    )
 
 
 # ---------------------------------------------------------------------------
