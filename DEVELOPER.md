@@ -1318,4 +1318,121 @@ Returns per-claim detail: `{claim, max_similarity, grounded}`.
 
 ---
 
+## 17. Intelligence Feed Extensions — Phase 4A + SitRep + Threat Digest
+
+### 17.1 CddbsScheduler
+
+`scheduler.py` — the single authoritative place for all automated background jobs. Starts inside the FastAPI lifespan event. Four jobs:
+
+| Job | Env var | Default | Cost |
+|-----|---------|---------|------|
+| Collector | `CDDBS_COLLECTOR_INTERVAL_HOURS` | 1h | Zero (RSS/GDELT fetch) |
+| SitRep | `CDDBS_SITREP_INTERVAL_HOURS` | 12h | Gemini API (gated by risk + article count) |
+| Threat Digest | `CDDBS_THREAT_DIGEST_INTERVAL_HOURS` | 24h | Gemini API (low-cost summarisation) |
+| Source Credibility | `CDDBS_SOURCE_CREDIBILITY_INTERVAL_HOURS` | 24h | Zero (local computation) |
+
+`GET /scheduler/status` — returns last run time, next run time, and error count per job.
+
+### 17.2 Automated Situational Reports (SitRep)
+
+`pipeline/sitrep.py` — `run_sitrep_cycle(session)` is the scheduler entry point.
+
+**Gate conditions** (both must pass):
+- `narrative_risk_score >= CDDBS_SITREP_MIN_RISK_SCORE` (default 0.5)
+- `article_count >= CDDBS_SITREP_MIN_ARTICLES` (default 5)
+
+**Budget cap**: `CDDBS_SITREP_MAX_PER_CYCLE` (default 3) Gemini calls per cycle. Clusters already briefed are skipped.
+
+**SitRep structure** (JSON stored in `ThreatBriefing.briefing_json`):
+- `title`, `executive_summary`
+- `event_assessment`: what happened, key actors, affected regions, timeline
+- `disinformation_risk`: risk level, risk factors, unverified claims, propaganda indicators, narrative alignment
+- `source_diversity`: total sources, source types, geographic spread, quality assessment
+- `analyst_notes`
+
+**Framing analysis** (piggybacked at zero extra cost):
+Triggered when cluster has ≥3 distinct source domains OR ≥2 source types. Stored in `ThreatBriefing.framing_analysis` (JSON). Contains:
+- `source_framings[]`: per-source framing summary, key claims, omitted facts, emotional language score (0–1), bias direction
+- `discrepancies[]`: topic, source_a says / source_b says, assessment (unverified / contradictory / selective_omission / spin)
+- `coordination_indicators[]`
+- `framing_divergence_score` (0–1)
+
+### 17.3 Threat Digest
+
+`pipeline/threat_digest.py`
+
+**Daily digest** (`generate_daily_digest(session)`) — Summarises recent SitReps into an executive-grade threat summary. Low token cost: inputs are SitRep summaries, not raw articles.
+
+**Quarterly report** (`generate_quarterly_report(session, year, quarter)`) — Aggregates the full quarter. UI-triggered only via `POST /threat-briefings/quarterly`. Not scheduled — prevents accidental high-cost runs.
+
+Both stored as `ThreatBriefing` rows (`briefing_type="daily_digest"` or `"quarterly_report"`). Quarterly reports have `cluster_id=NULL`.
+
+### 17.4 Source Credibility Index (Phase 4A)
+
+`pipeline/source_credibility.py` — `compute_all_source_credibility(session) -> int`
+
+**Zero API cost** — pure local computation from existing DB data.
+
+**Reliability formula**:
+```
+reliability_index = 1 - min(adversarial_score, 1.0)
+adversarial_score = 0.40×avg_propaganda + 0.30×framing_divergence + 0.20×coord_norm + 0.10×burst_norm
+```
+
+Where:
+- `avg_propaganda` — mean `narrative_risk_score` across all clusters this domain appeared in
+- `framing_divergence` — mean `framing_divergence_score` from framing analyses featuring this domain
+- `coord_norm` — coordination appearances normalised to [0, 1] (capped at 10)
+- `burst_norm` — burst participation count normalised to [0, 1] (capped at 10)
+
+Coordination is inferred from `framing_analysis.source_framings` when `coordination_indicators` are non-empty for that source.
+
+**Trend direction**: compared to `previous_reliability_index`:
+- `improving` — delta > +0.05
+- `degrading` — delta < -0.05
+- `stable` — within ±0.05
+
+**API**:
+- `GET /stats/source-credibility` — ranked domain list with all scores and trend
+- `POST /stats/source-credibility/refresh` — triggers immediate recomputation in background
+
+### 17.5 GDELT Collector
+
+`collectors/gdelt.py`
+
+GDELT sometimes returns HTML error pages instead of JSON (rate limiting or temporary unavailability). The collector detects non-JSON responses and skips them gracefully without crashing the collection cycle.
+
+When `GDELT_PROXY_URL` is set, all GDELT requests route through the Cloudflare Workers proxy. This is the recommended configuration for production — it avoids direct GDELT API exposure and improves reliability.
+
+### 17.6 Phase 4 Roadmap
+
+`TODO_PHASE4_NETWORK_ML.md` — documents the deferred phases:
+
+| Phase | Feature | Status |
+|-------|---------|--------|
+| 4A | Source Credibility Index | Complete |
+| 4B | Disinformation Network Graph (enhanced node types, temporal slider, community detection UI) | Deferred — needs data |
+| 4C | ML Predictions (anomaly detection, campaign detection, amplification chains) | Deferred — needs 3–6 months of data |
+
+Do not implement 4B or 4C until sufficient data has accumulated.
+
+### 17.7 New Files (Intelligence Feed Extensions)
+
+| File | Purpose |
+|------|---------|
+| `src/cddbs/pipeline/sitrep.py` | SitRep generation + cross-source framing analysis |
+| `src/cddbs/pipeline/threat_digest.py` | Daily digest + quarterly report generation |
+| `src/cddbs/pipeline/source_credibility.py` | Source Credibility Index computation |
+| `src/cddbs/pipeline/summarize.py` | Digest summarisation helpers |
+| `scheduler.py` | CddbsScheduler — 4-job background orchestrator |
+| `frontend/src/components/ThreatBriefingsPanel.tsx` | SitRep + digest listing panel |
+| `frontend/src/components/ThreatBriefingDetail.tsx` | Full SitRep detail with framing analysis |
+| `frontend/src/components/SourceCredibilityPanel.tsx` | Domain reliability rankings |
+| `frontend/src/components/IntelFeed.tsx` | Real-time article feed |
+| `frontend/src/components/CollectorStatusBar.tsx` | Collector health indicators |
+| `frontend/src/components/AnnotatedArticleCards.tsx` | Per-article analysis cards |
+| `TODO_PHASE4_NETWORK_ML.md` | Phase 4B/4C roadmap (deferred) |
+
+---
+
 *End of developer documentation. Keep this file current with every change.*
