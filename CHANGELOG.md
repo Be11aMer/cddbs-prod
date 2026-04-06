@@ -98,6 +98,58 @@ evidence collection.
   be cut when authentication exists and external testers are onboarded.
 - Retagged: `v2026.03` → `v0.5.0`, `2026.04.1` → `v0.8.0`
 
+### Intelligence Feed Extensions (Post-Sprint 9 Amendments)
+
+These features were built after the Sprint 9 backlog closed, leveraging the
+accumulated architecture from Phases 1–3. They are amendments to v0.9.0.
+
+- **Automated Situational Reports** (`pipeline/sitrep.py`) — `run_sitrep_cycle()`
+  generates AI Situational Reports (SitReps) for high-risk EventClusters on a
+  12h schedule. Gate conditions: `narrative_risk_score ≥ 0.5` AND
+  `article_count ≥ 5`. Budget cap: `CDDBS_SITREP_MAX_PER_CYCLE` (default 3
+  Gemini calls per cycle). Each SitRep covers: executive summary, event
+  assessment, disinformation risk analysis, source diversity, and analyst notes.
+
+- **Cross-Source Framing Analysis** (piggybacked into SitRep) — When a cluster
+  has ≥3 distinct sources or ≥2 source types, the same Gemini call embeds a
+  framing analysis comparing how each source frames the event: per-source
+  framing summaries, key claims, omitted facts, emotional language score, bias
+  direction, discrepancies across sources, coordination indicators, and a
+  framing divergence score. Zero extra API cost.
+
+- **Threat Digest** (`pipeline/threat_digest.py`) — `generate_daily_digest()`
+  produces a daily executive threat summary from recent SitReps (low token cost;
+  no new article fetching). `generate_quarterly_report()` aggregates the full
+  quarter; UI-triggered only (not scheduled) to prevent accidental high-cost
+  runs. Both stored as `ThreatBriefing` rows with `briefing_type="daily_digest"`
+  or `"quarterly_report"`.
+
+- **CddbsScheduler** (`scheduler.py`) — Single authoritative orchestrator for all
+  4 background jobs. Starts inside FastAPI lifespan. Status at
+  `GET /scheduler/status`.
+
+- **Source Credibility Index — Phase 4A** (`pipeline/source_credibility.py`) —
+  `compute_all_source_credibility(session)` computes per-domain reliability from
+  existing DB data at zero API cost. Formula:
+  `reliability = 1 − (0.40×propaganda + 0.30×framing_divergence + 0.20×coord_norm + 0.10×burst_norm)`.
+  Trend direction tracked: `improving` / `stable` / `degrading`. Recomputed
+  daily. Exposed at `GET /stats/source-credibility` and
+  `POST /stats/source-credibility/refresh`.
+
+- **GDELT collector fix** — Fixed silent failures caused by GDELT returning HTML
+  error pages instead of JSON under rate-limiting or availability degradation.
+  Also wired `GDELT_PROXY_URL` routing: when set, all GDELT requests route
+  through the Cloudflare Workers proxy, improving reliability and avoiding
+  direct API exposure.
+
+- **New frontend components** — `ThreatBriefingsPanel`, `ThreatBriefingDetail`,
+  `SourceCredibilityPanel`, `IntelFeed`, `CollectorStatusBar`,
+  `AnnotatedArticleCards`.
+
+- **Phase 4 roadmap** — `TODO_PHASE4_NETWORK_ML.md` documents Phase 4B
+  (Disinformation Network Graph) and 4C (ML Predictions), both deferred pending
+  3–6 months of data accumulation.
+
 ## [0.8.0] - 2026-03-22
 
 ### Sprint 8: Topic Mode Innovations, Supply Chain Security & AI Disclosure

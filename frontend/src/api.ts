@@ -339,6 +339,7 @@ export interface NetworkNode {
   type: string;
   size: number;
   color?: string | null;
+  credibility?: number | null;
 }
 
 export interface NetworkEdge {
@@ -353,8 +354,8 @@ export interface NetworkGraphData {
   edges: NetworkEdge[];
 }
 
-export async function fetchOutletNetwork() {
-  const { data } = await api.get<NetworkGraphData>("/stats/outlet-network");
+export async function fetchOutletNetwork(days = 90) {
+  const { data } = await api.get<NetworkGraphData>("/stats/outlet-network", { params: { days } });
   return data;
 }
 
@@ -705,5 +706,133 @@ export async function testWebhook(id: number) {
   const { data } = await api.post<{ delivered: number; webhook_id: number }>(
     `/webhooks/test/${id}`
   );
+  return data;
+}
+
+
+// ---------------------------------------------------------------------------
+// Threat Briefings (SitReps, Framing, Digests, Quarterly Reports)
+// ---------------------------------------------------------------------------
+
+export interface ThreatBriefingItem {
+  id: number;
+  cluster_id: number | null;
+  briefing_type: string; // sitrep | daily_digest | quarterly_report
+  title: string | null;
+  executive_summary: string | null;
+  articles_analyzed: number;
+  sources_compared: number;
+  quality_score: number | null;
+  quality_rating: string | null;
+  period_start: string | null;
+  period_end: string | null;
+  created_at: string | null;
+  has_framing_analysis: boolean;
+}
+
+export interface SourceFraming {
+  source_domain: string;
+  source_type: string;
+  framing_summary: string;
+  key_claims: string[];
+  omitted_facts: string[];
+  emotional_language_score: number;
+  bias_direction: string;
+}
+
+export interface FramingDiscrepancy {
+  topic: string;
+  source_a: string;
+  source_b: string;
+  assessment: string;
+}
+
+export interface FramingAnalysis {
+  source_framings: SourceFraming[];
+  discrepancies: FramingDiscrepancy[];
+  coordination_indicators: string[];
+  framing_divergence_score: number;
+}
+
+export interface ThreatBriefingDetail extends ThreatBriefingItem {
+  briefing_json: Record<string, unknown> | null;
+  framing_analysis: FramingAnalysis | null;
+}
+
+export interface SchedulerJobStatus {
+  name: string;
+  description: string;
+  interval_hours: number;
+  last_run: string | null;
+  next_run: string | null;
+  run_count: number;
+  last_error: string | null;
+  is_running: boolean;
+}
+
+export async function fetchThreatBriefings(params?: {
+  briefing_type?: string;
+  limit?: number;
+  offset?: number;
+}) {
+  const { data } = await api.get<ThreatBriefingItem[]>("/threat-briefings", { params });
+  return data;
+}
+
+export async function fetchLatestThreatBriefings(n = 5) {
+  const { data } = await api.get<ThreatBriefingItem[]>("/threat-briefings/latest", {
+    params: { n },
+  });
+  return data;
+}
+
+export async function fetchThreatBriefing(id: number) {
+  const { data } = await api.get<ThreatBriefingDetail>(`/threat-briefings/${id}`);
+  return data;
+}
+
+export async function triggerQuarterlyReport(year: number, quarter: number) {
+  const { data } = await api.post<ThreatBriefingDetail>("/threat-briefings/quarterly", {
+    year,
+    quarter,
+  });
+  return data;
+}
+
+export async function fetchSchedulerStatus() {
+  const { data } = await api.get<{ jobs: SchedulerJobStatus[] }>("/scheduler/status");
+  return data.jobs;
+}
+
+
+// ---------------------------------------------------------------------------
+// Source Credibility Index (Phase 4A)
+// ---------------------------------------------------------------------------
+
+export interface SourceCredibilityItem {
+  id: number;
+  source_domain: string;
+  total_articles: number;
+  avg_propaganda_score: number;      // 0.0 (clean) → 1.0 (propaganda)
+  framing_divergence_score: number;  // 0.0 (aligned) → 1.0 (divergent)
+  coordination_count: number;
+  burst_participation_count: number;
+  reliability_index: number;         // 1.0 (reliable) → 0.0 (adversarial)
+  trend_direction: string;           // improving | stable | degrading
+  previous_reliability_index: number | null;
+  last_computed_at: string | null;
+}
+
+export async function fetchSourceCredibility(params?: {
+  min_articles?: number;
+  trend_direction?: string;
+  limit?: number;
+}) {
+  const { data } = await api.get<SourceCredibilityItem[]>("/stats/source-credibility", { params });
+  return data;
+}
+
+export async function refreshSourceCredibility() {
+  const { data } = await api.post<{ status: string }>("/stats/source-credibility/refresh");
   return data;
 }

@@ -1,5 +1,6 @@
 import {
   Box,
+  Badge,
   Container,
   Divider,
   Drawer,
@@ -60,8 +61,11 @@ import { FeedbackDialog } from "./components/FeedbackDialog";
 import { MonitoringDashboard } from "./components/MonitoringDashboard";
 import { TopicRunsTable } from "./components/TopicRunsTable";
 import { TopicRunDetail } from "./components/TopicRunDetail";
+import { ThreatBriefingsPanel } from "./components/ThreatBriefingsPanel";
+import ArticleIcon from "@mui/icons-material/Article";
+import { fetchLatestThreatBriefings } from "./api";
 
-type ViewType = "monitoring" | "reports" | "topic-runs";
+type ViewType = "monitoring" | "reports" | "topic-runs" | "threat-briefings";
 
 const Search = styled("div")(({ theme }) => ({
   position: "relative",
@@ -171,6 +175,14 @@ export const App = () => {
       return hasRunning ? 10000 : false;
     },
   });
+
+  // Threat briefings count for sidebar badge
+  const { data: latestBriefings } = useQuery({
+    queryKey: ["threat-briefings-latest"],
+    queryFn: () => fetchLatestThreatBriefings(20),
+    refetchInterval: 60000,
+  });
+  const threatBriefingCount = latestBriefings?.length ?? 0;
 
   // Refetch when component mounts to get latest status
   useEffect(() => {
@@ -532,6 +544,34 @@ export const App = () => {
                 />
               </ListItemButton>
             </ListItem>
+            {/* Threat Briefings */}
+            <ListItem disablePadding sx={{ mb: 0.5 }}>
+              <ListItemButton
+                selected={currentView === "threat-briefings"}
+                onClick={() => { setCurrentView("threat-briefings"); isMobile && setIsMobileDrawerOpen(false); }}
+                sx={{
+                  borderRadius: 2,
+                  "&.Mui-selected": {
+                    backgroundColor: "rgba(239,68,68,0.08)",
+                    borderLeft: "3px solid #ef4444",
+                    "&:hover": { backgroundColor: "rgba(239,68,68,0.12)" },
+                  },
+                  "&:not(.Mui-selected)": { pl: "19px" },
+                }}
+              >
+                <ListItemIcon sx={{ minWidth: 32 }}>
+                  <Badge badgeContent={threatBriefingCount > 0 ? threatBriefingCount : undefined} color="error" max={99}
+                    sx={{ "& .MuiBadge-badge": { fontSize: "0.55rem", height: 14, minWidth: 14 } }}
+                  >
+                    <ArticleIcon sx={{ fontSize: 18, color: currentView === "threat-briefings" ? "#ef4444" : "text.secondary" }} />
+                  </Badge>
+                </ListItemIcon>
+                <ListItemText
+                  primaryTypographyProps={{ fontWeight: 700, fontSize: "0.875rem" }}
+                  primary="Threat Briefings"
+                />
+              </ListItemButton>
+            </ListItem>
           </List>
         </Box>
 
@@ -614,6 +654,9 @@ export const App = () => {
               />
             )
           )}
+
+          {/* ── Threat Briefings view ── */}
+          {currentView === "threat-briefings" && <ThreatBriefingsPanel />}
 
           {/* ── Reports view (former "Intelligence Dashboard") ── */}
           {currentView === "reports" && (

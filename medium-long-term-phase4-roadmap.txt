@@ -1,0 +1,75 @@
+medium/long-term Phase 4 roadmap:
+
+  ---
+  Phase 4 — What to do after weeks
+
+  What we shipped today (Phase 4A — immediate)
+
+  - Source Credibility Index: per-domain reliability_index (0–1), computed locally from propaganda score proxy, framing divergence, coordination signals,     
+  burst participation. Zero API cost. Scheduled daily.
+  - SourceCredibilityPanel: ranked adversarial/caution/reliable domain list with trend arrows, coordination badges, manual recompute trigger.                 
+  - OutletNetworkGraph enhancements: EventCluster nodes (cyan squares), outlet nodes colored by credibility (red/amber/green), 7d/30d/90d temporal slider.    
+                                                                                                                                                              
+  ---                                                                                                                                                         
+  Short-term (1–4 weeks) — needs more data to be meaningful                                                                                                   
+                                                                                                                                                              
+  1. Credibility score accuracy improvements                                                                                                                  
+  The current propaganda proxy (narrative_risk_score) is a cluster-level signal, not per-article. Once enough SitReps accumulate with framing_analysis, we    
+  can:                                                                                                                                                        
+  - Extract per-source framing_divergence from the framing analysis JSON more precisely                                                                       
+  - Weight by article recency (exponential decay so old articles matter less)                                                                                 
+  - Add a "headline manipulation" signal from the Gemini structured output   
+                                                                                                                                                              
+  2. Outlet Network: temporal animation
+  The slider already queries by days but shows a static snapshot. With more data:                                                                             
+  - Animate the graph across time windows to show how outlet relationships form and dissolve                                                                  
+  - Show edge weight trend (growing/shrinking connection strength)                                                                                            
+                                                                                                                                                              
+  3. Credibility alerts via webhooks                                                                                                                          
+  When a domain's reliability_index drops below a configurable threshold in a single recomputation cycle, fire a webhook event. Add credibility_degradation to
+   SUPPORTED_EVENTS in webhooks.py.                                                                                                                           
+                                                                                                                                                              
+  4. SitRep quality feedback loop                                                                                                                             
+  Currently SitReps are generated but analysts have no way to flag quality. Add a POST /threat-briefings/{id}/feedback endpoint storing analyst ratings
+  (similar to existing Feedback model). Use aggregated ratings to adjust CDDBS_SITREP_MIN_RISK_SCORE automatically (lower if briefings are consistently       
+  high-rated, raise if low-rated).
+                                                                                                                                                              
+  ---             
+  Medium-term (4–12 weeks) — after 500+ SitReps and 10k+ articles
+                                                                                                                                                              
+  5. Disinformation campaign graph
+  TODO_PHASE4_NETWORK_ML.md already documents this. The full graph requires:                                                                                  
+  - Coordinated inauthentic behavior detection (multiple domains publishing near-identical content within minutes)                                            
+  - Entity co-occurrence network (which outlets mention the same people/orgs/locations together)                                                              
+  - The current outlet→narrative→event graph is the foundation — extend it with a coordination_edges layer colored differently                                
+                                                                                                                                                              
+  6. ML-based narrative prediction                                                                                                                            
+  Once we have 100+ EventCluster records with confirmed narrative_risk_score outcomes, a simple gradient boosting model (scikit-learn, no API calls) can      
+  predict risk score from:                                                                                                                                    
+  - Keyword frequency patterns
+  - Source diversity score                                                                                                                                    
+  - Time of day / day of week
+  - Historical domain credibility of contributing sources                                                                                                     
+  This would allow the SitRep gate to be predictive rather than reactive.
+                                                                                                                                                              
+  7. Quarterly report automation                                                                                                                              
+  Currently quarterly reports are UI-triggered only (by design — the Gemini call is expensive). With more data, the generate_quarterly_report function could  
+  be made smarter:                                                                                                                                            
+  - Auto-detect if enough significant events have occurred to justify generation
+  - Schedule it to run on the 1st of each quarter at a low-cost time window                                                                                   
+  - Cache the result for 90 days to avoid regeneration                     
+                                                                                                                                                              
+  8. Cross-language framing comparison                                                                                                                        
+  GDELT ingests articles in 65 languages. If we detect the same event cluster being reported very differently in English vs. Russian vs. Chinese sources, that
+   divergence itself is a signal. Requires translating non-English content (Gemini supports this in-prompt) before framing comparison.                        
+                  
+  ---                                                                                                                                                         
+  Long-term (3+ months) — production infrastructure changes
+                                                                                                                                                              
+  9. Move to async credibility computation
+  The current compute_all_source_credibility is synchronous and runs in an async scheduler. For large databases (>100k articles), this will block. Move to a  
+  Celery/Redis task queue or use asyncio.to_thread.                                                                                                           
+                                                                                                                                                              
+  10. Credibility score API for external consumers                                                                                                            
+  Expose GET /public/credibility/{domain} (no auth, cached) as a lightweight standalone service. Could be useful for browser extensions or other tools that
+  want CDDBS's domain ratings. 

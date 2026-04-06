@@ -15,14 +15,17 @@ import BubbleChartIcon from "@mui/icons-material/BubbleChart";
 import RefreshIcon from "@mui/icons-material/Refresh";
 import OpenInNewIcon from "@mui/icons-material/OpenInNew";
 import CloseIcon from "@mui/icons-material/Close";
+import ArticleIcon from "@mui/icons-material/Article";
 import { useQuery } from "@tanstack/react-query";
 import { useState } from "react";
 import {
   fetchEventClusters,
   fetchEventDetail,
+  fetchThreatBriefings,
   type EventClusterItem,
   type EventClusterDetail,
 } from "../api";
+import { ThreatBriefingDetail } from "./ThreatBriefingDetail";
 
 const EVENT_TYPE_COLORS: Record<string, string> = {
   conflict: "#ef4444",
@@ -44,9 +47,13 @@ function getRiskColor(score: number): string {
 function EventRow({
   event,
   onClick,
+  sitrepId,
+  onOpenSitrep,
 }: {
   event: EventClusterItem;
   onClick: () => void;
+  sitrepId?: number;
+  onOpenSitrep?: (id: number) => void;
 }) {
   const typeColor = EVENT_TYPE_COLORS[event.event_type || "other"] || "#94a3b8";
   const riskColor = getRiskColor(event.narrative_risk_score);
@@ -96,6 +103,17 @@ function EventRow({
             flexShrink: 0,
           }}
         >
+          {sitrepId && onOpenSitrep && (
+            <Tooltip title="View SitRep briefing for this cluster">
+              <IconButton
+                size="small"
+                onClick={(e) => { e.stopPropagation(); onOpenSitrep(sitrepId); }}
+                sx={{ p: 0.25, color: "#3b82f6", "&:hover": { color: "#60a5fa", backgroundColor: "rgba(59,130,246,0.1)" } }}
+              >
+                <ArticleIcon sx={{ fontSize: 13 }} />
+              </IconButton>
+            </Tooltip>
+          )}
           <Typography
             variant="caption"
             fontWeight={700}
@@ -305,12 +323,28 @@ function EventDetailDialog({
 
 export const EventClusterPanel = () => {
   const [selectedEvent, setSelectedEvent] = useState<number | null>(null);
+  const [sitrepViewId, setSitrepViewId] = useState<number | null>(null);
+  const [sitrepDetailOpen, setSitrepDetailOpen] = useState(false);
+
   const { data, isLoading, refetch, isFetching } = useQuery({
     queryKey: ["event-clusters"],
     queryFn: () => fetchEventClusters({ status: "active", limit: 20 }),
     refetchInterval: 30 * 1000,
     staleTime: 15 * 1000,
   });
+
+  // Fetch sitrep briefings to build cluster_id → briefing_id map
+  const { data: sitrepBriefings } = useQuery({
+    queryKey: ["sitrep-briefings-map"],
+    queryFn: () => fetchThreatBriefings({ briefing_type: "sitrep", limit: 200 }),
+    refetchInterval: 60 * 1000,
+    staleTime: 30 * 1000,
+  });
+
+  const sitrepByCluster = (sitrepBriefings ?? []).reduce<Record<number, number>>(
+    (acc, b) => { if (b.cluster_id != null) acc[b.cluster_id] = b.id; return acc; },
+    {},
+  );
 
   const events = data ?? [];
 
@@ -423,6 +457,8 @@ export const EventClusterPanel = () => {
               key={event.id}
               event={event}
               onClick={() => setSelectedEvent(event.id)}
+              sitrepId={sitrepByCluster[event.id]}
+              onOpenSitrep={(id) => { setSitrepViewId(id); setSitrepDetailOpen(true); }}
             />
           ))}
         </Box>
@@ -432,6 +468,12 @@ export const EventClusterPanel = () => {
         eventId={selectedEvent}
         open={selectedEvent !== null}
         onClose={() => setSelectedEvent(null)}
+      />
+
+      <ThreatBriefingDetail
+        briefingId={sitrepViewId}
+        open={sitrepDetailOpen}
+        onClose={() => setSitrepDetailOpen(false)}
       />
     </>
   );
