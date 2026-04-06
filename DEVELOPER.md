@@ -463,6 +463,17 @@ Base URL: `/api` (proxied by Vite in development)
 | `DELETE` | `/webhooks/{id}` | Unregister a webhook |
 | `POST` | `/webhooks/test/{id}` | Send a test payload to a webhook |
 
+### 5.9 Threat Briefings
+
+Auto-generated Situational Reports (SitReps), daily digests, and quarterly reports produced by the background scheduler.
+
+| Method | Path | Description |
+|---|---|---|
+| `GET` | `/threat-briefings` | List briefings, newest first. Optional `?briefing_type=sitrep\|daily_digest\|quarterly_report`, `?limit=50`, `?offset=0` |
+| `GET` | `/threat-briefings/latest` | Latest N briefings for dashboard widget. Optional `?n=5` (max 20) |
+| `GET` | `/threat-briefings/{briefing_id}` | Full briefing detail including `briefing_json` and `framing_analysis` |
+| `POST` | `/threat-briefings/quarterly` | Trigger a quarterly report (UI-initiated only; runs in background). Body: `{"year": 2026, "quarter": 1}` |
+
 **POST `/webhooks` request body:**
 ```json
 {
@@ -668,6 +679,26 @@ WebhookConfig (standalone)
 | created_at | DateTime | |
 | last_triggered_at | DateTime | Null if never fired |
 | failure_count | Integer | Consecutive delivery failures |
+
+#### `threat_briefings`
+| Column | Type | Notes |
+|---|---|---|
+| id | Integer PK | |
+| cluster_id | FK → event_clusters (nullable) | Null for digests and quarterly reports |
+| briefing_type | String | `sitrep` / `daily_digest` / `quarterly_report` |
+| title | String (nullable) | Generated briefing title |
+| executive_summary | Text (nullable) | Intelligence-grade summary |
+| briefing_json | JSON (nullable) | Full structured Gemini output |
+| framing_analysis | JSON (nullable) | Cross-source framing comparison (when ≥3 sources or ≥2 source types) |
+| raw_response | Text (nullable) | Raw Gemini response for debugging |
+| articles_analyzed | Integer | Count of articles used |
+| sources_compared | Integer | Count of distinct source domains |
+| gemini_tokens_used | Integer (nullable) | Token usage for cost tracking |
+| quality_score | Integer (nullable) | 0–70 quality score |
+| quality_rating | String (nullable) | Excellent/Good/Acceptable/Poor/Failing |
+| period_start | DateTime (nullable) | Coverage period start (digests/quarterly) |
+| period_end | DateTime (nullable) | Coverage period end (digests/quarterly) |
+| created_at | DateTime | |
 
 ---
 
