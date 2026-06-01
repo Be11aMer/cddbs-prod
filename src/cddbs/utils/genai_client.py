@@ -6,19 +6,23 @@ from src.cddbs.utils.system_prompt import get_system_prompt
 
 
 def call_gemini(prompt: str, api_key: str = None) -> str:
-    """Generic Gemini prompt wrapper."""
+    """Generic Gemini prompt wrapper.
+
+    temperature=0.0 enforces deterministic output, required for research
+    reproducibility (audit finding C-2).
+    """
     gemini_key = api_key or settings.GOOGLE_API_KEY
     if not gemini_key:
         return "[Gemini error: No Google API key provided]"
-        
+
     client = genai.Client(api_key=gemini_key)
 
     try:
         response = client.models.generate_content(
-            model="gemini-2.5-flash",
+            model=settings.GEMINI_MODEL,
             config=types.GenerateContentConfig(
                 system_instruction=get_system_prompt(),
-                temperature=0.1,
+                temperature=0.0,
                 response_mime_type="application/json",
             ),
             contents=prompt,
