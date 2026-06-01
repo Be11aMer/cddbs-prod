@@ -7,6 +7,7 @@ from src.cddbs.utils.genai_client import call_gemini
 from src.cddbs.pipeline.prompt_templates import get_consolidated_prompt
 from src.cddbs.quality import score_briefing
 from src.cddbs.narratives import match_narratives_from_report
+from src.cddbs.pipeline.output_validator import validate_analysis_output
 
 
 def run_pipeline(
@@ -93,6 +94,16 @@ def run_pipeline(
             session.add(report)
             session.flush() # Get report id
 
+        # --- Output validation (H-2) ---
+        validation = validate_analysis_output(payload)
+        analysis_status = "completed" if validation.is_valid else "partial"
+        validation_warnings = (validation.errors + validation.warnings) or None
+        if not validation.is_valid:
+            print(f"DEBUG: Output validation failed: {validation.errors}")
+        elif validation.warnings:
+            print(f"DEBUG: Output validation warnings: {validation.warnings}")
+
+        report.analysis_status = analysis_status
         report.final_report = final_report
         report.raw_response = raw_response
 
@@ -106,6 +117,7 @@ def run_pipeline(
             "status": "completed",
             "analysis_date": datetime.now(UTC).isoformat(),
             "structured_briefing": payload.get("structured_briefing"),
+            "analysis_status": analysis_status,
         }
 
         # Update outlet URL if provided and not already set
@@ -146,6 +158,7 @@ def run_pipeline(
                 quality_rating=quality_scorecard["rating"],
                 quality_details=quality_scorecard,
                 prompt_version="v1.3",
+                validation_warnings=validation_warnings,
             )
             session.add(briefing)
         except Exception as e:
