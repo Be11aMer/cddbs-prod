@@ -10,7 +10,8 @@ httpx
 google-genai
 pytest-cov
 slowapi>=0.1.9
-feedparser>=6.0
+argon2-cffi>=23.1.0
+feedfparser>=6.0
 scikit-learn>=1.4
 # CI / supply chain security (not imported at runtime)
 cyclonedx-bom>=4.0
