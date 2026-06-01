@@ -106,7 +106,7 @@ def _serpapi_news(query: str, date_filter: str, limit: int, api_key: str) -> Lis
 
 def fetch_topic_articles(topic: str, domain: str, date_filter: str, limit: int, api_key: str) -> List[Dict]:
     """Fetch articles about a topic from a specific domain via SerpAPI."""
-    query = f'"\{topic}" site:{domain}'
+    query = f'"{topic}" site:{domain}'
     return _serpapi_news(query, date_filter, limit, api_key)
 
 
