@@ -14,7 +14,7 @@ engine = create_engine(
 SessionLocal = sessionmaker(bind=engine, autoflush=False, autocommit=False, future=True)
 Base = declarative_base()
 
-# Columns added after initial deployment — run at startup to keep Neon schema in sync.
+# Columns added after initial deployment — run at startup to keep schema in sync.
 # Using IF NOT EXISTS so this is safe to run on every boot.
 _MIGRATIONS = [
     # Sprint 8: coordination signal on topic_runs
@@ -23,6 +23,11 @@ _MIGRATIONS = [
     # Sprint 8: key claims and omissions on topic_outlet_results
     "ALTER TABLE topic_outlet_results ADD COLUMN IF NOT EXISTS key_claims JSONB",
     "ALTER TABLE topic_outlet_results ADD COLUMN IF NOT EXISTS omissions JSONB",
+    # Sprint 10 / C-3: analysis_status and validation_warnings (output validator wiring)
+    "ALTER TABLE reports ADD COLUMN IF NOT EXISTS analysis_status VARCHAR DEFAULT 'completed'",
+    "ALTER TABLE topic_outlet_results ADD COLUMN IF NOT EXISTS analysis_status VARCHAR DEFAULT 'completed'",
+    "ALTER TABLE topic_outlet_results ADD COLUMN IF NOT EXISTS validation_warnings JSONB",
+    "ALTER TABLE briefings ADD COLUMN IF NOT EXISTS validation_warnings JSONB",
 ]
 
 def init_db():

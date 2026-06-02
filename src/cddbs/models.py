@@ -38,6 +38,7 @@ class Report(Base):
     final_report = Column(Text, nullable=True)
     raw_response = Column(Text, nullable=True)
     data = Column(JSON, nullable=True)
+    analysis_status = Column(String, default="completed")  # completed/partial/failed
     created_at = Column(DateTime, default=lambda: datetime.now(UTC))
 
     articles = relationship("Article", back_populates="report")
@@ -56,6 +57,7 @@ class Briefing(Base):
     quality_rating = Column(String, nullable=True)  # Excellent/Good/Acceptable/Poor/Failing
     quality_details = Column(JSON, nullable=True)  # Full scorecard breakdown
     prompt_version = Column(String, default="v1.3")
+    validation_warnings = Column(JSON, nullable=True)  # List of validation errors/warnings from output_validator
     created_at = Column(DateTime, default=lambda: datetime.now(UTC))
 
     report = relationship("Report", back_populates="briefing")
@@ -117,6 +119,8 @@ class TopicOutletResult(Base):
     omissions             = Column(JSON, nullable=True)     # list[str] — key facts omitted vs baseline
     gemini_raw            = Column(Text, nullable=True)
     article_links         = Column(JSON, nullable=True)     # [{title, url, date}]
+    analysis_status       = Column(String, default="completed")  # completed/partial/failed
+    validation_warnings   = Column(JSON, nullable=True)     # errors+warnings from output_validator
     created_at            = Column(DateTime, default=lambda: datetime.now(UTC))
 
     topic_run = relationship("TopicRun", back_populates="outlet_results")
