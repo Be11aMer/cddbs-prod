@@ -27,7 +27,7 @@ def call_gemini(prompt: str, api_key: str = None) -> str:
                 model=settings.GEMINI_MODEL,
                 config=types.GenerateContentConfig(
                     system_instruction=get_system_prompt(),
-                    temperature=0.1,
+                    temperature=0.0,
                     response_mime_type="application/json",
                 ),
                 contents=prompt,
