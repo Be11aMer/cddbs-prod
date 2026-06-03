@@ -6,6 +6,14 @@ export const API_URL = import.meta.env.VITE_API_URL || "/api";
 
 export const api = axios.create({
   baseURL: API_URL,
+  headers: {
+    // VITE_API_KEY is set in production (Render env var) to match
+    // CDDBS_BOOTSTRAP_API_KEY on the backend. Omitted in local dev
+    // so development works without auth configured.
+    ...(import.meta.env.VITE_API_KEY
+      ? { "X-API-Key": import.meta.env.VITE_API_KEY as string }
+      : {}),
+  },
 });
 
 export async function wakeUpBackend() {
