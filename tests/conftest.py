@@ -16,7 +16,7 @@ TEST_DATABASE_URL = f"{parts[0]}/{TEST_DB_NAME}"
 settings.DATABASE_URL = TEST_DATABASE_URL
 
 # Fixed plaintext key used by all test clients.  Never used outside tests.
-TEST_API_KEY = "cddbs-ci-test-key-sprint10"
+PYTEST_CLIENT_KEY = "cddbs-ci-test-key-sprint10"
 
 
 @pytest.fixture(scope='session', autouse=True)
@@ -55,8 +55,8 @@ def create_test_db():
             if not session.query(ApiKey).filter_by(name="test").first():
                 session.add(ApiKey(
                     name="test",
-                    key_prefix=TEST_API_KEY[:8],
-                    key_hash=_ph.hash(TEST_API_KEY),
+                    key_prefix=PYTEST_CLIENT_KEY[:8],
+                    key_hash=_ph.hash(PYTEST_CLIENT_KEY),
                     is_active=True,
                 ))
                 session.commit()

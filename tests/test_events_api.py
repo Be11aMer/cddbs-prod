@@ -8,10 +8,10 @@ from sqlalchemy.orm import Session
 from src.cddbs.api.main import app
 from src.cddbs.database import SessionLocal
 from src.cddbs.models import EventCluster, NarrativeBurst, RawArticle
-from conftest import TEST_API_KEY
+from conftest import PYTEST_CLIENT_KEY
 
 
-client = TestClient(app, headers={"X-API-Key": TEST_API_KEY})
+client = TestClient(app, headers={"X-API-Key": PYTEST_CLIENT_KEY})
 
 
 @pytest.fixture
