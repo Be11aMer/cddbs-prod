@@ -22,6 +22,7 @@ from src.cddbs.config import settings
 from src.cddbs import models
 from src.cddbs.utils.genai_client import call_gemini
 from src.cddbs.pipeline.topic_prompt_templates import get_baseline_prompt, get_comparative_prompt
+from src.cddbs.pipeline.output_validator import validate_topic_comparative
 
 
 # ---------------------------------------------------------------------------
@@ -276,6 +277,17 @@ def run_topic_pipeline(
                 comp = {}
                 comp_raw = str(e)
 
+            # --- Output validation (H-2 / C-3) ---
+            validation = validate_topic_comparative(comp)
+            if not comp:
+                analysis_status = "failed"
+            elif not validation.is_valid:
+                analysis_status = "partial"
+                print(f"DEBUG topic: Validation errors for {domain}: {validation.errors}")
+            else:
+                analysis_status = "completed"
+            validation_warnings = (validation.errors + validation.warnings) or None
+
             result = models.TopicOutletResult(
                 topic_run_id=topic_run_id,
                 outlet_name=domain,
@@ -290,10 +302,12 @@ def run_topic_pipeline(
                 omissions=comp.get("omissions"),
                 gemini_raw=comp_raw,
                 article_links=article_links,
+                analysis_status=analysis_status,
+                validation_warnings=validation_warnings,
             )
             session.add(result)
             session.commit()
-            print(f"DEBUG topic: Committed result for {domain}, divergence_score={result.divergence_score}")
+            print(f"DEBUG topic: Committed result for {domain}, divergence_score={result.divergence_score}, status={analysis_status}")
 
         # ------------------------------------------------------------------
         # Step 5 — Coordination signal
