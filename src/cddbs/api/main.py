@@ -27,6 +27,7 @@ from src.cddbs.pipeline.topic_pipeline import run_topic_pipeline
 from src.cddbs.narratives import get_all_narratives
 from src.cddbs.webhooks import fire_event, SUPPORTED_EVENTS
 from src.cddbs.api.security_headers import SecurityHeadersMiddleware
+from src.cddbs.api.auth import APIKeyMiddleware, bootstrap_api_key
 from src.cddbs.utils.input_sanitizer import (
     sanitize_topic, sanitize_outlet, sanitize_handle, sanitize_country,
 )
@@ -51,6 +52,12 @@ async def lifespan(app: FastAPI):
     except Exception as exc:
         logger.error("Failed to initialize database on startup (DB may be unavailable/out of quota): %s", exc)
 
+    # Bootstrap initial API key if configured (Sprint 10 auth)
+    try:
+        bootstrap_api_key()
+    except Exception as exc:
+        logger.error("Failed to bootstrap API key: %s", exc)
+
     # Start central scheduler for all automated background jobs
     _scheduler = CddbsScheduler(db_session_factory=SessionLocal)
     _scheduler.start()
@@ -71,13 +78,16 @@ app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 # --- Security Headers Middleware ---
 app.add_middleware(SecurityHeadersMiddleware)
 
+# --- API Key Auth Middleware (Sprint 10 — C-1) ---
+app.add_middleware(APIKeyMiddleware)
+
 # --- CORS Hardening ---
 app.add_middleware(
     CORSMiddleware,
     allow_origins=settings.ALLOWED_ORIGINS,
     allow_credentials=False,
     allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
-    allow_headers=["Content-Type"],
+    allow_headers=["Content-Type", "X-API-Key", "Authorization"],
 )
 
 

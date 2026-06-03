@@ -15,6 +15,10 @@ TEST_DATABASE_URL = f"{parts[0]}/{TEST_DB_NAME}"
 # Update settings so the rest of the app uses the test DB
 settings.DATABASE_URL = TEST_DATABASE_URL
 
+# Fixed plaintext key used by all test clients.  Never used outside tests.
+PYTEST_CLIENT_KEY = "cddbs-ci-test-key-sprint10"
+
+
 @pytest.fixture(scope='session', autouse=True)
 def create_test_db():
     """Create database and tables before all tests.
@@ -40,6 +44,23 @@ def create_test_db():
         from src.cddbs import database
         database.engine = test_engine
         database.SessionLocal.configure(bind=test_engine)
+
+        # Seed a test API key so APIKeyMiddleware authenticates test clients.
+        from argon2 import PasswordHasher
+        from src.cddbs.models import ApiKey
+        from sqlalchemy.orm import Session
+        _ph = PasswordHasher(time_cost=2, memory_cost=65536, parallelism=2,
+                             hash_len=32, salt_len=16)
+        with Session(test_engine) as session:
+            if not session.query(ApiKey).filter_by(name="test").first():
+                session.add(ApiKey(
+                    name="test",
+                    key_prefix=PYTEST_CLIENT_KEY[:8],
+                    key_hash=_ph.hash(PYTEST_CLIENT_KEY),
+                    is_active=True,
+                ))
+                session.commit()
+
     except Exception as exc:
         import warnings
         warnings.warn(

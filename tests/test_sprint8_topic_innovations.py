@@ -16,9 +16,10 @@ from src.cddbs.api.main import app
 from src.cddbs.database import SessionLocal
 from src.cddbs.models import TopicRun, TopicOutletResult
 from src.cddbs.pipeline.topic_pipeline import run_topic_pipeline
+from conftest import PYTEST_CLIENT_KEY
 
 
-client = TestClient(app)
+client = TestClient(app, headers={"X-API-Key": PYTEST_CLIENT_KEY})
 
 
 # ---------------------------------------------------------------------------
