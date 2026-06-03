@@ -7,12 +7,13 @@ from sqlalchemy.orm import Session
 from src.cddbs.api.main import app
 from src.cddbs.database import SessionLocal
 from src.cddbs.models import Report, Outlet, Article, Briefing, NarrativeMatch
+from conftest import TEST_API_KEY
 
 
 @pytest.fixture
 def client():
-    """Create a test client."""
-    return TestClient(app)
+    """Create a test client with API key auth."""
+    return TestClient(app, headers={"X-API-Key": TEST_API_KEY})
 
 
 @pytest.fixture

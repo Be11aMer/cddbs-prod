@@ -57,7 +57,11 @@ def _verify_key_against_db(db, api_key: str) -> bool:
     if _cache_hit(api_key):
         return True
 
-    active_keys = db.query(ApiKey).filter(ApiKey.is_active.is_(True)).all()
+    try:
+        active_keys = db.query(ApiKey).filter(ApiKey.is_active.is_(True)).all()
+    except Exception:
+        return False  # fail-closed: DB unavailable → deny
+
     for record in active_keys:
         try:
             _ph.verify(record.key_hash, api_key)
