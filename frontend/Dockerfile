@@ -11,6 +11,10 @@ RUN npm ci
 # Copy source files
 COPY . .
 
+# Declare build-time arg so Render's env var reaches Vite at compile time
+ARG VITE_API_KEY
+ENV VITE_API_KEY=$VITE_API_KEY
+
 # Build the application
 RUN npm run build
 
@@ -26,4 +30,3 @@ COPY nginx.conf /etc/nginx/conf.d/default.conf
 EXPOSE 80
 
 CMD ["nginx", "-g", "daemon off;"]
-
