@@ -76,7 +76,7 @@ CDDBS is an AI-powered counter-disinformation analysis platform. It ingests news
 └─────────────────────────────────────────────────────────────┘
 ```
 
-**Key backend dependencies:** FastAPI, uvicorn, SQLAlchemy, psycopg2-binary, alembic, python-dotenv, requests, httpx, google-genai, feedparser, scikit-learn.
+**Key backend dependencies:** FastAPI, uvicorn, SQLAlchemy, psycopg2-binary, alembic, python-dotenv, requests, httpx, google-genai, feedparser, scikit-learn, argon2-cffi.
 
 ### Request flow (outlet analysis)
 
@@ -699,6 +699,17 @@ WebhookConfig (standalone)
 | period_start | DateTime (nullable) | Coverage period start (digests/quarterly) |
 | period_end | DateTime (nullable) | Coverage period end (digests/quarterly) |
 | created_at | DateTime | |
+
+#### `api_keys`
+| Column | Type | Notes |
+|---|---|---|
+| id | Integer PK | |
+| name | String | Human-readable label (e.g. `bootstrap`) |
+| key_prefix | String(8) | First 8 chars of plaintext key, for identification |
+| key_hash | String | Argon2id hash — plaintext never stored |
+| is_active | Boolean | Default `true`; set `false` to revoke |
+| created_at | DateTime | UTC |
+| last_used_at | DateTime (nullable) | Updated on successful verification |
 
 ---
 

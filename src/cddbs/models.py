@@ -85,14 +85,14 @@ class TopicRun(Base):
     __tablename__ = "topic_runs"
     __table_args__ = {'extend_existing': True}
     id               = Column(Integer, primary_key=True, index=True)
-    topic            = Column(String, nullable=False)       # e.g. "NATO expansion eastward"
+    topic            = Column(String, nullable=False)
     num_outlets      = Column(Integer, default=5)
     date_filter      = Column(String, default="m")
     status           = Column(String, default="pending")   # pending/running/completed/failed
-    baseline_summary = Column(Text, nullable=True)         # Gemini neutral baseline prose
-    baseline_raw     = Column(Text, nullable=True)         # raw Gemini JSON response
-    coordination_signal = Column(Float, nullable=True)     # 0.0-1.0 — fraction of high-divergence outlets sharing ≥2 techniques
-    coordination_detail = Column(JSON, nullable=True)      # {shared_techniques: [...], coordinated_outlets: [...]}
+    baseline_summary = Column(Text, nullable=True)
+    baseline_raw     = Column(Text, nullable=True)
+    coordination_signal = Column(Float, nullable=True)
+    coordination_detail = Column(JSON, nullable=True)
     created_at       = Column(DateTime, default=lambda: datetime.now(UTC))
     completed_at     = Column(DateTime, nullable=True)
     error            = Column(Text, nullable=True)
@@ -107,7 +107,7 @@ class TopicOutletResult(Base):
     __table_args__ = {'extend_existing': True}
     id                    = Column(Integer, primary_key=True, index=True)
     topic_run_id          = Column(Integer, ForeignKey("topic_runs.id"), nullable=False)
-    outlet_name           = Column(String, nullable=False)  # discovered domain / name
+    outlet_name           = Column(String, nullable=False)
     outlet_domain         = Column(String, nullable=True)
     articles_analyzed     = Column(Integer, default=0)
     divergence_score      = Column(Integer, nullable=True)  # 0-100
@@ -115,8 +115,8 @@ class TopicOutletResult(Base):
     propaganda_techniques = Column(JSON, nullable=True)     # list[str]
     framing_summary       = Column(Text, nullable=True)
     divergence_explanation = Column(Text, nullable=True)
-    key_claims            = Column(JSON, nullable=True)     # list[str] — specific claims made by outlet
-    omissions             = Column(JSON, nullable=True)     # list[str] — key facts omitted vs baseline
+    key_claims            = Column(JSON, nullable=True)
+    omissions             = Column(JSON, nullable=True)
     gemini_raw            = Column(Text, nullable=True)
     article_links         = Column(JSON, nullable=True)     # [{title, url, date}]
     analysis_status       = Column(String, default="completed")  # completed/partial/failed
@@ -131,20 +131,17 @@ class Feedback(Base):
     __tablename__ = "feedback"
     __table_args__ = {'extend_existing': True}
     id = Column(Integer, primary_key=True, index=True)
-    # Who
     tester_name = Column(String, nullable=True)
-    tester_role = Column(String, nullable=True)  # analyst, developer, researcher, other
-    # Core feedback (mandatory fields)
-    overall_rating = Column(Integer, nullable=False)  # 1-5
-    accuracy_rating = Column(Integer, nullable=False)  # 1-5: Are analysis results accurate?
-    usability_rating = Column(Integer, nullable=False)  # 1-5: Is the UI intuitive?
-    bugs_encountered = Column(Text, nullable=False)  # Describe any bugs found
-    # Detailed feedback (optional)
-    misleading_outputs = Column(Text, nullable=True)  # Any misleading/incorrect AI outputs?
-    missing_features = Column(Text, nullable=True)  # What features are missing?
-    ux_pain_points = Column(Text, nullable=True)  # What was frustrating to use?
-    professional_concerns = Column(Text, nullable=True)  # Anything unprofessional/inappropriate?
-    would_recommend = Column(String, nullable=True)  # yes/no/maybe
+    tester_role = Column(String, nullable=True)
+    overall_rating = Column(Integer, nullable=False)
+    accuracy_rating = Column(Integer, nullable=False)
+    usability_rating = Column(Integer, nullable=False)
+    bugs_encountered = Column(Text, nullable=False)
+    misleading_outputs = Column(Text, nullable=True)
+    missing_features = Column(Text, nullable=True)
+    ux_pain_points = Column(Text, nullable=True)
+    professional_concerns = Column(Text, nullable=True)
+    would_recommend = Column(String, nullable=True)
     additional_comments = Column(Text, nullable=True)
     created_at = Column(DateTime, default=lambda: datetime.now(UTC))
 
@@ -153,7 +150,7 @@ class Feedback(Base):
 
 
 class RawArticle(Base):
-    """Normalized article ingested from any collector source (RSS, GDELT, news API)."""
+    """Normalized article ingested from any collector source."""
     __tablename__ = "raw_articles"
     __table_args__ = {'extend_existing': True}
     id = Column(Integer, primary_key=True, index=True)
@@ -163,7 +160,7 @@ class RawArticle(Base):
     content = Column(Text, nullable=True)
     source_name = Column(String, nullable=True)
     source_domain = Column(String, index=True, nullable=True)
-    source_type = Column(String, nullable=True)  # rss, gdelt, news_api
+    source_type = Column(String, nullable=True)
     published_at = Column(DateTime, nullable=True)
     language = Column(String(10), nullable=True)
     country = Column(String(100), nullable=True)
@@ -182,17 +179,17 @@ class EventCluster(Base):
     __table_args__ = {'extend_existing': True}
     id = Column(Integer, primary_key=True, index=True)
     title = Column(String, nullable=True)
-    event_type = Column(String, nullable=True)  # conflict, protest, diplomacy, disaster, cyber, info_warfare
-    countries = Column(JSON, nullable=True)      # ["Ukraine", "Russia"]
-    entities = Column(JSON, nullable=True)       # {"people": [], "orgs": [], "locations": []}
-    keywords = Column(JSON, nullable=True)       # ["explosion", "port"]
+    event_type = Column(String, nullable=True)
+    countries = Column(JSON, nullable=True)
+    entities = Column(JSON, nullable=True)
+    keywords = Column(JSON, nullable=True)
     first_seen = Column(DateTime, nullable=True)
     last_seen = Column(DateTime, nullable=True)
     article_count = Column(Integer, default=0)
     source_count = Column(Integer, default=0)
     burst_score = Column(Float, default=0.0)
     narrative_risk_score = Column(Float, default=0.0)
-    status = Column(String, default="active")    # active, declining, resolved
+    status = Column(String, default="active")
     created_at = Column(DateTime, default=lambda: datetime.now(UTC))
 
     articles = relationship("RawArticle", back_populates="cluster")
@@ -204,8 +201,8 @@ class NarrativeBurst(Base):
     __table_args__ = {'extend_existing': True}
     id = Column(Integer, primary_key=True, index=True)
     keyword = Column(String, index=True, nullable=False)
-    baseline_frequency = Column(Float, nullable=True)   # articles/hour (rolling 24h avg)
-    current_frequency = Column(Float, nullable=True)     # articles/hour (last 1h)
+    baseline_frequency = Column(Float, nullable=True)
+    current_frequency = Column(Float, nullable=True)
     z_score = Column(Float, nullable=True)
     cluster_id = Column(Integer, ForeignKey("event_clusters.id"), nullable=True)
     detected_at = Column(DateTime, default=lambda: datetime.now(UTC))
@@ -213,23 +210,23 @@ class NarrativeBurst(Base):
 
 
 class ThreatBriefing(Base):
-    """Automated threat intelligence briefing — SitReps, framing analyses, digests, quarterly reports."""
+    """Automated threat intelligence briefing."""
     __tablename__ = "threat_briefings"
     __table_args__ = {'extend_existing': True}
     id = Column(Integer, primary_key=True, index=True)
     cluster_id = Column(Integer, ForeignKey("event_clusters.id"), nullable=True)
-    briefing_type = Column(String, nullable=False)  # sitrep, framing, daily_digest, quarterly_report
+    briefing_type = Column(String, nullable=False)
     title = Column(String, nullable=True)
     executive_summary = Column(Text, nullable=True)
-    briefing_json = Column(JSON, nullable=True)      # Full structured output
-    framing_analysis = Column(JSON, nullable=True)   # Cross-source framing comparison
-    raw_response = Column(Text, nullable=True)       # Raw Gemini response
+    briefing_json = Column(JSON, nullable=True)
+    framing_analysis = Column(JSON, nullable=True)
+    raw_response = Column(Text, nullable=True)
     articles_analyzed = Column(Integer, default=0)
     sources_compared = Column(Integer, default=0)
     gemini_tokens_used = Column(Integer, nullable=True)
     quality_score = Column(Integer, nullable=True)
     quality_rating = Column(String, nullable=True)
-    period_start = Column(DateTime, nullable=True)   # For digests/quarterly: coverage period
+    period_start = Column(DateTime, nullable=True)
     period_end = Column(DateTime, nullable=True)
     created_at = Column(DateTime, default=lambda: datetime.now(UTC))
 
@@ -237,42 +234,19 @@ class ThreatBriefing(Base):
 
 
 class SourceCredibility(Base):
-    """Per-domain source credibility index — computed from framing analyses, bursts, and risk scores.
-
-    Recomputed on a daily schedule by pipeline/source_credibility.py.
-    Zero Gemini API cost — entirely local aggregation.
-    """
+    """Per-domain source credibility index."""
     __tablename__ = "source_credibility"
     __table_args__ = {'extend_existing': True}
     id = Column(Integer, primary_key=True, index=True)
     source_domain = Column(String, unique=True, index=True, nullable=False)
-
-    # Volume
     total_articles = Column(Integer, default=0)
-
-    # Propaganda signal (0.0 = clean, 1.0 = high propaganda)
-    # Derived from avg narrative_risk_score of clusters this source appeared in
     avg_propaganda_score = Column(Float, default=0.0)
-
-    # How often this source diverges from consensus framing (0.0–1.0)
     framing_divergence_score = Column(Float, default=0.0)
-
-    # Times this domain appeared in coordination_indicators across all framing analyses
     coordination_count = Column(Integer, default=0)
-
-    # Times this domain appeared in articles during a NarrativeBurst window
     burst_participation_count = Column(Integer, default=0)
-
-    # Composite reliability index (1.0 = highly reliable, 0.0 = highly adversarial)
-    # Formula: 1 - weighted_avg(propaganda, divergence, coordination_norm, burst_norm)
     reliability_index = Column(Float, default=0.5)
-
-    # Direction of change vs previous computation
-    trend_direction = Column(String, default="stable")  # improving / stable / degrading
-
-    # Previous reliability_index (for trend calculation)
+    trend_direction = Column(String, default="stable")
     previous_reliability_index = Column(Float, nullable=True)
-
     last_computed_at = Column(DateTime, nullable=True)
     created_at = Column(DateTime, default=lambda: datetime.now(UTC))
 
@@ -283,9 +257,26 @@ class WebhookConfig(Base):
     __table_args__ = {'extend_existing': True}
     id = Column(Integer, primary_key=True, index=True)
     url = Column(String, nullable=False)
-    events = Column(JSON, default=list)   # ["pipeline_failure", "narrative_burst"]
+    events = Column(JSON, default=list)
     secret = Column(String, nullable=True)
     active = Column(Boolean, default=True)
     created_at = Column(DateTime, default=lambda: datetime.now(UTC))
     last_triggered_at = Column(DateTime, nullable=True)
     failure_count = Column(Integer, default=0)
+
+
+class ApiKey(Base):
+    """API key for endpoint authentication (Sprint 10 / C-1).
+
+    Only the Argon2id hash is stored; plaintext is never persisted.
+    key_prefix stores the first 8 chars for identification in logs.
+    """
+    __tablename__ = "api_keys"
+    __table_args__ = {'extend_existing': True}
+    id = Column(Integer, primary_key=True, index=True)
+    name = Column(String, nullable=False)        # descriptive label (e.g. 'bootstrap', 'ci-runner')
+    key_prefix = Column(String(8), nullable=False)  # first 8 chars of plaintext for identification
+    key_hash = Column(String, nullable=False)    # argon2id hash of the full plaintext key
+    is_active = Column(Boolean, default=True)
+    created_at = Column(DateTime, default=lambda: datetime.now(UTC))
+    last_used_at = Column(DateTime, nullable=True)
