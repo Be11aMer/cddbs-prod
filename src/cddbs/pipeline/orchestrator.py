@@ -1,5 +1,6 @@
 import json
 from datetime import datetime, UTC
+from src.cddbs.config import settings
 from src.cddbs.database import SessionLocal
 from src.cddbs.pipeline.fetch import fetch_articles
 from src.cddbs import models
@@ -158,6 +159,7 @@ def run_pipeline(
                 quality_rating=quality_scorecard["rating"],
                 quality_details=quality_scorecard,
                 prompt_version="v1.3",
+                model_version=settings.GEMINI_MODEL,
                 validation_warnings=validation_warnings,
             )
             session.add(briefing)

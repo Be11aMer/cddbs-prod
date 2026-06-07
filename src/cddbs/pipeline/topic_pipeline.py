@@ -304,6 +304,7 @@ def run_topic_pipeline(
                 article_links=article_links,
                 analysis_status=analysis_status,
                 validation_warnings=validation_warnings,
+                model_version=settings.GEMINI_MODEL,
             )
             session.add(result)
             session.commit()

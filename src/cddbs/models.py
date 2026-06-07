@@ -57,6 +57,7 @@ class Briefing(Base):
     quality_rating = Column(String, nullable=True)  # Excellent/Good/Acceptable/Poor/Failing
     quality_details = Column(JSON, nullable=True)  # Full scorecard breakdown
     prompt_version = Column(String, default="v1.3")
+    model_version = Column(String, nullable=True)  # Gemini model string used for this run (audit H-4)
     validation_warnings = Column(JSON, nullable=True)  # List of validation errors/warnings from output_validator
     created_at = Column(DateTime, default=lambda: datetime.now(UTC))
 
@@ -121,6 +122,7 @@ class TopicOutletResult(Base):
     article_links         = Column(JSON, nullable=True)     # [{title, url, date}]
     analysis_status       = Column(String, default="completed")  # completed/partial/failed
     validation_warnings   = Column(JSON, nullable=True)     # errors+warnings from output_validator
+    model_version         = Column(String, nullable=True)   # Gemini model string used for this run (audit H-4)
     created_at            = Column(DateTime, default=lambda: datetime.now(UTC))
 
     topic_run = relationship("TopicRun", back_populates="outlet_results")
