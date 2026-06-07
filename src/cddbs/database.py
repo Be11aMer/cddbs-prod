@@ -28,6 +28,9 @@ _MIGRATIONS = [
     "ALTER TABLE topic_outlet_results ADD COLUMN IF NOT EXISTS analysis_status VARCHAR DEFAULT 'completed'",
     "ALTER TABLE topic_outlet_results ADD COLUMN IF NOT EXISTS validation_warnings JSONB",
     "ALTER TABLE briefings ADD COLUMN IF NOT EXISTS validation_warnings JSONB",
+    # H-4: log Gemini model version per analysis run for audit trail / reproducibility
+    "ALTER TABLE briefings ADD COLUMN IF NOT EXISTS model_version VARCHAR",
+    "ALTER TABLE topic_outlet_results ADD COLUMN IF NOT EXISTS model_version VARCHAR",
 ]
 
 def init_db():

@@ -23,6 +23,11 @@ from src.cddbs import models
 from src.cddbs.utils.genai_client import call_gemini
 from src.cddbs.pipeline.topic_prompt_templates import get_baseline_prompt, get_comparative_prompt
 from src.cddbs.pipeline.output_validator import validate_topic_comparative
+from src.cddbs.utils.input_sanitizer import sanitize_text
+
+# Length caps for externally-sourced article fields before prompt interpolation
+_MAX_ARTICLE_TITLE_LENGTH = 500
+_MAX_ARTICLE_SNIPPET_LENGTH = 2000
 
 
 # ---------------------------------------------------------------------------
@@ -198,11 +203,18 @@ def run_topic_pipeline(
                 "snippet": "This is a mock snippet for testing without a live API key.",
             }]
 
+        # Reference-outlet article title/snippet are externally sourced (SerpAPI) and
+        # untrusted — sanitise and structurally fence before prompt interpolation
+        # to defend against embedded prompt-injection payloads (OWASP LLM01).
         baseline_articles_data = ""
         for a in baseline_articles:
+            safe_title = sanitize_text(a.get('title') or '', _MAX_ARTICLE_TITLE_LENGTH)
+            safe_snippet = sanitize_text(a.get('snippet') or '', _MAX_ARTICLE_SNIPPET_LENGTH)
             baseline_articles_data += f"--- [{a.get('_source', 'Reference')}] ---\n"
-            baseline_articles_data += f"Title: {a.get('title', '')}\n"
-            baseline_articles_data += f"Snippet: {a.get('snippet', '')}\n\n"
+            baseline_articles_data += "[BEGIN UNTRUSTED ARTICLE DATA]\n"
+            baseline_articles_data += f"Title: {safe_title}\n"
+            baseline_articles_data += f"Snippet: {safe_snippet}\n"
+            baseline_articles_data += "[END UNTRUSTED ARTICLE DATA]\n\n"
 
         if not baseline_articles_data.strip():
             baseline_articles_data = f"No reference articles found for topic: {topic}"
@@ -253,11 +265,18 @@ def run_topic_pipeline(
             else:
                 outlet_articles = outlet_info.get("examples", [])
 
+            # Outlet article title/snippet are externally sourced (SerpAPI) and
+            # untrusted — sanitise and structurally fence before prompt interpolation
+            # to defend against embedded prompt-injection payloads (OWASP LLM01).
             articles_data = ""
             article_links = []
             for a in outlet_articles:
-                articles_data += f"Title: {a.get('title', '')}\n"
-                articles_data += f"Snippet: {a.get('snippet', a.get('title', ''))}\n\n"
+                safe_title = sanitize_text(a.get('title') or '', _MAX_ARTICLE_TITLE_LENGTH)
+                safe_snippet = sanitize_text(a.get('snippet') or a.get('title') or '', _MAX_ARTICLE_SNIPPET_LENGTH)
+                articles_data += "[BEGIN UNTRUSTED ARTICLE DATA]\n"
+                articles_data += f"Title: {safe_title}\n"
+                articles_data += f"Snippet: {safe_snippet}\n"
+                articles_data += "[END UNTRUSTED ARTICLE DATA]\n\n"
                 article_links.append({
                     "title": a.get("title", ""),
                     "url": a.get("link") or a.get("url", ""),
@@ -304,6 +323,7 @@ def run_topic_pipeline(
                 article_links=article_links,
                 analysis_status=analysis_status,
                 validation_warnings=validation_warnings,
+                model_version=settings.GEMINI_MODEL,
             )
             session.add(result)
             session.commit()
