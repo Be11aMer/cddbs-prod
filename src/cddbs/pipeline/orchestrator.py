@@ -8,6 +8,11 @@ from src.cddbs.pipeline.prompt_templates import get_consolidated_prompt
 from src.cddbs.quality import score_briefing
 from src.cddbs.narratives import match_narratives_from_report
 from src.cddbs.pipeline.output_validator import validate_analysis_output
+from src.cddbs.utils.input_sanitizer import sanitize_text
+
+# Length caps for externally-sourced article fields before prompt interpolation
+_MAX_ARTICLE_TITLE_LENGTH = 500
+_MAX_ARTICLE_TEXT_LENGTH = 6000
 
 
 def run_pipeline(
@@ -34,12 +39,19 @@ def run_pipeline(
             session.flush() # Get outlet id
 
         # Build batch prompt
+        # Article title/snippet/full_text originate from external outlets (SerpAPI) and
+        # are untrusted — sanitise and structurally fence them before prompt interpolation
+        # to defend against embedded prompt-injection payloads (OWASP LLM01).
         articles_data = ""
         for i, a in enumerate(articles):
+            safe_title = sanitize_text(a.get('title') or '', _MAX_ARTICLE_TITLE_LENGTH)
+            safe_text = sanitize_text(a.get('full_text') or a.get('snippet') or '', _MAX_ARTICLE_TEXT_LENGTH)
             articles_data += f"--- Article {i+1} ---\n"
-            articles_data += f"Title: {a.get('title')}\n"
+            articles_data += "[BEGIN UNTRUSTED ARTICLE DATA]\n"
+            articles_data += f"Title: {safe_title}\n"
             articles_data += f"Link: {a.get('link')}\n"
-            articles_data += f"Text: {a.get('full_text') or a.get('snippet') or ''}\n\n"
+            articles_data += f"Text: {safe_text}\n"
+            articles_data += "[END UNTRUSTED ARTICLE DATA]\n\n"
 
         if not articles_data:
             print("DEBUG: No articles data to send to Gemini")
