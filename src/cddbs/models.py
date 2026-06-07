@@ -81,6 +81,29 @@ class NarrativeMatch(Base):
     report = relationship("Report", back_populates="narrative_matches")
 
 
+class TopicBaseline(Base):
+    """Cached neutral wire-service baseline for a topic.
+
+    Generated once per topic and reused as a fixed, named artifact across all
+    subsequent TopicRuns (audit M-2): regenerating the baseline on every run
+    made comparative results across runs of the same topic non-comparable,
+    since each run was scored against a different reference. Cached
+    indefinitely; invalidation is manual (delete the row to force regeneration).
+    """
+    __tablename__ = "topic_baselines"
+    __table_args__ = {'extend_existing': True}
+    id                      = Column(Integer, primary_key=True, index=True)
+    topic                   = Column(String, nullable=False)
+    topic_key               = Column(String, nullable=False, unique=True, index=True)  # normalised lookup key
+    baseline_summary        = Column(Text, nullable=True)
+    baseline_raw            = Column(Text, nullable=True)
+    reference_article_count = Column(Integer, default=0)
+    model_version           = Column(String, nullable=True)
+    created_at              = Column(DateTime, default=lambda: datetime.now(UTC))
+
+    topic_runs = relationship("TopicRun", back_populates="baseline")
+
+
 class TopicRun(Base):
     """A topic-mode analysis run: discover which outlets push narratives on a given topic."""
     __tablename__ = "topic_runs"
@@ -90,6 +113,7 @@ class TopicRun(Base):
     num_outlets      = Column(Integer, default=5)
     date_filter      = Column(String, default="m")
     status           = Column(String, default="pending")   # pending/running/completed/failed
+    baseline_id      = Column(Integer, ForeignKey("topic_baselines.id"), nullable=True)
     baseline_summary = Column(Text, nullable=True)
     baseline_raw     = Column(Text, nullable=True)
     coordination_signal = Column(Float, nullable=True)
@@ -98,6 +122,7 @@ class TopicRun(Base):
     completed_at     = Column(DateTime, nullable=True)
     error            = Column(Text, nullable=True)
 
+    baseline = relationship("TopicBaseline", back_populates="topic_runs")
     outlet_results = relationship("TopicOutletResult", back_populates="topic_run",
                                   cascade="all, delete-orphan")
 
