@@ -24,6 +24,9 @@ from src.cddbs.utils.genai_client import call_gemini
 from src.cddbs.pipeline.topic_prompt_templates import get_baseline_prompt, get_comparative_prompt
 from src.cddbs.pipeline.output_validator import validate_topic_comparative
 from src.cddbs.utils.input_sanitizer import sanitize_text
+from src.cddbs.utils.logger import get_logger
+
+logger = get_logger(__name__)
 
 # Length caps for externally-sourced article fields before prompt interpolation
 _MAX_ARTICLE_TITLE_LENGTH = 500
@@ -102,10 +105,10 @@ def _serpapi_news(query: str, date_filter: str, limit: int, api_key: str) -> Lis
         res.raise_for_status()
         data = res.json()
         results = data.get("news_results", [])
-        print(f"DEBUG topic: SerpAPI q='{query}' → {len(results)} results")
+        logger.debug(f"SerpAPI q='{query}' returned {len(results)} results")
         return results[:limit]
     except Exception as e:
-        print(f"DEBUG topic: SerpAPI call failed for q='{query}': {e}")
+        logger.warning(f"SerpAPI call failed q='{query}': {e}")
         return []
 
 
@@ -156,7 +159,7 @@ def _parse_json_response(raw: str) -> Dict:
             return json.loads(m.group(1).strip())
         return json.loads(raw.strip())
     except Exception as e:
-        print(f"DEBUG topic: JSON parse error: {e}")
+        logger.warning(f"JSON parse error: {e}")
         return {}
 
 
@@ -172,20 +175,20 @@ def run_topic_pipeline(
     serpapi_key: Optional[str] = None,
     google_api_key: Optional[str] = None,
 ):
-    print(f"DEBUG topic: run_topic_pipeline start — topic_run_id={topic_run_id}, topic='{topic}'")
+    logger.info(f"run_topic_pipeline start topic_run_id={topic_run_id} topic='{topic}'")
     api_key = serpapi_key or settings.SERPAPI_KEY
 
     session = SessionLocal()
     try:
         topic_run = session.query(models.TopicRun).filter(models.TopicRun.id == topic_run_id).first()
         if not topic_run:
-            print(f"DEBUG topic: TopicRun {topic_run_id} not found")
+            logger.warning(f"TopicRun topic_run_id={topic_run_id} not found")
             return
 
         # ------------------------------------------------------------------
         # Step 1 — Baseline: fetch from reference outlets
         # ------------------------------------------------------------------
-        print("DEBUG topic: Step 1 — fetching reference baseline articles")
+        logger.info(f"Step 1 — fetching reference baseline articles topic_run_id={topic_run_id}")
         baseline_articles: List[Dict] = []
 
         if api_key:
@@ -195,7 +198,7 @@ def run_topic_pipeline(
                     a["_source"] = ref["name"]
                 baseline_articles.extend(arts)
         else:
-            print("DEBUG topic: No SerpAPI key — using mock baseline")
+            logger.warning(f"No SerpAPI key — using mock baseline topic_run_id={topic_run_id}")
             baseline_articles = [{
                 "_source": "Reuters (mock)",
                 "title": f"Mock Reuters article on {topic}",
@@ -222,7 +225,7 @@ def run_topic_pipeline(
         # ------------------------------------------------------------------
         # Step 2 — Gemini baseline call
         # ------------------------------------------------------------------
-        print("DEBUG topic: Step 2 — calling Gemini for baseline")
+        logger.info(f"Step 2 — calling Gemini for baseline topic_run_id={topic_run_id}")
         baseline_prompt = get_baseline_prompt(topic, baseline_articles_data)
         baseline_raw = call_gemini(baseline_prompt, api_key=google_api_key)
         baseline_parsed = _parse_json_response(baseline_raw)
@@ -236,12 +239,12 @@ def run_topic_pipeline(
         topic_run.baseline_raw = baseline_raw
         topic_run.status = "running"
         session.commit()
-        print(f"DEBUG topic: Baseline committed. summary length={len(baseline_summary)}")
+        logger.info(f"Baseline committed topic_run_id={topic_run_id} summary_length={len(baseline_summary)}")
 
         # ------------------------------------------------------------------
         # Step 3 — Discover outlets
         # ------------------------------------------------------------------
-        print("DEBUG topic: Step 3 — discovering outlets")
+        logger.info(f"Step 3 — discovering outlets topic_run_id={topic_run_id}")
         if api_key:
             discovered = discover_outlets(topic, date_filter, num_outlets, api_key)
         else:
@@ -250,14 +253,14 @@ def run_topic_pipeline(
                 {"domain": "example-propaganda.com", "article_count": 8,
                  "examples": [{"title": f"Mock article on {topic}", "url": "https://example-propaganda.com/mock", "date": ""}]},
             ]
-        print(f"DEBUG topic: Discovered {len(discovered)} outlets: {[d['domain'] for d in discovered]}")
+        logger.info(f"Discovered {len(discovered)} outlets topic_run_id={topic_run_id}: {[d['domain'] for d in discovered]}")
 
         # ------------------------------------------------------------------
         # Step 4 — Per-outlet comparative analysis
         # ------------------------------------------------------------------
         for i, outlet_info in enumerate(discovered):
             domain = outlet_info["domain"]
-            print(f"DEBUG topic: Step 4.{i+1} — analysing outlet: {domain}")
+            logger.info(f"Step 4.{i+1} — analysing outlet={domain} topic_run_id={topic_run_id}")
 
             # Fetch outlet articles on topic
             if api_key:
@@ -292,7 +295,7 @@ def run_topic_pipeline(
                 comp_raw = call_gemini(comp_prompt, api_key=google_api_key)
                 comp = _parse_json_response(comp_raw)
             except Exception as e:
-                print(f"DEBUG topic: Gemini call failed for {domain}: {e}")
+                logger.warning(f"Gemini call failed outlet={domain} topic_run_id={topic_run_id}: {e}")
                 comp = {}
                 comp_raw = str(e)
 
@@ -302,7 +305,7 @@ def run_topic_pipeline(
                 analysis_status = "failed"
             elif not validation.is_valid:
                 analysis_status = "partial"
-                print(f"DEBUG topic: Validation errors for {domain}: {validation.errors}")
+                logger.warning(f"Validation errors outlet={domain} topic_run_id={topic_run_id}: {validation.errors}")
             else:
                 analysis_status = "completed"
             validation_warnings = (validation.errors + validation.warnings) or None
@@ -327,14 +330,17 @@ def run_topic_pipeline(
             )
             session.add(result)
             session.commit()
-            print(f"DEBUG topic: Committed result for {domain}, divergence_score={result.divergence_score}, status={analysis_status}")
+            logger.info(
+                f"Committed result outlet={domain} topic_run_id={topic_run_id} "
+                f"divergence_score={result.divergence_score} status={analysis_status}"
+            )
 
         # ------------------------------------------------------------------
         # Step 5 — Coordination signal
         # Detect potential coordinated narrative pushing: outlets with divergence ≥60
         # that share ≥2 propaganda techniques are flagged as a coordination cluster.
         # ------------------------------------------------------------------
-        print("DEBUG topic: Step 5 — computing coordination signal")
+        logger.info(f"Step 5 — computing coordination signal topic_run_id={topic_run_id}")
         all_results = (
             session.query(models.TopicOutletResult)
             .filter(models.TopicOutletResult.topic_run_id == topic_run_id)
@@ -369,7 +375,10 @@ def run_topic_pipeline(
                     "high_divergence_outlet_count": len(high_divergence),
                     "total_outlet_count": len(all_results),
                 }
-                print(f"DEBUG topic: Coordination signal={coordination_signal}, shared={list(shared.keys())}")
+                logger.info(
+                    f"Coordination signal topic_run_id={topic_run_id} "
+                    f"signal={coordination_signal} shared={list(shared.keys())}"
+                )
 
         topic_run.coordination_signal = coordination_signal
         topic_run.coordination_detail = coordination_detail if coordination_detail else None
@@ -380,10 +389,10 @@ def run_topic_pipeline(
         topic_run.status = "completed"
         topic_run.completed_at = datetime.now(UTC)
         session.commit()
-        print(f"DEBUG topic: TopicRun {topic_run_id} completed.")
+        logger.info(f"TopicRun topic_run_id={topic_run_id} completed")
 
     except Exception as e:
-        print(f"DEBUG topic: run_topic_pipeline ERROR: {e}")
+        logger.error(f"run_topic_pipeline error topic_run_id={topic_run_id}: {e}", exc_info=True)
         try:
             topic_run = session.query(models.TopicRun).filter(models.TopicRun.id == topic_run_id).first()
             if topic_run:

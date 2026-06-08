@@ -10,6 +10,9 @@ from src.cddbs.quality import score_briefing
 from src.cddbs.narratives import match_narratives_from_report
 from src.cddbs.pipeline.output_validator import validate_analysis_output
 from src.cddbs.utils.input_sanitizer import sanitize_text
+from src.cddbs.utils.logger import get_logger
+
+logger = get_logger(__name__)
 
 # Length caps for externally-sourced article fields before prompt interpolation
 _MAX_ARTICLE_TITLE_LENGTH = 500
@@ -26,15 +29,15 @@ def run_pipeline(
     google_api_key: str = None,
     date_filter: str = "m"
 ):
-    print(f"DEBUG: run_pipeline started for outlet={outlet}, country={country}, report_id={report_id}, num_articles={num_articles}, url={url}, date_filter={date_filter}")
+    logger.info(f"run_pipeline started outlet={outlet} country={country} report_id={report_id} num_articles={num_articles} url={url} date_filter={date_filter}")
     articles = fetch_articles(outlet, country, num_articles=num_articles, url=url, api_key=serpapi_key, time_period=date_filter)
-    print(f"DEBUG: fetch_articles returned {len(articles)} articles")
+    logger.info(f"fetch_articles returned {len(articles)} articles outlet={outlet}")
 
     session = SessionLocal()
     try:
         out = session.query(models.Outlet).filter(models.Outlet.name == outlet).one_or_none()
         if not out:
-            print(f"DEBUG: Creating new outlet for {outlet}")
+            logger.info(f"Creating new outlet for {outlet}")
             out = models.Outlet(name=outlet, url=None)
             session.add(out)
             session.flush() # Get outlet id
@@ -55,15 +58,15 @@ def run_pipeline(
             articles_data += "[END UNTRUSTED ARTICLE DATA]\n\n"
 
         if not articles_data:
-            print("DEBUG: No articles data to send to Gemini")
+            logger.warning(f"No articles data to send to Gemini outlet={outlet} country={country}")
             articles_data = "No articles found for this search."
 
         prompt = get_consolidated_prompt(outlet, country, articles_data, date_filter=date_filter)
 
         # Single Gemini call
-        print("DEBUG: Calling Gemini...")
+        logger.info(f"Calling Gemini outlet={outlet} country={country}")
         raw_response = call_gemini(prompt, api_key=google_api_key)
-        print(f"DEBUG: Gemini raw response length: {len(raw_response)}")
+        logger.info(f"Gemini raw response length={len(raw_response)} outlet={outlet}")
 
         # Try to parse JSON from response
         try:
@@ -85,7 +88,7 @@ def run_pipeline(
 
             payload = json.loads(clean_response)
         except Exception as e:
-            print(f"DEBUG: JSON parsing failed: {e}. Final fallback to raw_response.")
+            logger.warning(f"JSON parsing failed outlet={outlet}: {e}. Falling back to raw_response.")
             payload = {"individual_analyses": [], "final_briefing": raw_response}
 
         final_report = payload.get("final_briefing", raw_response)
@@ -94,15 +97,15 @@ def run_pipeline(
         # Get or create report
         report = None
         if report_id:
-            print(f"DEBUG: Looking for report with id={report_id}")
+            logger.debug(f"Looking up report report_id={report_id}")
             report = session.query(models.Report).filter(models.Report.id == report_id).first()
             if report:
-                print(f"DEBUG: Found report {report_id}")
+                logger.debug(f"Found report report_id={report_id}")
             else:
-                print(f"DEBUG: Report {report_id} NOT found in this session")
+                logger.warning(f"Report report_id={report_id} not found in this session")
 
         if not report:
-            print("DEBUG: Creating new report because no report_id provided or not found")
+            logger.info(f"Creating new report outlet={outlet} country={country} (no report_id provided or not found)")
             report = models.Report(outlet=outlet, country=country)
             session.add(report)
             session.flush() # Get report id
@@ -112,9 +115,9 @@ def run_pipeline(
         analysis_status = "completed" if validation.is_valid else "partial"
         validation_warnings = (validation.errors + validation.warnings) or None
         if not validation.is_valid:
-            print(f"DEBUG: Output validation failed: {validation.errors}")
+            logger.warning(f"Output validation failed report_id={report.id}: {validation.errors}")
         elif validation.warnings:
-            print(f"DEBUG: Output validation warnings: {validation.warnings}")
+            logger.info(f"Output validation warnings report_id={report.id}: {validation.warnings}")
 
         report.analysis_status = analysis_status
         report.final_report = final_report
@@ -138,7 +141,7 @@ def run_pipeline(
             out.url = url
 
         # Persist articles
-        print(f"DEBUG: Persisting {len(articles)} articles for report {report.id}")
+        logger.info(f"Persisting {len(articles)} articles report_id={report.id}")
         for i, a in enumerate(articles):
             analysis = individual_analyses.get(i, {})
 
@@ -158,11 +161,14 @@ def run_pipeline(
             session.add(art)
 
         # --- Sprint 4: Quality Scoring ---
-        print("DEBUG: Running quality scoring...")
+        logger.debug(f"Running quality scoring report_id={report.id}")
         quality_scorecard = None
         try:
             quality_scorecard = score_briefing(payload)
-            print(f"DEBUG: Quality score: {quality_scorecard['total_score']}/{quality_scorecard['max_score']} ({quality_scorecard['rating']})")
+            logger.info(
+                f"Quality score report_id={report.id}: "
+                f"{quality_scorecard['total_score']}/{quality_scorecard['max_score']} ({quality_scorecard['rating']})"
+            )
 
             briefing = models.Briefing(
                 report_id=report.id,
@@ -176,16 +182,16 @@ def run_pipeline(
             )
             session.add(briefing)
         except Exception as e:
-            print(f"DEBUG: Quality scoring failed (non-fatal): {e}")
+            logger.warning(f"Quality scoring failed (non-fatal) report_id={report.id}: {e}")
 
         # --- Sprint 4: Narrative Matching ---
-        print("DEBUG: Running narrative matching...")
+        logger.debug(f"Running narrative matching report_id={report.id}")
         try:
             narrative_matches = match_narratives_from_report(
                 report_text=final_report or raw_response,
                 articles=articles,
             )
-            print(f"DEBUG: Found {len(narrative_matches)} narrative matches")
+            logger.info(f"Found {len(narrative_matches)} narrative matches report_id={report.id}")
 
             for nm in narrative_matches:
                 match_row = models.NarrativeMatch(
@@ -199,7 +205,7 @@ def run_pipeline(
                 )
                 session.add(match_row)
         except Exception as e:
-            print(f"DEBUG: Narrative matching failed (non-fatal): {e}")
+            logger.warning(f"Narrative matching failed (non-fatal) report_id={report.id}: {e}")
 
         # Update report data with quality and narrative info
         report.data = {
@@ -210,7 +216,7 @@ def run_pipeline(
         }
 
         session.commit()
-        print(f"DEBUG: session.commit() done for report id={report.id}")
+        logger.info(f"session.commit() done report_id={report.id}")
         session.refresh(report)
 
         return {
@@ -223,7 +229,7 @@ def run_pipeline(
             "quality_score": quality_scorecard,
         }
     except Exception as e:
-        print(f"DEBUG: run_pipeline ERROR: {e}")
+        logger.error(f"run_pipeline error outlet={outlet} country={country} report_id={report_id}: {e}", exc_info=True)
         session.rollback()
         raise e
     finally:
