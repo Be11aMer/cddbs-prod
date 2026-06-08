@@ -3,12 +3,15 @@ import ShieldIcon from "@mui/icons-material/Shield";
 import VisibilityIcon from "@mui/icons-material/Visibility";
 import GavelIcon from "@mui/icons-material/Gavel";
 import NotesIcon from "@mui/icons-material/Notes";
+import RadarIcon from "@mui/icons-material/Radar";
+import CloseIcon from "@mui/icons-material/Close";
 import { useQuery, useQueries } from "@tanstack/react-query";
 import { useState } from "react";
-import { fetchLatestThreatBriefings, fetchThreatBriefing, type ThreatBriefingItem } from "../api";
+import { fetchLatestThreatBriefings, fetchThreatBriefings, fetchThreatBriefing, type ThreatBriefingItem } from "../api";
 import { ThreatBriefingDetail } from "./ThreatBriefingDetail";
 import { SectionHeader } from "./SectionHeader";
 import { SEVERITY_COLORS } from "../utils/severity";
+import type { EventScope } from "./OutletNetworkGraph";
 
 const RISK_COLORS: Record<string, string> = {
   critical: SEVERITY_COLORS.critical,
@@ -126,12 +129,25 @@ function ResponseRow({ item, onOpenBriefing }: { item: ResponseItem; onOpenBrief
  * structured countermeasures schema (type/urgency/confidence, new Gemini
  * prompt work) would be a deliberate next step on top of this.
  */
-export const CountermeasuresPanel = () => {
+interface Props {
+  /** When set, scopes guidance to briefings generated for this event cluster
+   * (real ThreatBriefing.cluster_id FK on the backend) instead of the latest
+   * platform-wide products. */
+  scopedEvent?: EventScope | null;
+  onClearScope?: () => void;
+}
+
+export const CountermeasuresPanel = ({ scopedEvent, onClearScope }: Props = {}) => {
   const [openBriefingId, setOpenBriefingId] = useState<number | null>(null);
 
   const { data: briefings, isLoading: listLoading } = useQuery({
-    queryKey: ["threat-briefings-latest", "countermeasures"],
-    queryFn: () => fetchLatestThreatBriefings(8),
+    queryKey: scopedEvent
+      ? ["threat-briefings", "countermeasures", "event", scopedEvent.id]
+      : ["threat-briefings-latest", "countermeasures"],
+    queryFn: () =>
+      scopedEvent
+        ? fetchThreatBriefings({ cluster_id: scopedEvent.id, limit: 8 })
+        : fetchLatestThreatBriefings(8),
     refetchInterval: 60 * 1000,
     staleTime: 30 * 1000,
   });
@@ -171,13 +187,41 @@ export const CountermeasuresPanel = () => {
           gap: 1.5,
         }}
       >
-        <SectionHeader
-          icon={<ShieldIcon sx={{ fontSize: 20 }} />}
-          title="Countermeasures"
-          subtitle="Recommended response &amp; analyst guidance, synthesized from the latest intelligence products"
-          accentColor={SEVERITY_COLORS.good}
-          badge={items.length > 0 ? items.length : undefined}
-        />
+        <Box sx={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 1, flexWrap: "wrap" }}>
+          <SectionHeader
+            icon={<ShieldIcon sx={{ fontSize: 20 }} />}
+            title="Countermeasures"
+            subtitle={
+              scopedEvent
+                ? `Recommended response for "${scopedEvent.title}" — synthesized from briefings generated for this event`
+                : "Recommended response & analyst guidance, synthesized from the latest intelligence products"
+            }
+            accentColor={SEVERITY_COLORS.good}
+            badge={items.length > 0 ? items.length : undefined}
+          />
+          {scopedEvent && (
+            <Tooltip title={`Showing only response guidance from briefings generated for "${scopedEvent.title}" — clear to see the latest platform-wide guidance`}>
+              <Chip
+                size="small"
+                icon={<RadarIcon sx={{ fontSize: 12 }} />}
+                label={`Scoped to: ${scopedEvent.title.length > 30 ? scopedEvent.title.slice(0, 29) + "…" : scopedEvent.title}`}
+                onDelete={onClearScope}
+                deleteIcon={<CloseIcon sx={{ fontSize: 14 }} />}
+                sx={{
+                  height: 22,
+                  fontSize: "0.65rem",
+                  fontWeight: 700,
+                  flexShrink: 0,
+                  backgroundColor: "rgba(34,211,238,0.1)",
+                  color: "#22d3ee",
+                  border: "1px solid rgba(34,211,238,0.3)",
+                  "& .MuiChip-icon": { color: "#22d3ee" },
+                  "& .MuiChip-deleteIcon": { color: "#22d3ee", "&:hover": { color: "#fff" } },
+                }}
+              />
+            </Tooltip>
+          )}
+        </Box>
 
         <Box
           sx={{
@@ -197,10 +241,14 @@ export const CountermeasuresPanel = () => {
           {!isLoading && items.length === 0 && (
             <Box sx={{ p: 3, textAlign: "center" }}>
               <Typography variant="body2" color="text.secondary" sx={{ mb: 0.5 }}>
-                No response guidance available yet
+                {scopedEvent
+                  ? `No response guidance generated for "${scopedEvent.title}" yet`
+                  : "No response guidance available yet"}
               </Typography>
               <Typography variant="caption" color="text.disabled">
-                Countermeasure suggestions are derived from generated SitReps, digests, and quarterly reports
+                {scopedEvent
+                  ? "Countermeasure suggestions appear once a SitRep has been generated for this event"
+                  : "Countermeasure suggestions are derived from generated SitReps, digests, and quarterly reports"}
               </Typography>
             </Box>
           )}
