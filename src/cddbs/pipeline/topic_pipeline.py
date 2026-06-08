@@ -23,6 +23,7 @@ from src.cddbs import models
 from src.cddbs.utils.genai_client import call_gemini
 from src.cddbs.pipeline.topic_prompt_templates import get_baseline_prompt, get_comparative_prompt
 from src.cddbs.pipeline.output_validator import validate_topic_comparative
+from src.cddbs.pipeline.technique_taxonomy import normalize_techniques
 from src.cddbs.utils.input_sanitizer import sanitize_text
 from src.cddbs.utils.logger import get_logger
 
@@ -310,6 +311,14 @@ def run_topic_pipeline(
                 analysis_status = "completed"
             validation_warnings = (validation.errors + validation.warnings) or None
 
+            # --- Technique taxonomy normalisation (M-1) ---
+            # Gemini returns free-text technique tags ("loaded language" vs
+            # "emotionally loaded terminology" — same construct, different strings).
+            # Map them onto a closed taxonomy so the coordination signal can match
+            # techniques across outlets reliably; raw tags are preserved alongside.
+            raw_techniques = comp.get("propaganda_techniques") or []
+            normalized_techniques = normalize_techniques(raw_techniques) or None
+
             result = models.TopicOutletResult(
                 topic_run_id=topic_run_id,
                 outlet_name=domain,
@@ -318,6 +327,7 @@ def run_topic_pipeline(
                 divergence_score=comp.get("divergence_score"),
                 amplification_signal=comp.get("amplification_signal"),
                 propaganda_techniques=comp.get("propaganda_techniques"),
+                propaganda_techniques_normalized=normalized_techniques,
                 framing_summary=comp.get("framing_summary"),
                 divergence_explanation=comp.get("divergence_explanation"),
                 key_claims=comp.get("key_claims_by_outlet"),
@@ -355,22 +365,32 @@ def run_topic_pipeline(
         coordination_signal = 0.0
         coordination_detail: Dict = {}
         if len(high_divergence) >= 2:
-            # Build a frequency map of propaganda techniques across high-divergence outlets
+            # Build a frequency map of NORMALISED propaganda technique codes across
+            # high-divergence outlets (M-1: matching on closed-taxonomy codes instead
+            # of raw `.lower().strip()` strings catches synonymous tags — e.g. "loaded
+            # language" and "emotionally loaded terminology" both normalise to
+            # `loaded_language` — that previously caused the signal to be undercounted).
             technique_outlets: Dict[str, List[str]] = {}
+            technique_names: Dict[str, str] = {}
             for r in high_divergence:
-                for tech in (r.propaganda_techniques or []):
-                    tech_lower = tech.lower().strip()
-                    technique_outlets.setdefault(tech_lower, []).append(r.outlet_domain or r.outlet_name)
+                for entry in normalize_techniques(r.propaganda_techniques or []):
+                    code = entry["code"]
+                    technique_names[code] = entry["name"]
+                    outlets = technique_outlets.setdefault(code, [])
+                    outlet_id = r.outlet_domain or r.outlet_name
+                    if outlet_id not in outlets:
+                        outlets.append(outlet_id)
 
             # Techniques shared by ≥2 high-divergence outlets
-            shared = {tech: outlets for tech, outlets in technique_outlets.items() if len(outlets) >= 2}
+            shared = {code: outlets for code, outlets in technique_outlets.items() if len(outlets) >= 2}
 
             if shared:
                 # Coordination signal = fraction of high-divergence outlets involved in any shared technique
                 coordinated_outlet_set = {o for outlets in shared.values() for o in outlets}
                 coordination_signal = round(len(coordinated_outlet_set) / max(len(all_results), 1), 3)
                 coordination_detail = {
-                    "shared_techniques": list(shared.keys()),
+                    "shared_techniques": [technique_names[code] for code in shared],
+                    "shared_technique_codes": list(shared.keys()),
                     "coordinated_outlets": list(coordinated_outlet_set),
                     "high_divergence_outlet_count": len(high_divergence),
                     "total_outlet_count": len(all_results),

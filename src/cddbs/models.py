@@ -113,7 +113,8 @@ class TopicOutletResult(Base):
     articles_analyzed     = Column(Integer, default=0)
     divergence_score      = Column(Integer, nullable=True)  # 0-100
     amplification_signal  = Column(String, nullable=True)   # low/medium/high
-    propaganda_techniques = Column(JSON, nullable=True)     # list[str]
+    propaganda_techniques = Column(JSON, nullable=True)     # list[str] — raw Gemini tags (free text)
+    propaganda_techniques_normalized = Column(JSON, nullable=True)  # [{code, name, raw}] mapped onto closed taxonomy (audit M-1)
     framing_summary       = Column(Text, nullable=True)
     divergence_explanation = Column(Text, nullable=True)
     key_claims            = Column(JSON, nullable=True)
