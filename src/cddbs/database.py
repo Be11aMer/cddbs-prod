@@ -31,6 +31,10 @@ _MIGRATIONS = [
     # H-4: log Gemini model version per analysis run for audit trail / reproducibility
     "ALTER TABLE briefings ADD COLUMN IF NOT EXISTS model_version VARCHAR",
     "ALTER TABLE topic_outlet_results ADD COLUMN IF NOT EXISTS model_version VARCHAR",
+    # M-1: normalised propaganda technique codes (closed taxonomy) alongside raw tags
+    "ALTER TABLE topic_outlet_results ADD COLUMN IF NOT EXISTS propaganda_techniques_normalized JSONB",
+    # M-2: cache baselines per topic for cross-run comparability
+    "ALTER TABLE topic_runs ADD COLUMN IF NOT EXISTS baseline_id INTEGER REFERENCES topic_baselines(id)",
 ]
 
 def init_db():

@@ -565,6 +565,23 @@ WebhookConfig (standalone)
 | match_count | Integer | |
 | created_at | DateTime | |
 
+#### `topic_baselines`
+Cached neutral wire-service baseline for a topic — generated once per topic and
+reused as a fixed, named artifact across all subsequent `topic_runs` so
+comparative results across runs of the same topic stay comparable. Cached
+indefinitely; invalidation is manual (delete the row to force regeneration).
+
+| Column | Type | Notes |
+|---|---|---|
+| id | Integer PK | |
+| topic | String | Search topic |
+| topic_key | String, unique | Normalised lookup key (`topic.strip().lower()`) |
+| baseline_summary | Text | Gemini neutral baseline |
+| baseline_raw | Text | Raw Gemini JSON |
+| reference_article_count | Integer | Number of reference articles used to build the baseline |
+| model_version | String | Gemini model string used to generate the baseline |
+| created_at | DateTime | |
+
 #### `topic_runs`
 | Column | Type | Notes |
 |---|---|---|
@@ -573,6 +590,7 @@ WebhookConfig (standalone)
 | num_outlets | Integer | Default 5 |
 | date_filter | String | h/d/w/m/y |
 | status | String | pending/running/completed/failed |
+| baseline_id | FK → topic_baselines | Cached baseline reused for this run (M-2) |
 | baseline_summary | Text | Gemini neutral baseline |
 | baseline_raw | Text | Raw Gemini JSON |
 | coordination_signal | Float | 0.0-1.0 — fraction of outlets in coordinated cluster |
