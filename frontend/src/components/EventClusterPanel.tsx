@@ -16,16 +16,21 @@ import RefreshIcon from "@mui/icons-material/Refresh";
 import OpenInNewIcon from "@mui/icons-material/OpenInNew";
 import CloseIcon from "@mui/icons-material/Close";
 import ArticleIcon from "@mui/icons-material/Article";
+import FlagIcon from "@mui/icons-material/Flag";
+import TrendingUpIcon from "@mui/icons-material/TrendingUp";
 import { useQuery } from "@tanstack/react-query";
 import { useState } from "react";
 import {
   fetchEventClusters,
   fetchEventDetail,
   fetchThreatBriefings,
+  fetchNarrativeBursts,
   type EventClusterItem,
   type EventClusterDetail,
+  type NarrativeBurstItem,
 } from "../api";
 import { ThreatBriefingDetail } from "./ThreatBriefingDetail";
+import { severityColor, magnitudeSeverityColor, SEVERITY_COLORS } from "../utils/severity";
 
 const EVENT_TYPE_COLORS: Record<string, string> = {
   conflict: "#ef4444",
@@ -38,10 +43,35 @@ const EVENT_TYPE_COLORS: Record<string, string> = {
   other: "#94a3b8",
 };
 
-function getRiskColor(score: number): string {
-  if (score >= 0.7) return "#ef4444";
-  if (score >= 0.4) return "#f59e0b";
-  return "#10b981";
+const getRiskColor = (score: number) => severityColor(score);
+
+// Threshold above which we flag an event as actively exploited by disinformation.
+// Mirrors the existing amber/red risk-score boundaries already used across the dashboard.
+const EXPLOITATION_THRESHOLD = 0.4;
+
+function ExploitationBadge({ score }: { score: number }) {
+  if (score < EXPLOITATION_THRESHOLD) return null;
+  const color = severityColor(score);
+  return (
+    <Tooltip title={`Narrative risk score ${(score * 100).toFixed(0)}% — disinformation signals detected around this event`}>
+      <Chip
+        size="small"
+        icon={<FlagIcon sx={{ fontSize: 12 }} />}
+        label="Exploitation detected"
+        sx={{
+          height: 18,
+          fontSize: "0.6rem",
+          fontWeight: 800,
+          letterSpacing: "0.02em",
+          backgroundColor: `${color}1f`,
+          color,
+          border: `1px solid ${color}55`,
+          "& .MuiChip-icon": { color, ml: 0.5 },
+          "& .MuiChip-label": { px: 0.75 },
+        }}
+      />
+    </Tooltip>
+  );
 }
 
 function EventRow({
@@ -140,6 +170,7 @@ function EventRow({
             "& .MuiChip-label": { px: 0.75 },
           }}
         />
+        <ExploitationBadge score={event.narrative_risk_score} />
         <Typography
           variant="caption"
           color="text.disabled"
@@ -184,14 +215,72 @@ function EventRow({
   );
 }
 
+function ExploitationDrillIn({ event, bursts }: { event: EventClusterDetail; bursts: NarrativeBurstItem[] }) {
+  const exploited = event.narrative_risk_score >= EXPLOITATION_THRESHOLD;
+  if (!exploited && bursts.length === 0) return null;
+
+  const riskColor = severityColor(event.narrative_risk_score);
+
+  return (
+    <Box
+      sx={{
+        mb: 2,
+        p: 1.5,
+        borderRadius: 1.5,
+        border: `1px solid ${riskColor}33`,
+        backgroundColor: `${riskColor}0d`,
+      }}
+    >
+      <Box sx={{ display: "flex", alignItems: "center", gap: 0.75, mb: bursts.length > 0 ? 1 : 0 }}>
+        <FlagIcon sx={{ fontSize: 15, color: riskColor }} />
+        <Typography variant="caption" fontWeight={800} sx={{ color: riskColor, letterSpacing: "0.03em" }}>
+          {exploited ? "Disinformation exploitation detected on this event" : "Narrative activity around this event"}
+        </Typography>
+      </Box>
+      {bursts.length > 0 && (
+        <Box sx={{ display: "flex", flexDirection: "column", gap: 0.5 }}>
+          <Typography variant="caption" color="text.secondary" sx={{ fontSize: "0.65rem" }}>
+            Narrative bursts tied to this event ({bursts.length}):
+          </Typography>
+          <Box sx={{ display: "flex", gap: 0.5, flexWrap: "wrap" }}>
+            {bursts.map((b) => {
+              const zColor = magnitudeSeverityColor(b.z_score);
+              return (
+                <Tooltip key={b.id} title={`z-score ${b.z_score?.toFixed(1) ?? "—"} · baseline ${b.baseline_frequency ?? "—"} → current ${b.current_frequency ?? "—"}`}>
+                  <Chip
+                    size="small"
+                    icon={<TrendingUpIcon sx={{ fontSize: 12 }} />}
+                    label={b.keyword}
+                    sx={{
+                      height: 22,
+                      fontSize: "0.65rem",
+                      fontWeight: 700,
+                      backgroundColor: `${zColor}1a`,
+                      color: zColor,
+                      border: `1px solid ${zColor}44`,
+                      "& .MuiChip-icon": { color: zColor },
+                    }}
+                  />
+                </Tooltip>
+              );
+            })}
+          </Box>
+        </Box>
+      )}
+    </Box>
+  );
+}
+
 function EventDetailDialog({
   eventId,
   open,
   onClose,
+  burstsByCluster,
 }: {
   eventId: number | null;
   open: boolean;
   onClose: () => void;
+  burstsByCluster: Record<number, NarrativeBurstItem[]>;
 }) {
   const { data, isLoading } = useQuery({
     queryKey: ["event-detail", eventId],
@@ -248,6 +337,8 @@ function EventDetailDialog({
               <Chip label={`${data.article_count} articles`} size="small" variant="outlined" />
               <Chip label={`${data.source_count} sources`} size="small" variant="outlined" />
             </Box>
+
+            <ExploitationDrillIn event={data} bursts={burstsByCluster[data.id] ?? []} />
 
             {data.keywords && data.keywords.length > 0 && (
               <Box sx={{ mb: 2 }}>
@@ -343,6 +434,26 @@ export const EventClusterPanel = () => {
 
   const sitrepByCluster = (sitrepBriefings ?? []).reduce<Record<number, number>>(
     (acc, b) => { if (b.cluster_id != null) acc[b.cluster_id] = b.id; return acc; },
+    {},
+  );
+
+  // Narrative bursts carry a cluster_id FK — join them client-side to surface
+  // "this event is being exploited by THESE specific narrative spikes" (no
+  // dedicated backend join exists yet for this, so we correlate on the FK we have).
+  const { data: bursts } = useQuery({
+    queryKey: ["narrative-bursts-map"],
+    queryFn: fetchNarrativeBursts,
+    refetchInterval: 60 * 1000,
+    staleTime: 30 * 1000,
+  });
+
+  const burstsByCluster = (bursts ?? []).reduce<Record<number, NarrativeBurstItem[]>>(
+    (acc, b) => {
+      if (b.cluster_id != null) {
+        (acc[b.cluster_id] ??= []).push(b);
+      }
+      return acc;
+    },
     {},
   );
 
@@ -468,6 +579,7 @@ export const EventClusterPanel = () => {
         eventId={selectedEvent}
         open={selectedEvent !== null}
         onClose={() => setSelectedEvent(null)}
+        burstsByCluster={burstsByCluster}
       />
 
       <ThreatBriefingDetail
