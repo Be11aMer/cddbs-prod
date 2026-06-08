@@ -1,0 +1,149 @@
+{
+  "version": "1.0.0",
+  "description": "Closed taxonomy of propaganda/narrative techniques used to normalise free-text Gemini output (audit M-1). Each category defines a stable `id` (normalised code) and a list of `aliases` — synonymous phrasings observed in model output — used to map raw tags onto the controlled vocabulary so the coordination signal can match techniques across outlets reliably.",
+  "sources": [
+    "DISARM Framework (disarm.foundation) — TA06 Develop Narratives / TA08 Conduct Pump Priming techniques for narrative-development and amplification categories",
+    "Classical propaganda technique taxonomy (Da San Martino et al., SemEval-2020 Task 11 'Detection of Propaganda Techniques in News Articles'; EU DisinfoLab) for rhetorical/framing categories"
+  ],
+  "last_updated": "2026-06-07",
+  "techniques": [
+    {
+      "id": "loaded_language",
+      "name": "Loaded Language",
+      "description": "Words/phrases with strong emotional implications (positive or negative) used to influence the audience beyond their literal meaning.",
+      "aliases": ["loaded language", "loaded rhetoric", "emotionally loaded terminology", "emotive language", "charged language", "inflammatory language", "emotional language"]
+    },
+    {
+      "id": "name_calling_labeling",
+      "name": "Name-Calling or Labeling",
+      "description": "Attaching a derogatory or laudatory label to a person, group, or idea to make the audience accept or reject it without examining the evidence.",
+      "aliases": ["name calling", "name-calling", "labeling", "labelling", "derogatory labeling", "smearing", "pejorative framing", "stigmatising language"]
+    },
+    {
+      "id": "repetition",
+      "name": "Repetition",
+      "description": "Repeating the same message, slogan, or claim to reinforce it in the audience's mind regardless of its validity.",
+      "aliases": ["repetition", "message repetition", "reiteration", "echoing the same claim", "repeated framing"]
+    },
+    {
+      "id": "exaggeration_minimisation",
+      "name": "Exaggeration or Minimisation",
+      "description": "Overstating or understating facts, consequences, or the significance of an event to shape perception.",
+      "aliases": ["exaggeration", "minimisation", "minimization", "overstatement", "understatement", "downplaying", "hyperbole", "amplifying significance", "trivialising"]
+    },
+    {
+      "id": "doubt",
+      "name": "Casting Doubt",
+      "description": "Questioning the credibility, motives, or reliability of a person, institution, or source rather than engaging with the substance of their claims.",
+      "aliases": ["doubt", "casting doubt", "questioning credibility", "undermining trust", "sowing doubt", "discrediting sources"]
+    },
+    {
+      "id": "appeal_to_fear_prejudice",
+      "name": "Appeal to Fear or Prejudice",
+      "description": "Building support by instilling anxiety or panic about an alternative, or by exploiting existing prejudices and stereotypes.",
+      "aliases": ["appeal to fear", "fearmongering", "fear-mongering", "scaremongering", "appeal to prejudice", "stoking fear", "threat framing"]
+    },
+    {
+      "id": "flag_waving",
+      "name": "Flag-Waving / Appeal to Patriotism",
+      "description": "Justifying an action or position on the grounds that it serves national, ethnic, religious, or group identity and interest.",
+      "aliases": ["flag waving", "flag-waving", "appeal to patriotism", "nationalist framing", "us-vs-them framing", "in-group appeal"]
+    },
+    {
+      "id": "causal_oversimplification",
+      "name": "Causal Oversimplification",
+      "description": "Assuming a single cause or reason for a complex issue when there are actually multiple contributing factors.",
+      "aliases": ["causal oversimplification", "oversimplification", "single-cause framing", "reductive causation", "simplistic causation"]
+    },
+    {
+      "id": "slogans",
+      "name": "Slogans",
+      "description": "Brief, striking phrases that may include labeling or stereotyping, used to provoke excitement and emotional reaction over reasoned analysis.",
+      "aliases": ["slogans", "catchphrases", "soundbites", "sloganeering", "rallying phrases"]
+    },
+    {
+      "id": "appeal_to_authority",
+      "name": "Appeal to Authority",
+      "description": "Citing a source — official, expert, or otherwise — as proof for a claim without providing actual supporting evidence, or relying on weak/irrelevant authorities.",
+      "aliases": ["appeal to authority", "argument from authority", "citing officials without evidence", "expert framing without substantiation"]
+    },
+    {
+      "id": "black_and_white_fallacy",
+      "name": "Black-and-White Fallacy / False Dichotomy",
+      "description": "Presenting only two alternatives when in fact more options exist, framing the issue as a forced binary choice.",
+      "aliases": ["black and white fallacy", "false dichotomy", "false binary", "either-or framing", "forced choice framing", "dichotomous framing"]
+    },
+    {
+      "id": "thought_terminating_cliche",
+      "name": "Thought-Terminating Cliché",
+      "description": "A commonplace phrase used to dismiss dissent or end debate without addressing the substance of the argument.",
+      "aliases": ["thought-terminating cliche", "thought terminating cliche", "dismissive cliche", "conversation-stopping phrase"]
+    },
+    {
+      "id": "whataboutism",
+      "name": "Whataboutism",
+      "description": "Discrediting a criticism by pointing to similar or unrelated wrongdoing by another party rather than addressing the original point.",
+      "aliases": ["whataboutism", "what-aboutism", "tu quoque", "deflection by counter-accusation", "you-too argument"]
+    },
+    {
+      "id": "reductio_ad_hitlerum",
+      "name": "Reductio ad Hitlerum / Guilt by Association",
+      "description": "Discrediting an idea or actor by associating it with a widely despised person, group, or movement.",
+      "aliases": ["reductio ad hitlerum", "guilt by association", "nazi comparison", "association with despised group"]
+    },
+    {
+      "id": "red_herring",
+      "name": "Red Herring",
+      "description": "Introducing irrelevant material to divert attention from the main issue and away from the original argument.",
+      "aliases": ["red herring", "diversion", "deflection", "changing the subject", "irrelevant distraction"]
+    },
+    {
+      "id": "bandwagon",
+      "name": "Bandwagon / Appeal to Popularity",
+      "description": "Persuading the audience to adopt a position because 'everyone else' is already doing so or believes it.",
+      "aliases": ["bandwagon", "appeal to popularity", "everyone agrees framing", "social proof appeal", "majority framing"]
+    },
+    {
+      "id": "obfuscation_vagueness",
+      "name": "Obfuscation / Vagueness / Confusion",
+      "description": "Using deliberately unclear, ambiguous, or convoluted language to obscure facts or avoid accountability.",
+      "aliases": ["obfuscation", "vagueness", "confusion", "ambiguity", "deliberate vagueness", "muddying the waters", "evasive language"]
+    },
+    {
+      "id": "straw_man",
+      "name": "Straw Man",
+      "description": "Misrepresenting an opponent's position to make it easier to attack or refute.",
+      "aliases": ["straw man", "strawman", "misrepresenting the opposing argument", "distorting the opponent's position"]
+    },
+    {
+      "id": "cherry_picking",
+      "name": "Cherry-Picking / Selective Emphasis",
+      "description": "Selecting only facts or data points that support a desired narrative while ignoring those that contradict it.",
+      "aliases": ["cherry picking", "cherry-picking", "selective emphasis", "selective reporting", "selective use of facts", "data dredging"]
+    },
+    {
+      "id": "false_equivalence",
+      "name": "False Equivalence",
+      "description": "Drawing a comparison between two things that are not actually comparable, implying equal weight or culpability where none exists.",
+      "aliases": ["false equivalence", "false equivalency", "drawing an equivalence", "equating incomparable actors or events", "moral equivalence"]
+    },
+    {
+      "id": "develop_competing_narrative",
+      "name": "Develop / Amplify Competing Narrative",
+      "description": "Constructing or amplifying an alternative narrative that competes with and seeks to displace the established/factual account of events (DISARM TA06 Develop Narratives).",
+      "aliases": ["competing narrative", "alternative narrative", "counter-narrative development", "narrative amplification", "developing a counter-narrative", "amplifying existing narrative"]
+    },
+    {
+      "id": "conspiracy_framing",
+      "name": "Conspiracy Theory Framing",
+      "description": "Attributing events to secretive, malicious coordination by powerful actors without verifiable evidence.",
+      "aliases": ["conspiracy theory", "conspiracy framing", "hidden-agenda framing", "shadowy actors narrative", "secret coordination claims"]
+    },
+    {
+      "id": "omission_of_context",
+      "name": "Omission of Key Context",
+      "description": "Leaving out information necessary to understand an event accurately, distorting the audience's perception through what is left unsaid.",
+      "aliases": ["omission of context", "omitting context", "missing context", "decontextualisation", "stripping context", "selective omission"]
+    }
+  ]
+}
