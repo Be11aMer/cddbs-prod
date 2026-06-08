@@ -16,6 +16,8 @@ import {
   Button,
   Stack,
   Grid,
+  Tabs,
+  Tab,
   Tooltip,
   useMediaQuery,
   useTheme,
@@ -33,6 +35,10 @@ import MenuIcon from "@mui/icons-material/Menu";
 import RadarIcon from "@mui/icons-material/Radar";
 import TableRowsIcon from "@mui/icons-material/TableRows";
 import TravelExploreIcon from "@mui/icons-material/TravelExplore";
+import FlagIcon from "@mui/icons-material/Flag";
+import GroupsIcon from "@mui/icons-material/Groups";
+import TimelineIcon from "@mui/icons-material/Timeline";
+import ShieldIcon from "@mui/icons-material/Shield";
 import InputBase from "@mui/material/InputBase";
 import { styled, alpha } from "@mui/material/styles";
 import { useState, useEffect } from "react";
@@ -62,10 +68,33 @@ import { MonitoringDashboard } from "./components/MonitoringDashboard";
 import { TopicRunsTable } from "./components/TopicRunsTable";
 import { TopicRunDetail } from "./components/TopicRunDetail";
 import { ThreatBriefingsPanel } from "./components/ThreatBriefingsPanel";
+import { ExploitationDetectionSection } from "./components/ExploitationDetectionSection";
+import { AmplificationAttributionSection } from "./components/AmplificationAttributionSection";
+import { NarrativeTrendSection } from "./components/NarrativeTrendSection";
+import { CountermeasuresPanel } from "./components/CountermeasuresPanel";
+import { SectionHeader } from "./components/SectionHeader";
+import { SEVERITY_COLORS } from "./utils/severity";
 import ArticleIcon from "@mui/icons-material/Article";
 import { fetchLatestThreatBriefings } from "./api";
 
-type ViewType = "monitoring" | "reports" | "topic-runs" | "threat-briefings";
+// Six tabs in causal pipeline order — the dashboard tells ONE story:
+// real-world events → exploitation by disinformation → auto-analysis →
+// amplification tracking → narrative evolution → recommended response.
+type ViewType = "events" | "exploitation" | "analysis" | "amplification" | "trends" | "countermeasures";
+
+const NAV_ITEMS: {
+  id: ViewType;
+  label: string;
+  icon: typeof RadarIcon;
+  accent: string;
+}[] = [
+  { id: "events", label: "Real-World Events", icon: RadarIcon, accent: "#3b82f6" },
+  { id: "exploitation", label: "Exploitation Detection", icon: FlagIcon, accent: "#ef4444" },
+  { id: "analysis", label: "Auto-Analysis & Topics", icon: TravelExploreIcon, accent: "#8b5cf6" },
+  { id: "amplification", label: "Amplification & Attribution", icon: GroupsIcon, accent: "#06b6d4" },
+  { id: "trends", label: "Narrative Trend & Evolution", icon: TimelineIcon, accent: "#8b5cf6" },
+  { id: "countermeasures", label: "Countermeasures", icon: ShieldIcon, accent: "#10b981" },
+];
 
 const Search = styled("div")(({ theme }) => ({
   position: "relative",
@@ -113,7 +142,7 @@ export const App = () => {
   const dispatch = useAppDispatch();
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down("md"));
-  const [currentView, setCurrentView] = useState<ViewType>("monitoring");
+  const [currentView, setCurrentView] = useState<ViewType>("events");
   const [newAnalysisOpen, setNewAnalysisOpen] = useState(false);
   const [shortcutsHelpOpen, setShortcutsHelpOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
@@ -165,6 +194,7 @@ export const App = () => {
   });
 
   const [selectedTopicRunId, setSelectedTopicRunId] = useState<number | null>(null);
+  const [analysisSubView, setAnalysisSubView] = useState<"runs" | "briefings" | "topics">("runs");
 
   const { data: topicRuns, refetch: refetchTopicRuns, isLoading: topicRunsLoading } = useQuery<TopicRunStatus[]>({
     queryKey: ["topic-runs"],
@@ -472,106 +502,52 @@ export const App = () => {
             </Typography>
           </Box>
           <List sx={{ px: 1 }}>
-            {/* Monitoring */}
-            <ListItem disablePadding sx={{ mb: 0.5 }}>
-              <ListItemButton
-                selected={currentView === "monitoring"}
-                onClick={() => { setCurrentView("monitoring"); isMobile && setIsMobileDrawerOpen(false); }}
-                sx={{
-                  borderRadius: 2,
-                  "&.Mui-selected": {
-                    backgroundColor: "rgba(59, 130, 246, 0.08)",
-                    borderLeft: "3px solid #3b82f6",
-                    "&:hover": { backgroundColor: "rgba(59, 130, 246, 0.12)" },
-                  },
-                  "&:not(.Mui-selected)": { pl: "19px" },
-                }}
-              >
-                <ListItemIcon sx={{ minWidth: 32 }}>
-                  <RadarIcon sx={{ fontSize: 18, color: currentView === "monitoring" ? "primary.main" : "text.secondary" }} />
-                </ListItemIcon>
-                <ListItemText
-                  primaryTypographyProps={{ fontWeight: 700, fontSize: "0.875rem" }}
-                  primary="Monitoring"
-                />
-              </ListItemButton>
-            </ListItem>
-            {/* Reports */}
-            <ListItem disablePadding sx={{ mb: 0.5 }}>
-              <ListItemButton
-                selected={currentView === "reports"}
-                onClick={() => { setCurrentView("reports"); isMobile && setIsMobileDrawerOpen(false); }}
-                sx={{
-                  borderRadius: 2,
-                  "&.Mui-selected": {
-                    backgroundColor: "rgba(59, 130, 246, 0.08)",
-                    borderLeft: "3px solid #3b82f6",
-                    "&:hover": { backgroundColor: "rgba(59, 130, 246, 0.12)" },
-                  },
-                  "&:not(.Mui-selected)": { pl: "19px" },
-                }}
-              >
-                <ListItemIcon sx={{ minWidth: 32 }}>
-                  <TableRowsIcon sx={{ fontSize: 18, color: currentView === "reports" ? "primary.main" : "text.secondary" }} />
-                </ListItemIcon>
-                <ListItemText
-                  primaryTypographyProps={{ fontWeight: 700, fontSize: "0.875rem" }}
-                  primary="Reports"
-                />
-              </ListItemButton>
-            </ListItem>
-            {/* Topic Analysis */}
-            <ListItem disablePadding sx={{ mb: 0.5 }}>
-              <ListItemButton
-                selected={currentView === "topic-runs"}
-                onClick={() => { setCurrentView("topic-runs"); setSelectedTopicRunId(null); isMobile && setIsMobileDrawerOpen(false); }}
-                sx={{
-                  borderRadius: 2,
-                  "&.Mui-selected": {
-                    backgroundColor: "rgba(139,92,246,0.08)",
-                    borderLeft: "3px solid #8b5cf6",
-                    "&:hover": { backgroundColor: "rgba(139,92,246,0.12)" },
-                  },
-                  "&:not(.Mui-selected)": { pl: "19px" },
-                }}
-              >
-                <ListItemIcon sx={{ minWidth: 32 }}>
-                  <TravelExploreIcon sx={{ fontSize: 18, color: currentView === "topic-runs" ? "#8b5cf6" : "text.secondary" }} />
-                </ListItemIcon>
-                <ListItemText
-                  primaryTypographyProps={{ fontWeight: 700, fontSize: "0.875rem" }}
-                  primary="Topic Analysis"
-                />
-              </ListItemButton>
-            </ListItem>
-            {/* Threat Briefings */}
-            <ListItem disablePadding sx={{ mb: 0.5 }}>
-              <ListItemButton
-                selected={currentView === "threat-briefings"}
-                onClick={() => { setCurrentView("threat-briefings"); isMobile && setIsMobileDrawerOpen(false); }}
-                sx={{
-                  borderRadius: 2,
-                  "&.Mui-selected": {
-                    backgroundColor: "rgba(239,68,68,0.08)",
-                    borderLeft: "3px solid #ef4444",
-                    "&:hover": { backgroundColor: "rgba(239,68,68,0.12)" },
-                  },
-                  "&:not(.Mui-selected)": { pl: "19px" },
-                }}
-              >
-                <ListItemIcon sx={{ minWidth: 32 }}>
-                  <Badge badgeContent={threatBriefingCount > 0 ? threatBriefingCount : undefined} color="error" max={99}
-                    sx={{ "& .MuiBadge-badge": { fontSize: "0.55rem", height: 14, minWidth: 14 } }}
+            {NAV_ITEMS.map(({ id, label, icon: Icon, accent }, index) => {
+              const selected = currentView === id;
+              const showBriefingBadge = id === "analysis" && threatBriefingCount > 0;
+              return (
+                <ListItem disablePadding sx={{ mb: 0.5 }} key={id}>
+                  <ListItemButton
+                    selected={selected}
+                    onClick={() => {
+                      setCurrentView(id);
+                      if (id === "analysis") setSelectedTopicRunId(null);
+                      isMobile && setIsMobileDrawerOpen(false);
+                    }}
+                    sx={{
+                      borderRadius: 2,
+                      "&.Mui-selected": {
+                        backgroundColor: `${accent}14`,
+                        borderLeft: `3px solid ${accent}`,
+                        "&:hover": { backgroundColor: `${accent}22` },
+                      },
+                      "&:not(.Mui-selected)": { pl: "19px" },
+                    }}
                   >
-                    <ArticleIcon sx={{ fontSize: 18, color: currentView === "threat-briefings" ? "#ef4444" : "text.secondary" }} />
-                  </Badge>
-                </ListItemIcon>
-                <ListItemText
-                  primaryTypographyProps={{ fontWeight: 700, fontSize: "0.875rem" }}
-                  primary="Threat Briefings"
-                />
-              </ListItemButton>
-            </ListItem>
+                    <ListItemIcon sx={{ minWidth: 32 }}>
+                      <Box sx={{ display: "flex", alignItems: "center", gap: 0.5 }}>
+                        <Typography variant="caption" sx={{ color: selected ? accent : "text.disabled", fontWeight: 800, fontSize: "0.6rem", width: 12 }}>
+                          {index + 1}
+                        </Typography>
+                        {showBriefingBadge ? (
+                          <Badge badgeContent={threatBriefingCount} color="error" max={99}
+                            sx={{ "& .MuiBadge-badge": { fontSize: "0.55rem", height: 14, minWidth: 14 } }}
+                          >
+                            <Icon sx={{ fontSize: 18, color: selected ? accent : "text.secondary" }} />
+                          </Badge>
+                        ) : (
+                          <Icon sx={{ fontSize: 18, color: selected ? accent : "text.secondary" }} />
+                        )}
+                      </Box>
+                    </ListItemIcon>
+                    <ListItemText
+                      primaryTypographyProps={{ fontWeight: 700, fontSize: "0.83rem" }}
+                      primary={label}
+                    />
+                  </ListItemButton>
+                </ListItem>
+              );
+            })}
           </List>
         </Box>
 
@@ -628,129 +604,179 @@ export const App = () => {
         <Container maxWidth="xl" sx={{ pt: 2 }}>
           <ColdStartNotice />
 
-          {/* ── Monitoring Dashboard ── */}
-          {currentView === "monitoring" && <MonitoringDashboard />}
+          {/* ── Stage 1: Real-World Events (anchor) ── */}
+          {currentView === "events" && <MonitoringDashboard />}
 
-          {/* ── Topic Analysis view ── */}
-          {currentView === "topic-runs" && (
-            selectedTopicRunId ? (
-              <Box>
-                <Button
-                  size="small"
-                  onClick={() => setSelectedTopicRunId(null)}
-                  sx={{ mb: 2, color: "text.secondary" }}
-                  startIcon={<TravelExploreIcon fontSize="small" />}
-                >
-                  ← All Topic Analyses
-                </Button>
-                <TopicRunDetail topicRunId={selectedTopicRunId} />
-              </Box>
-            ) : (
-              <TopicRunsTable
-                runs={topicRuns ?? []}
-                onRefresh={refetchTopicRuns}
-                isLoading={topicRunsLoading && !topicRuns}
-                onOpenDetail={(id) => setSelectedTopicRunId(id)}
+          {/* ── Stage 2: Exploitation Detection ── */}
+          {currentView === "exploitation" && <ExploitationDetectionSection />}
+
+          {/* ── Stage 3: Auto-Analysis & Topic Investigation ──
+              Hosts the three things that fire once an event is flagged as
+              exploited: deep-dive analysis runs, AI-generated threat briefings
+              (SitReps/digests), and topic-analyst baseline/amplifier comparisons. */}
+          {currentView === "analysis" && (
+            <Box sx={{ display: "flex", flexDirection: "column", gap: 2.5 }}>
+              <SectionHeader
+                icon={<TravelExploreIcon sx={{ fontSize: 20 }} />}
+                title="Auto-Analysis &amp; Topic Investigation"
+                subtitle="What fires once an event is flagged — deep-dive analysis runs, AI-generated briefings, and topic-analyst baseline comparisons"
+                accentColor="#8b5cf6"
               />
-            )
+
+              <Box sx={{ borderBottom: 1, borderColor: "rgba(148,163,184,0.1)" }}>
+                <Tabs
+                  value={analysisSubView}
+                  onChange={(_, v) => { setAnalysisSubView(v); setSelectedTopicRunId(null); }}
+                  textColor="inherit"
+                  TabIndicatorProps={{ sx: { backgroundColor: "#8b5cf6", height: 2.5, borderRadius: 1 } }}
+                  sx={{ minHeight: 40, "& .MuiTab-root": { minHeight: 40, textTransform: "none", fontWeight: 700, fontSize: "0.85rem", color: "text.secondary" }, "& .Mui-selected": { color: "#8b5cf6 !important" } }}
+                >
+                  <Tab label="Analysis Runs" value="runs" />
+                  <Tab
+                    label={
+                      <Badge badgeContent={threatBriefingCount > 0 ? threatBriefingCount : undefined} color="error" max={99}
+                        sx={{ "& .MuiBadge-badge": { fontSize: "0.55rem", height: 14, minWidth: 14, right: -10, top: 2 } }}
+                      >
+                        <Box component="span">Threat Briefings</Box>
+                      </Badge>
+                    }
+                    value="briefings"
+                  />
+                  <Tab label="Topic Investigations" value="topics" />
+                </Tabs>
+              </Box>
+
+              {analysisSubView === "runs" && (
+                <Box>
+                  <Grid container spacing={2} sx={{ mb: 1 }}>
+                    <Grid item xs={12} sm={6} md={3}>
+                      {isLoading && !runs ? (
+                        <MetricCardSkeleton />
+                      ) : (
+                        <MetricCard
+                          title="Total Analyses"
+                          value={totalRuns}
+                          icon={<AssessmentIcon sx={{ fontSize: 28 }} />}
+                          color="info"
+                          tooltip="Total number of intelligence reports generated by the system"
+                        />
+                      )}
+                    </Grid>
+                    <Grid item xs={12} sm={6} md={3}>
+                      {isLoading && !runs ? (
+                        <MetricCardSkeleton />
+                      ) : (
+                        <MetricCard
+                          title="Avg Quality"
+                          value={runsWithQuality.length > 0 ? `${avgQuality}/70` : "—"}
+                          icon={<VerifiedIcon sx={{ fontSize: 28 }} />}
+                          color={avgQuality >= 50 ? "success" : avgQuality >= 30 ? "warning" : "info"}
+                          tooltip={`Average quality score across ${runsWithQuality.length} scored briefings (70 max)`}
+                        />
+                      )}
+                    </Grid>
+                    <Grid item xs={12} sm={6} md={3}>
+                      {isLoading && !runs ? (
+                        <MetricCardSkeleton />
+                      ) : (
+                        <MetricCard
+                          title="Narratives"
+                          value={totalNarratives}
+                          icon={<WarningAmberIcon sx={{ fontSize: 28 }} />}
+                          color={totalNarratives > 0 ? "warning" : "success"}
+                          tooltip="Total disinformation narrative matches detected across all analyses"
+                        />
+                      )}
+                    </Grid>
+                    <Grid item xs={12} sm={6} md={3}>
+                      {isLoading && !runs ? (
+                        <MetricCardSkeleton />
+                      ) : (
+                        <MetricCard
+                          title="Success Rate"
+                          value={`${successRate}%`}
+                          icon={<TrendingUpIcon sx={{ fontSize: 28 }} />}
+                          color={successRate >= 80 ? "success" : successRate >= 50 ? "warning" : "error"}
+                          trend={{ value: 5, label: "vs average" }}
+                          tooltip="Percentage of analyses that resulted in a complete intelligence report"
+                        />
+                      )}
+                    </Grid>
+                  </Grid>
+
+                  <Grid container spacing={3}>
+                    <Grid item xs={12} md={8}>
+                      <RunsTable
+                        runs={runs ?? []}
+                        onRefresh={refetch}
+                        isLoading={isLoading && !runs}
+                        onOpenReport={(id) => {
+                          dispatch(setSelectedRunId(id));
+                          setReportViewOpen(true);
+                        }}
+                      />
+                    </Grid>
+                    <Grid item xs={12} md={4}>
+                      <Stack spacing={3}>
+                        <StatusDistributionChart
+                          data={[
+                            { status: "completed", count: completedCount, color: "#10b981" },
+                            { status: "running", count: runningCount, color: "#3b82f6" },
+                            { status: "failed", count: runs?.filter(r => r.status === "failed").length || 0, color: "#ef4444" },
+                            { status: "queued", count: runs?.filter(r => r.status === "queued").length || 0, color: "#94a3b8" },
+                          ]}
+                        />
+                        <RunDetail
+                          runId={selectedRunId}
+                          onOpenReport={(id) => {
+                            dispatch(setSelectedRunId(id));
+                            setReportViewOpen(true);
+                          }}
+                        />
+                      </Stack>
+                    </Grid>
+                  </Grid>
+                </Box>
+              )}
+
+              {analysisSubView === "briefings" && <ThreatBriefingsPanel />}
+
+              {analysisSubView === "topics" && (
+                selectedTopicRunId ? (
+                  <Box>
+                    <Button
+                      size="small"
+                      onClick={() => setSelectedTopicRunId(null)}
+                      sx={{ mb: 2, color: "text.secondary" }}
+                      startIcon={<TravelExploreIcon fontSize="small" />}
+                    >
+                      ← All Topic Analyses
+                    </Button>
+                    <TopicRunDetail topicRunId={selectedTopicRunId} />
+                  </Box>
+                ) : (
+                  <TopicRunsTable
+                    runs={topicRuns ?? []}
+                    onRefresh={refetchTopicRuns}
+                    isLoading={topicRunsLoading && !topicRuns}
+                    onOpenDetail={(id) => setSelectedTopicRunId(id)}
+                  />
+                )
+              )}
+            </Box>
           )}
 
-          {/* ── Threat Briefings view ── */}
-          {currentView === "threat-briefings" && <ThreatBriefingsPanel />}
+          {/* ── Stage 4: Amplification & Attribution ── */}
+          {currentView === "amplification" && <AmplificationAttributionSection />}
 
-          {/* ── Reports view (former "Intelligence Dashboard") ── */}
-          {currentView === "reports" && (
-            <>
-              {/* Summary Cards */}
-              <Grid container spacing={2} sx={{ mb: 3 }}>
-                <Grid item xs={12} sm={6} md={3}>
-                  {isLoading && !runs ? (
-                    <MetricCardSkeleton />
-                  ) : (
-                    <MetricCard
-                      title="Total Analyses"
-                      value={totalRuns}
-                      icon={<AssessmentIcon sx={{ fontSize: 28 }} />}
-                      color="info"
-                      tooltip="Total number of intelligence reports generated by the system"
-                    />
-                  )}
-                </Grid>
-                <Grid item xs={12} sm={6} md={3}>
-                  {isLoading && !runs ? (
-                    <MetricCardSkeleton />
-                  ) : (
-                    <MetricCard
-                      title="Avg Quality"
-                      value={runsWithQuality.length > 0 ? `${avgQuality}/70` : "—"}
-                      icon={<VerifiedIcon sx={{ fontSize: 28 }} />}
-                      color={avgQuality >= 50 ? "success" : avgQuality >= 30 ? "warning" : "info"}
-                      tooltip={`Average quality score across ${runsWithQuality.length} scored briefings (70 max)`}
-                    />
-                  )}
-                </Grid>
-                <Grid item xs={12} sm={6} md={3}>
-                  {isLoading && !runs ? (
-                    <MetricCardSkeleton />
-                  ) : (
-                    <MetricCard
-                      title="Narratives"
-                      value={totalNarratives}
-                      icon={<WarningAmberIcon sx={{ fontSize: 28 }} />}
-                      color={totalNarratives > 0 ? "warning" : "success"}
-                      tooltip="Total disinformation narrative matches detected across all analyses"
-                    />
-                  )}
-                </Grid>
-                <Grid item xs={12} sm={6} md={3}>
-                  {isLoading && !runs ? (
-                    <MetricCardSkeleton />
-                  ) : (
-                    <MetricCard
-                      title="Success Rate"
-                      value={`${successRate}%`}
-                      icon={<TrendingUpIcon sx={{ fontSize: 28 }} />}
-                      color={successRate >= 80 ? "success" : successRate >= 50 ? "warning" : "error"}
-                      trend={{ value: 5, label: "vs average" }}
-                      tooltip="Percentage of analyses that resulted in a complete intelligence report"
-                    />
-                  )}
-                </Grid>
-              </Grid>
+          {/* ── Stage 5: Narrative Trend & Evolution ── */}
+          {currentView === "trends" && <NarrativeTrendSection />}
 
-              <Grid container spacing={3}>
-                <Grid item xs={12} md={8}>
-                  <RunsTable
-                    runs={runs ?? []}
-                    onRefresh={refetch}
-                    isLoading={isLoading && !runs}
-                    onOpenReport={(id) => {
-                      dispatch(setSelectedRunId(id));
-                      setReportViewOpen(true);
-                    }}
-                  />
-                </Grid>
-                <Grid item xs={12} md={4}>
-                  <Stack spacing={3}>
-                    <StatusDistributionChart
-                      data={[
-                        { status: "completed", count: completedCount, color: "#10b981" },
-                        { status: "running", count: runningCount, color: "#3b82f6" },
-                        { status: "failed", count: runs?.filter(r => r.status === "failed").length || 0, color: "#ef4444" },
-                        { status: "queued", count: runs?.filter(r => r.status === "queued").length || 0, color: "#94a3b8" },
-                      ]}
-                    />
-                    <RunDetail
-                      runId={selectedRunId}
-                      onOpenReport={(id) => {
-                        dispatch(setSelectedRunId(id));
-                        setReportViewOpen(true);
-                      }}
-                    />
-                  </Stack>
-                </Grid>
-              </Grid>
-            </>
+          {/* ── Stage 6: Countermeasures ── */}
+          {currentView === "countermeasures" && (
+            <Box sx={{ height: 640 }}>
+              <CountermeasuresPanel />
+            </Box>
           )}
         </Container>
       </Box>
@@ -762,10 +788,12 @@ export const App = () => {
           setNewAnalysisOpen(false);
           if (mode === "topic") {
             refetchTopicRuns();
-            setCurrentView("topic-runs");
+            setCurrentView("analysis");
+            setAnalysisSubView("topics");
           } else {
             refetch();
-            setCurrentView("reports");
+            setCurrentView("analysis");
+            setAnalysisSubView("runs");
           }
         }}
       />

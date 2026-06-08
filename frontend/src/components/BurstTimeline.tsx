@@ -4,13 +4,9 @@ import RefreshIcon from "@mui/icons-material/Refresh";
 import WarningAmberIcon from "@mui/icons-material/WarningAmber";
 import { useQuery } from "@tanstack/react-query";
 import { fetchNarrativeBursts, type NarrativeBurstItem } from "../api";
+import { magnitudeSeverityColor } from "../utils/severity";
 
-function getZScoreColor(z: number | null): string {
-  if (!z) return "#94a3b8";
-  if (z >= 6) return "#ef4444";
-  if (z >= 4) return "#f59e0b";
-  return "#10b981";
-}
+const getZScoreColor = magnitudeSeverityColor;
 
 function BurstRow({ burst }: { burst: NarrativeBurstItem }) {
   const z = burst.z_score ?? 0;

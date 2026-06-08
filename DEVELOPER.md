@@ -864,7 +864,13 @@ The Gemini response produces this 7-section structure:
 | Component | File | Purpose |
 |---|---|---|
 | `App` | `App.tsx` | Root layout, routing, tab navigation |
-| `MonitoringDashboard` | `MonitoringDashboard.tsx` | Main dashboard with 12 sub-sections |
+| `MonitoringDashboard` | `MonitoringDashboard.tsx` | Stage 1 ("Real-World Events") view — event clusters, intel feed, and supporting geo/temporal context |
+| `SectionHeader` | `SectionHeader.tsx` | Shared pipeline-stage heading (icon, title, subtitle, accent color) for visual wayfinding across stages |
+| `OpsHealthStrip` | `OpsHealthStrip.tsx` | Operationally meaningful status strip (events watched, exploitation flags, active bursts) replacing the old vanity metric grid |
+| `ExploitationDetectionSection` | `ExploitationDetectionSection.tsx` | Stage 2 ("Exploitation Detection") view — narrative burst timeline and top-narrative breakdown |
+| `AmplificationAttributionSection` | `AmplificationAttributionSection.tsx` | Stage 4 ("Amplification & Attribution") view — source credibility and outlet network graph |
+| `NarrativeTrendSection` | `NarrativeTrendSection.tsx` | Stage 5 ("Narrative Trend & Evolution") view — narrative trend panel and country risk index |
+| `CountermeasuresPanel` | `CountermeasuresPanel.tsx` | Stage 6 ("Countermeasures") view — surfaces AI-generated analyst guidance (`recommended_action`, `recommendations[]`, `analyst_notes`, `outlook`) from threat briefings as suggested responses |
 | `ReportViewDialog` | `ReportViewDialog.tsx` | Full-screen briefing viewer |
 | `NewAnalysisDialog` | `NewAnalysisDialog.tsx` | Create new analysis form |
 | `RunsTable` | `RunsTable.tsx` | Analysis history table |

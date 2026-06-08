@@ -17,6 +17,9 @@ import CloseIcon from "@mui/icons-material/Close";
 import WarningAmberIcon from "@mui/icons-material/WarningAmber";
 import CompareArrowsIcon from "@mui/icons-material/CompareArrows";
 import GroupsIcon from "@mui/icons-material/Groups";
+import GavelIcon from "@mui/icons-material/Gavel";
+import ShieldIcon from "@mui/icons-material/Shield";
+import VisibilityIcon from "@mui/icons-material/Visibility";
 import { useQuery } from "@tanstack/react-query";
 import { fetchThreatBriefing, type FramingAnalysis } from "../api";
 
@@ -170,6 +173,7 @@ export function ThreatBriefingDetail({ briefingId, open, onClose }: Props) {
   const disinfo = bjson?.disinformation_risk as Record<string, unknown> | undefined;
   const eventAssessment = bjson?.event_assessment as Record<string, unknown> | undefined;
   const topThreats = (bjson?.top_threats as unknown[]) ?? [];
+  const recommendations = (bjson?.recommendations as string[]) ?? [];
   const riskLevel = (disinfo?.risk_level as string) || "unknown";
   const typeLabel = TYPE_LABELS[briefing?.briefing_type ?? ""] || briefing?.briefing_type;
 
@@ -305,7 +309,15 @@ export function ThreatBriefingDetail({ briefingId, open, onClose }: Props) {
                         </Box>
                         {threat.key_concern && <Typography variant="caption" sx={{ color: "text.secondary", display: "block" }}>{threat.key_concern}</Typography>}
                         {threat.recommended_action && (
-                          <Typography variant="caption" sx={{ color: "#10b981", display: "block", mt: 0.5 }}>→ {threat.recommended_action}</Typography>
+                          <Box sx={{ display: "flex", alignItems: "flex-start", gap: 0.5, mt: 0.75, p: 0.75, borderRadius: 1, backgroundColor: "rgba(16,185,129,0.06)", border: "1px solid rgba(16,185,129,0.15)" }}>
+                            <GavelIcon sx={{ fontSize: 13, color: "#10b981", mt: 0.25 }} />
+                            <Box>
+                              <Typography variant="caption" fontWeight={700} sx={{ color: "#10b981", display: "block", fontSize: "0.6rem", letterSpacing: "0.05em", textTransform: "uppercase" }}>
+                                Recommended response
+                              </Typography>
+                              <Typography variant="caption" sx={{ color: "text.secondary" }}>{threat.recommended_action}</Typography>
+                            </Box>
+                          </Box>
                         )}
                       </Box>
                     );
@@ -314,20 +326,47 @@ export function ThreatBriefingDetail({ briefingId, open, onClose }: Props) {
               </>
             )}
 
-            {/* Outlook */}
+            {/* Strategic recommendations (quarterly reports) — previously generated but never rendered */}
+            {recommendations.length > 0 && (
+              <>
+                <Divider sx={{ my: 2, opacity: 0.1 }} />
+                <SectionHeader>
+                  <Box sx={{ display: "flex", alignItems: "center", gap: 0.5 }}>
+                    <ShieldIcon sx={{ fontSize: 14 }} />
+                    Recommended Countermeasures
+                  </Box>
+                </SectionHeader>
+                <Stack spacing={0.75}>
+                  {recommendations.map((r, i) => (
+                    <Box key={i} sx={{ display: "flex", gap: 1, alignItems: "flex-start" }}>
+                      <GavelIcon sx={{ fontSize: 13, color: "#10b981", mt: 0.25, flexShrink: 0 }} />
+                      <Typography variant="caption" sx={{ color: "text.secondary" }}>{r}</Typography>
+                    </Box>
+                  ))}
+                </Stack>
+              </>
+            )}
+
+            {/* Outlook — what to watch for next */}
             {!!bjson?.outlook && (
               <>
                 <Divider sx={{ my: 2, opacity: 0.1 }} />
-                <SectionHeader>Outlook</SectionHeader>
+                <SectionHeader>
+                  <Box sx={{ display: "flex", alignItems: "center", gap: 0.5 }}>
+                    <VisibilityIcon sx={{ fontSize: 14 }} />
+                    What to Watch For Next
+                  </Box>
+                </SectionHeader>
                 <Typography variant="caption" sx={{ color: "text.secondary" }}>{String(bjson.outlook)}</Typography>
               </>
             )}
 
-            {/* Analyst notes */}
+            {/* Analyst notes — relabeled as actionable guidance, since the prompt explicitly
+                asks Gemini for "recommended follow-up actions" here */}
             {!!bjson?.analyst_notes && (
               <>
                 <Divider sx={{ my: 2, opacity: 0.1 }} />
-                <SectionHeader>Analyst Notes</SectionHeader>
+                <SectionHeader>Analyst Guidance &amp; Suggested Follow-up</SectionHeader>
                 <Typography variant="caption" sx={{ color: "text.secondary", fontStyle: "italic" }}>{String(bjson.analyst_notes)}</Typography>
               </>
             )}

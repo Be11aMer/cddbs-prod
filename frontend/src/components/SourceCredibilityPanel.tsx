@@ -26,12 +26,11 @@ import {
   refreshSourceCredibility,
   type SourceCredibilityItem,
 } from "../api";
+import { severityColor } from "../utils/severity";
 
-function getReliabilityColor(index: number): string {
-  if (index >= 0.7) return "#10b981"; // green — reliable
-  if (index >= 0.4) return "#f59e0b"; // amber — caution
-  return "#ef4444";                   // red — adversarial
-}
+// Reliability is "higher is better" — unlike risk/divergence scores — so it
+// uses the shared severity scale with the direction flipped.
+const getReliabilityColor = (index: number) => severityColor(index, { direction: "higher-is-better" });
 
 function TrendIcon({ direction }: { direction: string }) {
   if (direction === "improving")
