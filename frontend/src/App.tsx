@@ -80,7 +80,7 @@ import { fetchLatestThreatBriefings } from "./api";
 // Six tabs in causal pipeline order — the dashboard tells ONE story:
 // real-world events → exploitation by disinformation → auto-analysis →
 // amplification tracking → narrative evolution → recommended response.
-type ViewType = "events" | "exploitation" | "analysis" | "amplification" | "trends" | "countermeasures";
+export type ViewType = "events" | "exploitation" | "analysis" | "amplification" | "trends" | "countermeasures";
 
 const NAV_ITEMS: {
   id: ViewType;
@@ -605,7 +605,7 @@ export const App = () => {
           <ColdStartNotice />
 
           {/* ── Stage 1: Real-World Events (anchor) ── */}
-          {currentView === "events" && <MonitoringDashboard />}
+          {currentView === "events" && <MonitoringDashboard onNavigate={setCurrentView} />}
 
           {/* ── Stage 2: Exploitation Detection ── */}
           {currentView === "exploitation" && <ExploitationDetectionSection />}
