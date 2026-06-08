@@ -37,6 +37,7 @@ import { ThreatBriefingDetail } from "./ThreatBriefingDetail";
 import { NewAnalysisDialog } from "./NewAnalysisDialog";
 import { severityColor, magnitudeSeverityColor, SEVERITY_COLORS } from "../utils/severity";
 import type { ViewType } from "../App";
+import type { EventScope } from "./OutletNetworkGraph";
 
 const EVENT_TYPE_COLORS: Record<string, string> = {
   conflict: "#ef4444",
@@ -230,7 +231,7 @@ function ExploitationDrillIn({
   event: EventClusterDetail;
   bursts: NarrativeBurstItem[];
   onInvestigate: () => void;
-  onNavigate?: (view: ViewType) => void;
+  onNavigate?: (view: ViewType, scope?: EventScope) => void;
 }) {
   const exploited = event.narrative_risk_score >= EXPLOITATION_THRESHOLD;
   if (!exploited && bursts.length === 0) return null;
@@ -302,7 +303,7 @@ function ExploitationDrillIn({
               size="small"
               variant="text"
               startIcon={<GroupsIcon sx={{ fontSize: 14 }} />}
-              onClick={() => onNavigate("amplification")}
+              onClick={() => onNavigate("amplification", { id: event.id, title: event.title || `Event #${event.id}` })}
               sx={{ fontSize: "0.65rem", textTransform: "none", color: "text.secondary", "&:hover": { color: "#06b6d4", backgroundColor: "rgba(6,182,212,0.08)" } }}
             >
               Who's amplifying this? →
@@ -336,7 +337,7 @@ function EventDetailDialog({
   onClose: () => void;
   burstsByCluster: Record<number, NarrativeBurstItem[]>;
   onInvestigate: (event: EventClusterDetail) => void;
-  onNavigate?: (view: ViewType) => void;
+  onNavigate?: (view: ViewType, scope?: EventScope) => void;
 }) {
   const { data, isLoading } = useQuery({
     queryKey: ["event-detail", eventId],
@@ -473,7 +474,7 @@ function EventDetailDialog({
   );
 }
 
-export const EventClusterPanel = ({ onNavigate }: { onNavigate?: (view: ViewType) => void }) => {
+export const EventClusterPanel = ({ onNavigate }: { onNavigate?: (view: ViewType, scope?: EventScope) => void }) => {
   const [selectedEvent, setSelectedEvent] = useState<number | null>(null);
   const [sitrepViewId, setSitrepViewId] = useState<number | null>(null);
   const [sitrepDetailOpen, setSitrepDetailOpen] = useState(false);
@@ -646,7 +647,7 @@ export const EventClusterPanel = ({ onNavigate }: { onNavigate?: (view: ViewType
           setInvestigateTopic(event.title || (event.keywords ?? [])[0] || "");
           setSelectedEvent(null);
         }}
-        onNavigate={onNavigate ? (view) => { onNavigate(view); setSelectedEvent(null); } : undefined}
+        onNavigate={onNavigate ? (view, scope) => { onNavigate(view, scope); setSelectedEvent(null); } : undefined}
       />
 
       <ThreatBriefingDetail

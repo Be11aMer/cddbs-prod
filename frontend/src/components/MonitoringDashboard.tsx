@@ -11,12 +11,14 @@ import { OpsHealthStrip } from "./OpsHealthStrip";
 import { SectionHeader } from "./SectionHeader";
 import { SEVERITY_COLORS } from "../utils/severity";
 import type { ViewType } from "../App";
+import type { EventScope } from "./OutletNetworkGraph";
 
 const EXPLOITATION_THRESHOLD = 0.4;
 
 interface Props {
-  /** Lets event-detail drill-ins jump straight into a downstream pipeline stage. */
-  onNavigate?: (view: ViewType) => void;
+  /** Lets event-detail drill-ins jump straight into a downstream pipeline
+   * stage, optionally carrying the event as scope context (real cluster FK). */
+  onNavigate?: (view: ViewType, scope?: EventScope) => void;
 }
 
 /**
