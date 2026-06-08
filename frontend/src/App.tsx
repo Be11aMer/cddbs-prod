@@ -70,6 +70,7 @@ import { TopicRunDetail } from "./components/TopicRunDetail";
 import { ThreatBriefingsPanel } from "./components/ThreatBriefingsPanel";
 import { ExploitationDetectionSection } from "./components/ExploitationDetectionSection";
 import { AmplificationAttributionSection } from "./components/AmplificationAttributionSection";
+import type { EventScope } from "./components/OutletNetworkGraph";
 import { NarrativeTrendSection } from "./components/NarrativeTrendSection";
 import { CountermeasuresPanel } from "./components/CountermeasuresPanel";
 import { SectionHeader } from "./components/SectionHeader";
@@ -143,6 +144,17 @@ export const App = () => {
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down("md"));
   const [currentView, setCurrentView] = useState<ViewType>("events");
+  const [amplificationScope, setAmplificationScope] = useState<EventScope | null>(null);
+
+  // Carries optional event context (real cluster FK) when navigating into a
+  // downstream stage so it can scope its view to "this event" instead of
+  // showing the platform-wide picture.
+  const handleNavigate = (view: ViewType, scope?: EventScope) => {
+    if (view === "amplification") {
+      setAmplificationScope(scope ?? null);
+    }
+    setCurrentView(view);
+  };
   const [newAnalysisOpen, setNewAnalysisOpen] = useState(false);
   const [shortcutsHelpOpen, setShortcutsHelpOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
@@ -605,7 +617,7 @@ export const App = () => {
           <ColdStartNotice />
 
           {/* ── Stage 1: Real-World Events (anchor) ── */}
-          {currentView === "events" && <MonitoringDashboard onNavigate={setCurrentView} />}
+          {currentView === "events" && <MonitoringDashboard onNavigate={handleNavigate} />}
 
           {/* ── Stage 2: Exploitation Detection ── */}
           {currentView === "exploitation" && <ExploitationDetectionSection />}
@@ -767,7 +779,12 @@ export const App = () => {
           )}
 
           {/* ── Stage 4: Amplification & Attribution ── */}
-          {currentView === "amplification" && <AmplificationAttributionSection />}
+          {currentView === "amplification" && (
+            <AmplificationAttributionSection
+              scopedEvent={amplificationScope}
+              onClearScope={() => setAmplificationScope(null)}
+            />
+          )}
 
           {/* ── Stage 5: Narrative Trend & Evolution ── */}
           {currentView === "trends" && <NarrativeTrendSection />}

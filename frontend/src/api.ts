@@ -362,8 +362,10 @@ export interface NetworkGraphData {
   edges: NetworkEdge[];
 }
 
-export async function fetchOutletNetwork(days = 90) {
-  const { data } = await api.get<NetworkGraphData>("/stats/outlet-network", { params: { days } });
+export async function fetchOutletNetwork(days = 90, clusterId?: number) {
+  const { data } = await api.get<NetworkGraphData>("/stats/outlet-network", {
+    params: clusterId != null ? { cluster_id: clusterId } : { days },
+  });
   return data;
 }
 
@@ -780,6 +782,7 @@ export interface SchedulerJobStatus {
 
 export async function fetchThreatBriefings(params?: {
   briefing_type?: string;
+  cluster_id?: number;
   limit?: number;
   offset?: number;
 }) {
@@ -834,6 +837,7 @@ export interface SourceCredibilityItem {
 export async function fetchSourceCredibility(params?: {
   min_articles?: number;
   trend_direction?: string;
+  cluster_id?: number;
   limit?: number;
 }) {
   const { data } = await api.get<SourceCredibilityItem[]>("/stats/source-credibility", { params });

@@ -14,6 +14,8 @@ import {
   InputLabel,
 } from "@mui/material";
 import RefreshIcon from "@mui/icons-material/Refresh";
+import CloseIcon from "@mui/icons-material/Close";
+import RadarIcon from "@mui/icons-material/Radar";
 import ShieldIcon from "@mui/icons-material/Shield";
 import TrendingUpIcon from "@mui/icons-material/TrendingUp";
 import TrendingDownIcon from "@mui/icons-material/TrendingDown";
@@ -27,6 +29,7 @@ import {
   type SourceCredibilityItem,
 } from "../api";
 import { severityColor } from "../utils/severity";
+import type { EventScope } from "./OutletNetworkGraph";
 
 // Reliability is "higher is better" — unlike risk/divergence scores — so it
 // uses the shared severity scale with the direction flipped.
@@ -117,15 +120,23 @@ function SourceRow({ item }: { item: SourceCredibilityItem }) {
   );
 }
 
-export function SourceCredibilityPanel() {
+interface Props {
+  /** When set, scopes the list to outlets that actually published about this
+   * event (bridged via RawArticle.cluster_id -> source_domain on the backend). */
+  scopedEvent?: EventScope | null;
+  onClearScope?: () => void;
+}
+
+export function SourceCredibilityPanel({ scopedEvent, onClearScope }: Props = {}) {
   const queryClient = useQueryClient();
   const [trendFilter, setTrendFilter] = useState<string>("");
 
   const { data, isLoading, refetch } = useQuery({
-    queryKey: ["source-credibility", trendFilter],
+    queryKey: scopedEvent ? ["source-credibility", "event", scopedEvent.id] : ["source-credibility", trendFilter],
     queryFn: () => fetchSourceCredibility({
       min_articles: 5,
-      trend_direction: trendFilter || undefined,
+      trend_direction: scopedEvent ? undefined : (trendFilter || undefined),
+      cluster_id: scopedEvent?.id,
       limit: 100,
     }),
     refetchInterval: 120_000,
@@ -182,20 +193,42 @@ export function SourceCredibilityPanel() {
           )}
         </Box>
         <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
-          <FormControl size="small" sx={{ minWidth: 110 }}>
-            <InputLabel sx={{ fontSize: "0.7rem" }}>Trend</InputLabel>
-            <Select
-              value={trendFilter}
-              label="Trend"
-              onChange={(e) => setTrendFilter(e.target.value)}
-              sx={{ fontSize: "0.7rem" }}
-            >
-              <MenuItem value="">All</MenuItem>
-              <MenuItem value="degrading">Degrading</MenuItem>
-              <MenuItem value="stable">Stable</MenuItem>
-              <MenuItem value="improving">Improving</MenuItem>
-            </Select>
-          </FormControl>
+          {scopedEvent ? (
+            <Tooltip title={`Showing only outlets that covered "${scopedEvent.title}" — clear to see the platform-wide index`}>
+              <Chip
+                size="small"
+                icon={<RadarIcon sx={{ fontSize: 12 }} />}
+                label={`Scoped to: ${scopedEvent.title.length > 30 ? scopedEvent.title.slice(0, 29) + "…" : scopedEvent.title}`}
+                onDelete={onClearScope}
+                deleteIcon={<CloseIcon sx={{ fontSize: 14 }} />}
+                sx={{
+                  height: 22,
+                  fontSize: "0.65rem",
+                  fontWeight: 700,
+                  backgroundColor: "rgba(34,211,238,0.1)",
+                  color: "#22d3ee",
+                  border: "1px solid rgba(34,211,238,0.3)",
+                  "& .MuiChip-icon": { color: "#22d3ee" },
+                  "& .MuiChip-deleteIcon": { color: "#22d3ee", "&:hover": { color: "#fff" } },
+                }}
+              />
+            </Tooltip>
+          ) : (
+            <FormControl size="small" sx={{ minWidth: 110 }}>
+              <InputLabel sx={{ fontSize: "0.7rem" }}>Trend</InputLabel>
+              <Select
+                value={trendFilter}
+                label="Trend"
+                onChange={(e) => setTrendFilter(e.target.value)}
+                sx={{ fontSize: "0.7rem" }}
+              >
+                <MenuItem value="">All</MenuItem>
+                <MenuItem value="degrading">Degrading</MenuItem>
+                <MenuItem value="stable">Stable</MenuItem>
+                <MenuItem value="improving">Improving</MenuItem>
+              </Select>
+            </FormControl>
+          )}
           <Tooltip title="Refresh scores">
             <span>
               <IconButton
