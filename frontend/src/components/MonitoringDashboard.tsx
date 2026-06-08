@@ -10,8 +10,14 @@ import { ActivityTimeline } from "./ActivityTimeline";
 import { OpsHealthStrip } from "./OpsHealthStrip";
 import { SectionHeader } from "./SectionHeader";
 import { SEVERITY_COLORS } from "../utils/severity";
+import type { ViewType } from "../App";
 
 const EXPLOITATION_THRESHOLD = 0.4;
+
+interface Props {
+  /** Lets event-detail drill-ins jump straight into a downstream pipeline stage. */
+  onNavigate?: (view: ViewType) => void;
+}
 
 /**
  * Stage 1 of the pipeline narrative: "Real-world events we're watching."
@@ -19,7 +25,7 @@ const EXPLOITATION_THRESHOLD = 0.4;
  * detection, auto-analysis, amplification tracking, narrative trends,
  * countermeasures) exists to answer "what's happening with THESE events."
  */
-export const MonitoringDashboard = () => {
+export const MonitoringDashboard = ({ onNavigate }: Props) => {
   const { data: globalStats, isLoading: statsLoading } = useQuery({
     queryKey: ["global-stats"],
     queryFn: fetchGlobalStats,
@@ -92,7 +98,7 @@ export const MonitoringDashboard = () => {
       <Grid container spacing={2} sx={{ flexGrow: 1 }}>
         <Grid item xs={12} lg={7}>
           <Box sx={{ height: { xs: 420, lg: 480 } }}>
-            <EventClusterPanel />
+            <EventClusterPanel onNavigate={onNavigate} />
           </Box>
         </Grid>
         <Grid item xs={12} lg={5}>

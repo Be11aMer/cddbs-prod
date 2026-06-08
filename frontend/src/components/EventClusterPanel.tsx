@@ -10,6 +10,7 @@ import {
   DialogTitle,
   DialogContent,
   Link,
+  Button,
 } from "@mui/material";
 import BubbleChartIcon from "@mui/icons-material/BubbleChart";
 import RefreshIcon from "@mui/icons-material/Refresh";
@@ -18,6 +19,9 @@ import CloseIcon from "@mui/icons-material/Close";
 import ArticleIcon from "@mui/icons-material/Article";
 import FlagIcon from "@mui/icons-material/Flag";
 import TrendingUpIcon from "@mui/icons-material/TrendingUp";
+import TravelExploreIcon from "@mui/icons-material/TravelExplore";
+import GroupsIcon from "@mui/icons-material/Groups";
+import TimelineIcon from "@mui/icons-material/Timeline";
 import { useQuery } from "@tanstack/react-query";
 import { useState } from "react";
 import {
@@ -30,7 +34,9 @@ import {
   type NarrativeBurstItem,
 } from "../api";
 import { ThreatBriefingDetail } from "./ThreatBriefingDetail";
+import { NewAnalysisDialog } from "./NewAnalysisDialog";
 import { severityColor, magnitudeSeverityColor, SEVERITY_COLORS } from "../utils/severity";
+import type { ViewType } from "../App";
 
 const EVENT_TYPE_COLORS: Record<string, string> = {
   conflict: "#ef4444",
@@ -215,7 +221,17 @@ function EventRow({
   );
 }
 
-function ExploitationDrillIn({ event, bursts }: { event: EventClusterDetail; bursts: NarrativeBurstItem[] }) {
+function ExploitationDrillIn({
+  event,
+  bursts,
+  onInvestigate,
+  onNavigate,
+}: {
+  event: EventClusterDetail;
+  bursts: NarrativeBurstItem[];
+  onInvestigate: () => void;
+  onNavigate?: (view: ViewType) => void;
+}) {
   const exploited = event.narrative_risk_score >= EXPLOITATION_THRESHOLD;
   if (!exploited && bursts.length === 0) return null;
 
@@ -238,7 +254,7 @@ function ExploitationDrillIn({ event, bursts }: { event: EventClusterDetail; bur
         </Typography>
       </Box>
       {bursts.length > 0 && (
-        <Box sx={{ display: "flex", flexDirection: "column", gap: 0.5 }}>
+        <Box sx={{ display: "flex", flexDirection: "column", gap: 0.5, mb: 1.25 }}>
           <Typography variant="caption" color="text.secondary" sx={{ fontSize: "0.65rem" }}>
             Narrative bursts tied to this event ({bursts.length}):
           </Typography>
@@ -267,6 +283,42 @@ function ExploitationDrillIn({ event, bursts }: { event: EventClusterDetail; bur
           </Box>
         </Box>
       )}
+
+      {/* Carry the analyst forward into the next pipeline stages — this is the
+          "what do I do about it" follow-through the dashboard was missing. */}
+      <Box sx={{ display: "flex", gap: 0.75, flexWrap: "wrap" }}>
+        <Button
+          size="small"
+          variant="outlined"
+          startIcon={<TravelExploreIcon sx={{ fontSize: 14 }} />}
+          onClick={onInvestigate}
+          sx={{ fontSize: "0.65rem", textTransform: "none", borderColor: `${riskColor}55`, color: riskColor, "&:hover": { borderColor: riskColor, backgroundColor: `${riskColor}11` } }}
+        >
+          Investigate this narrative
+        </Button>
+        {onNavigate && (
+          <>
+            <Button
+              size="small"
+              variant="text"
+              startIcon={<GroupsIcon sx={{ fontSize: 14 }} />}
+              onClick={() => onNavigate("amplification")}
+              sx={{ fontSize: "0.65rem", textTransform: "none", color: "text.secondary", "&:hover": { color: "#06b6d4", backgroundColor: "rgba(6,182,212,0.08)" } }}
+            >
+              Who's amplifying this? →
+            </Button>
+            <Button
+              size="small"
+              variant="text"
+              startIcon={<TimelineIcon sx={{ fontSize: 14 }} />}
+              onClick={() => onNavigate("trends")}
+              sx={{ fontSize: "0.65rem", textTransform: "none", color: "text.secondary", "&:hover": { color: SEVERITY_COLORS.accent, backgroundColor: "rgba(139,92,246,0.08)" } }}
+            >
+              See narrative trends →
+            </Button>
+          </>
+        )}
+      </Box>
     </Box>
   );
 }
@@ -276,11 +328,15 @@ function EventDetailDialog({
   open,
   onClose,
   burstsByCluster,
+  onInvestigate,
+  onNavigate,
 }: {
   eventId: number | null;
   open: boolean;
   onClose: () => void;
   burstsByCluster: Record<number, NarrativeBurstItem[]>;
+  onInvestigate: (event: EventClusterDetail) => void;
+  onNavigate?: (view: ViewType) => void;
 }) {
   const { data, isLoading } = useQuery({
     queryKey: ["event-detail", eventId],
@@ -338,7 +394,12 @@ function EventDetailDialog({
               <Chip label={`${data.source_count} sources`} size="small" variant="outlined" />
             </Box>
 
-            <ExploitationDrillIn event={data} bursts={burstsByCluster[data.id] ?? []} />
+            <ExploitationDrillIn
+              event={data}
+              bursts={burstsByCluster[data.id] ?? []}
+              onInvestigate={() => onInvestigate(data)}
+              onNavigate={onNavigate}
+            />
 
             {data.keywords && data.keywords.length > 0 && (
               <Box sx={{ mb: 2 }}>
@@ -412,10 +473,11 @@ function EventDetailDialog({
   );
 }
 
-export const EventClusterPanel = () => {
+export const EventClusterPanel = ({ onNavigate }: { onNavigate?: (view: ViewType) => void }) => {
   const [selectedEvent, setSelectedEvent] = useState<number | null>(null);
   const [sitrepViewId, setSitrepViewId] = useState<number | null>(null);
   const [sitrepDetailOpen, setSitrepDetailOpen] = useState(false);
+  const [investigateTopic, setInvestigateTopic] = useState<string | null>(null);
 
   const { data, isLoading, refetch, isFetching } = useQuery({
     queryKey: ["event-clusters"],
@@ -580,12 +642,24 @@ export const EventClusterPanel = () => {
         open={selectedEvent !== null}
         onClose={() => setSelectedEvent(null)}
         burstsByCluster={burstsByCluster}
+        onInvestigate={(event) => {
+          setInvestigateTopic(event.title || (event.keywords ?? [])[0] || "");
+          setSelectedEvent(null);
+        }}
+        onNavigate={onNavigate ? (view) => { onNavigate(view); setSelectedEvent(null); } : undefined}
       />
 
       <ThreatBriefingDetail
         briefingId={sitrepViewId}
         open={sitrepDetailOpen}
         onClose={() => setSitrepDetailOpen(false)}
+      />
+
+      <NewAnalysisDialog
+        open={investigateTopic !== null}
+        initialTopic={investigateTopic ?? undefined}
+        onClose={() => setInvestigateTopic(null)}
+        onCreated={() => setInvestigateTopic(null)}
       />
     </>
   );

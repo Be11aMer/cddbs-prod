@@ -36,11 +36,13 @@ interface Props {
   open: boolean;
   onClose: () => void;
   onCreated: (mode: "outlet" | "topic") => void;
+  /** Pre-seeds a topic investigation — e.g. when launched from a flagged event's "Investigate this narrative" action. */
+  initialTopic?: string;
 }
 
 type Mode = "outlet" | "topic";
 
-export const NewAnalysisDialog = ({ open, onClose, onCreated }: Props) => {
+export const NewAnalysisDialog = ({ open, onClose, onCreated, initialTopic }: Props) => {
   const [mode, setMode] = useState<Mode>("outlet");
 
   const [outletForm, setOutletForm] = useState<CreateRunPayload>({
@@ -103,6 +105,13 @@ export const NewAnalysisDialog = ({ open, onClose, onCreated }: Props) => {
       showError(getErrorMessage(error));
     },
   });
+
+  useEffect(() => {
+    if (open && initialTopic) {
+      setMode("topic");
+      setTopicForm((f) => ({ ...f, topic: initialTopic }));
+    }
+  }, [open, initialTopic]);
 
   useEffect(() => {
     if (open) {
