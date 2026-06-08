@@ -145,6 +145,7 @@ export const App = () => {
   const isMobile = useMediaQuery(theme.breakpoints.down("md"));
   const [currentView, setCurrentView] = useState<ViewType>("events");
   const [amplificationScope, setAmplificationScope] = useState<EventScope | null>(null);
+  const [countermeasuresScope, setCountermeasuresScope] = useState<EventScope | null>(null);
 
   // Carries optional event context (real cluster FK) when navigating into a
   // downstream stage so it can scope its view to "this event" instead of
@@ -152,6 +153,8 @@ export const App = () => {
   const handleNavigate = (view: ViewType, scope?: EventScope) => {
     if (view === "amplification") {
       setAmplificationScope(scope ?? null);
+    } else if (view === "countermeasures") {
+      setCountermeasuresScope(scope ?? null);
     }
     setCurrentView(view);
   };
@@ -792,7 +795,10 @@ export const App = () => {
           {/* ── Stage 6: Countermeasures ── */}
           {currentView === "countermeasures" && (
             <Box sx={{ height: 640 }}>
-              <CountermeasuresPanel />
+              <CountermeasuresPanel
+                scopedEvent={countermeasuresScope}
+                onClearScope={() => setCountermeasuresScope(null)}
+              />
             </Box>
           )}
         </Container>

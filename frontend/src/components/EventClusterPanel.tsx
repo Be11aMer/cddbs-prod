@@ -22,6 +22,7 @@ import TrendingUpIcon from "@mui/icons-material/TrendingUp";
 import TravelExploreIcon from "@mui/icons-material/TravelExplore";
 import GroupsIcon from "@mui/icons-material/Groups";
 import TimelineIcon from "@mui/icons-material/Timeline";
+import ShieldIcon from "@mui/icons-material/Shield";
 import { useQuery } from "@tanstack/react-query";
 import { useState } from "react";
 import {
@@ -316,6 +317,15 @@ function ExploitationDrillIn({
               sx={{ fontSize: "0.65rem", textTransform: "none", color: "text.secondary", "&:hover": { color: SEVERITY_COLORS.accent, backgroundColor: "rgba(139,92,246,0.08)" } }}
             >
               See narrative trends →
+            </Button>
+            <Button
+              size="small"
+              variant="text"
+              startIcon={<ShieldIcon sx={{ fontSize: 14 }} />}
+              onClick={() => onNavigate("countermeasures", { id: event.id, title: event.title || `Event #${event.id}` })}
+              sx={{ fontSize: "0.65rem", textTransform: "none", color: "text.secondary", "&:hover": { color: SEVERITY_COLORS.good, backgroundColor: "rgba(16,185,129,0.08)" } }}
+            >
+              See recommended response →
             </Button>
           </>
         )}
