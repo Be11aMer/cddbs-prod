@@ -187,60 +187,95 @@ def run_topic_pipeline(
             return
 
         # ------------------------------------------------------------------
-        # Step 1 — Baseline: fetch from reference outlets
+        # Step 1/2 — Baseline: reuse cached TopicBaseline or generate fresh
+        #
+        # M-2: baselines are cached per-topic (keyed by a normalised topic_key)
+        # and reused across runs so comparative results stay comparable —
+        # regenerating the baseline on every run made scores non-comparable
+        # since each run was scored against a different reference.
         # ------------------------------------------------------------------
-        logger.info(f"Step 1 — fetching reference baseline articles topic_run_id={topic_run_id}")
-        baseline_articles: List[Dict] = []
-
-        if api_key:
-            for ref in REFERENCE_OUTLETS:
-                arts = fetch_topic_articles(topic, ref["domain"], date_filter, limit=3, api_key=api_key)
-                for a in arts:
-                    a["_source"] = ref["name"]
-                baseline_articles.extend(arts)
-        else:
-            logger.warning(f"No SerpAPI key — using mock baseline topic_run_id={topic_run_id}")
-            baseline_articles = [{
-                "_source": "Reuters (mock)",
-                "title": f"Mock Reuters article on {topic}",
-                "link": "https://reuters.com/mock",
-                "snippet": "This is a mock snippet for testing without a live API key.",
-            }]
-
-        # Reference-outlet article title/snippet are externally sourced (SerpAPI) and
-        # untrusted — sanitise and structurally fence before prompt interpolation
-        # to defend against embedded prompt-injection payloads (OWASP LLM01).
-        baseline_articles_data = ""
-        for a in baseline_articles:
-            safe_title = sanitize_text(a.get('title') or '', _MAX_ARTICLE_TITLE_LENGTH)
-            safe_snippet = sanitize_text(a.get('snippet') or '', _MAX_ARTICLE_SNIPPET_LENGTH)
-            baseline_articles_data += f"--- [{a.get('_source', 'Reference')}] ---\n"
-            baseline_articles_data += "[BEGIN UNTRUSTED ARTICLE DATA]\n"
-            baseline_articles_data += f"Title: {safe_title}\n"
-            baseline_articles_data += f"Snippet: {safe_snippet}\n"
-            baseline_articles_data += "[END UNTRUSTED ARTICLE DATA]\n\n"
-
-        if not baseline_articles_data.strip():
-            baseline_articles_data = f"No reference articles found for topic: {topic}"
-
-        # ------------------------------------------------------------------
-        # Step 2 — Gemini baseline call
-        # ------------------------------------------------------------------
-        logger.info(f"Step 2 — calling Gemini for baseline topic_run_id={topic_run_id}")
-        baseline_prompt = get_baseline_prompt(topic, baseline_articles_data)
-        baseline_raw = call_gemini(baseline_prompt, api_key=google_api_key)
-        baseline_parsed = _parse_json_response(baseline_raw)
-
-        baseline_summary = (
-            baseline_parsed.get("baseline_summary")
-            or f"Neutral wire-service coverage of '{topic}'. Reference articles analyzed: {len(baseline_articles)}."
+        topic_key = topic.strip().lower()
+        cached_baseline = (
+            session.query(models.TopicBaseline)
+            .filter(models.TopicBaseline.topic_key == topic_key)
+            .first()
         )
 
-        topic_run.baseline_summary = baseline_summary
-        topic_run.baseline_raw = baseline_raw
-        topic_run.status = "running"
-        session.commit()
-        logger.info(f"Baseline committed topic_run_id={topic_run_id} summary_length={len(baseline_summary)}")
+        if cached_baseline:
+            logger.info(f"Step 1/2 — reusing cached baseline topic_run_id={topic_run_id} topic_baseline_id={cached_baseline.id}")
+            baseline_summary = cached_baseline.baseline_summary
+            baseline_raw = cached_baseline.baseline_raw
+            topic_run.baseline_id = cached_baseline.id
+            topic_run.baseline_summary = baseline_summary
+            topic_run.baseline_raw = baseline_raw
+            topic_run.status = "running"
+            session.commit()
+            logger.info(f"Baseline reused from cache topic_run_id={topic_run_id} summary_length={len(baseline_summary or '')}")
+        else:
+            logger.info(f"Step 1 — fetching reference baseline articles topic_run_id={topic_run_id}")
+            baseline_articles: List[Dict] = []
+
+            if api_key:
+                for ref in REFERENCE_OUTLETS:
+                    arts = fetch_topic_articles(topic, ref["domain"], date_filter, limit=3, api_key=api_key)
+                    for a in arts:
+                        a["_source"] = ref["name"]
+                    baseline_articles.extend(arts)
+            else:
+                logger.warning(f"No SerpAPI key — using mock baseline topic_run_id={topic_run_id}")
+                baseline_articles = [{
+                    "_source": "Reuters (mock)",
+                    "title": f"Mock Reuters article on {topic}",
+                    "link": "https://reuters.com/mock",
+                    "snippet": "This is a mock snippet for testing without a live API key.",
+                }]
+
+            # Reference-outlet article title/snippet are externally sourced (SerpAPI) and
+            # untrusted — sanitise and structurally fence before prompt interpolation
+            # to defend against embedded prompt-injection payloads (OWASP LLM01).
+            baseline_articles_data = ""
+            for a in baseline_articles:
+                safe_title = sanitize_text(a.get('title') or '', _MAX_ARTICLE_TITLE_LENGTH)
+                safe_snippet = sanitize_text(a.get('snippet') or '', _MAX_ARTICLE_SNIPPET_LENGTH)
+                baseline_articles_data += f"--- [{a.get('_source', 'Reference')}] ---\n"
+                baseline_articles_data += "[BEGIN UNTRUSTED ARTICLE DATA]\n"
+                baseline_articles_data += f"Title: {safe_title}\n"
+                baseline_articles_data += f"Snippet: {safe_snippet}\n"
+                baseline_articles_data += "[END UNTRUSTED ARTICLE DATA]\n\n"
+
+            if not baseline_articles_data.strip():
+                baseline_articles_data = f"No reference articles found for topic: {topic}"
+
+            # ------------------------------------------------------------------
+            # Step 2 — Gemini baseline call
+            # ------------------------------------------------------------------
+            logger.info(f"Step 2 — calling Gemini for baseline topic_run_id={topic_run_id}")
+            baseline_prompt = get_baseline_prompt(topic, baseline_articles_data)
+            baseline_raw = call_gemini(baseline_prompt, api_key=google_api_key)
+            baseline_parsed = _parse_json_response(baseline_raw)
+
+            baseline_summary = (
+                baseline_parsed.get("baseline_summary")
+                or f"Neutral wire-service coverage of '{topic}'. Reference articles analyzed: {len(baseline_articles)}."
+            )
+
+            new_baseline = models.TopicBaseline(
+                topic=topic,
+                topic_key=topic_key,
+                baseline_summary=baseline_summary,
+                baseline_raw=baseline_raw,
+                reference_article_count=len(baseline_articles),
+                model_version=settings.GEMINI_MODEL,
+            )
+            session.add(new_baseline)
+            session.flush()  # get new_baseline.id
+
+            topic_run.baseline_id = new_baseline.id
+            topic_run.baseline_summary = baseline_summary
+            topic_run.baseline_raw = baseline_raw
+            topic_run.status = "running"
+            session.commit()
+            logger.info(f"Baseline generated and cached topic_run_id={topic_run_id} topic_baseline_id={new_baseline.id} summary_length={len(baseline_summary)}")
 
         # ------------------------------------------------------------------
         # Step 3 — Discover outlets
