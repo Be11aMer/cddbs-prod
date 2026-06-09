@@ -35,6 +35,8 @@ _MIGRATIONS = [
     "ALTER TABLE topic_outlet_results ADD COLUMN IF NOT EXISTS propaganda_techniques_normalized JSONB",
     # M-2: cache baselines per topic for cross-run comparability
     "ALTER TABLE topic_runs ADD COLUMN IF NOT EXISTS baseline_id INTEGER REFERENCES topic_baselines(id)",
+    # Auto-analysis trigger: idempotency key stamped when a cluster fires SitRep+TopicRun
+    "ALTER TABLE event_clusters ADD COLUMN IF NOT EXISTS auto_analyzed_at TIMESTAMP",
 ]
 
 def init_db():
