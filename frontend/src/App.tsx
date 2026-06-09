@@ -146,15 +146,17 @@ export const App = () => {
   const [currentView, setCurrentView] = useState<ViewType>("events");
   const [amplificationScope, setAmplificationScope] = useState<EventScope | null>(null);
   const [countermeasuresScope, setCountermeasuresScope] = useState<EventScope | null>(null);
+  // When navigating back to Stage 1 from a burst, auto-open that event's detail dialog.
+  const [pendingEventId, setPendingEventId] = useState<number | null>(null);
 
-  // Carries optional event context (real cluster FK) when navigating into a
-  // downstream stage so it can scope its view to "this event" instead of
-  // showing the platform-wide picture.
+  // Carries optional event context (real cluster FK) when navigating between stages.
   const handleNavigate = (view: ViewType, scope?: EventScope) => {
     if (view === "amplification") {
       setAmplificationScope(scope ?? null);
     } else if (view === "countermeasures") {
       setCountermeasuresScope(scope ?? null);
+    } else if (view === "events" && scope?.id != null) {
+      setPendingEventId(scope.id);
     }
     setCurrentView(view);
   };
@@ -620,10 +622,16 @@ export const App = () => {
           <ColdStartNotice />
 
           {/* ── Stage 1: Real-World Events (anchor) ── */}
-          {currentView === "events" && <MonitoringDashboard onNavigate={handleNavigate} />}
+          {currentView === "events" && (
+            <MonitoringDashboard
+              onNavigate={handleNavigate}
+              openEventId={pendingEventId}
+              onEventOpened={() => setPendingEventId(null)}
+            />
+          )}
 
           {/* ── Stage 2: Exploitation Detection ── */}
-          {currentView === "exploitation" && <ExploitationDetectionSection />}
+          {currentView === "exploitation" && <ExploitationDetectionSection onNavigate={handleNavigate} />}
 
           {/* ── Stage 3: Auto-Analysis & Topic Investigation ──
               Hosts the three things that fire once an event is flagged as

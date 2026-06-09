@@ -1194,10 +1194,14 @@ def get_events_map(db: Session = Depends(get_db)):
 def list_bursts(
     min_zscore: Optional[float] = None,
     active_only: bool = True,
-    limit: int = 50,
+    limit: int = 100,
     db: Session = Depends(get_db),
 ):
-    """List detected narrative bursts (keyword frequency spikes)."""
+    """List detected narrative bursts (keyword frequency spikes).
+
+    Each keyword has at most one active row (upsert semantics in the detector),
+    so the list represents the current live set of spiking topics.
+    """
     query = db.query(NarrativeBurst)
 
     if active_only:
