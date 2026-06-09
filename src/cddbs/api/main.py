@@ -1091,6 +1091,7 @@ class EventClusterResponse(BaseModel):
     burst_score: float = 0.0
     narrative_risk_score: float = 0.0
     status: str = "active"
+    auto_analyzed_at: Optional[datetime] = None
     created_at: Optional[datetime] = None
 
     model_config = {"from_attributes": True}

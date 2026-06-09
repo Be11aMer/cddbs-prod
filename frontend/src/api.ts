@@ -456,6 +456,7 @@ export interface EventClusterItem {
   burst_score: number;
   narrative_risk_score: number;
   status: string;
+  auto_analyzed_at: string | null;
   created_at: string | null;
 }
 

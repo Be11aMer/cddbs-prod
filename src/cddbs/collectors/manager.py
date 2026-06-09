@@ -104,6 +104,11 @@ class CollectorManager:
             if updated:
                 print(f"CollectorManager: updated {updated} cluster risk scores")
 
+            from src.cddbs.pipeline.auto_trigger import auto_trigger_analysis
+            triggered = auto_trigger_analysis(session)
+            if triggered:
+                print(f"CollectorManager: auto-triggered analysis on {triggered} cluster(s)")
+
         except Exception as exc:
             print(f"CollectorManager: processing error: {exc}")
         finally:
