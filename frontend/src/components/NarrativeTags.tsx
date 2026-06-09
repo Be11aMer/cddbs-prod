@@ -46,7 +46,7 @@ export const NarrativeTags = ({ matches, compact = false }: NarrativeTagsProps) 
                 label={m.narrative_id}
                 sx={{
                   fontSize: "0.6rem",
-                  height: 18,
+                  height: 22,
                   fontWeight: 700,
                   fontFamily: "monospace",
                   backgroundColor: `${color}20`,
@@ -62,7 +62,7 @@ export const NarrativeTags = ({ matches, compact = false }: NarrativeTagsProps) 
           <Chip
             size="small"
             label={`+${matches.length - 3}`}
-            sx={{ fontSize: "0.6rem", height: 18, opacity: 0.6 }}
+            sx={{ fontSize: "0.6rem", height: 22, opacity: 0.6 }}
             variant="outlined"
           />
         )}
@@ -98,7 +98,7 @@ export const NarrativeTags = ({ matches, compact = false }: NarrativeTagsProps) 
                       label={m.narrative_id}
                       sx={{
                         fontSize: "0.6rem",
-                        height: 18,
+                        height: 22,
                         fontWeight: 700,
                         fontFamily: "monospace",
                         backgroundColor: `${color}20`,
@@ -110,8 +110,8 @@ export const NarrativeTags = ({ matches, compact = false }: NarrativeTagsProps) 
                       label={m.confidence}
                       variant="outlined"
                       sx={{
-                        fontSize: "0.55rem",
-                        height: 16,
+                        fontSize: "0.68rem",
+                        height: 20,
                         fontWeight: 600,
                         textTransform: "uppercase",
                       }}
@@ -132,7 +132,7 @@ export const NarrativeTags = ({ matches, compact = false }: NarrativeTagsProps) 
                     label={`${m.match_count} hits`}
                     sx={{
                       fontSize: "0.6rem",
-                      height: 18,
+                      height: 22,
                       fontWeight: 700,
                       backgroundColor: "rgba(148,163,184,0.1)",
                     }}
@@ -148,8 +148,8 @@ export const NarrativeTags = ({ matches, compact = false }: NarrativeTagsProps) 
                       label={kw}
                       variant="outlined"
                       sx={{
-                        fontSize: "0.55rem",
-                        height: 16,
+                        fontSize: "0.68rem",
+                        height: 20,
                         borderColor: "rgba(148,163,184,0.2)",
                       }}
                     />

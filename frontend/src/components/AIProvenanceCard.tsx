@@ -110,7 +110,7 @@ export function AIProvenanceCard({ aiMetadata, context = "report" }: Props) {
           label={aiMetadata.model_id}
           size="small"
           sx={{
-            height: 16, fontSize: "0.6rem", fontWeight: 700, letterSpacing: "0.03em",
+            height: 20, fontSize: "0.6rem", fontWeight: 700, letterSpacing: "0.03em",
             backgroundColor: "rgba(99,102,241,0.12)", color: "#818cf8",
             border: "1px solid rgba(99,102,241,0.2)",
             "& .MuiChip-label": { px: 0.75 },
@@ -125,7 +125,7 @@ export function AIProvenanceCard({ aiMetadata, context = "report" }: Props) {
               label={`${qualityTier} ${aiMetadata.quality_score}/70`}
               size="small"
               sx={{
-                height: 16, fontSize: "0.6rem", fontWeight: 700,
+                height: 20, fontSize: "0.6rem", fontWeight: 700,
                 backgroundColor: `${qualityColor}14`, color: qualityColor,
                 border: `1px solid ${qualityColor}30`,
                 "& .MuiChip-label": { px: 0.75 },

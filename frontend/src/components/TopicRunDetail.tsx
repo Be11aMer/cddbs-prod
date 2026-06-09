@@ -93,7 +93,7 @@ function CoordinationBanner({
               label={`${pct}%`}
               size="small"
               sx={{
-                height: 16, fontSize: "0.6rem", fontWeight: 800,
+                height: 20, fontSize: "0.6rem", fontWeight: 800,
                 backgroundColor: `${color}18`, color,
                 border: `1px solid ${color}33`,
                 "& .MuiChip-label": { px: 0.75 },
@@ -127,7 +127,7 @@ function CoordinationBanner({
                   label={t}
                   size="small"
                   sx={{
-                    height: 18, fontSize: "0.62rem", fontWeight: 600,
+                    height: 22, fontSize: "0.62rem", fontWeight: 600,
                     backgroundColor: `${color}12`, color,
                     border: `1px solid ${color}28`,
                     "& .MuiChip-label": { px: 0.75 },
@@ -188,7 +188,7 @@ function OutletCard({ result }: { result: TopicOutletResult }) {
             label={`AMP: ${result.amplification_signal.toUpperCase()}`}
             size="small"
             sx={{
-              height: 18, fontSize: "0.6rem", fontWeight: 800, letterSpacing: "0.04em",
+              height: 22, fontSize: "0.6rem", fontWeight: 800, letterSpacing: "0.04em",
               backgroundColor: `${ampColor}18`, color: ampColor,
               border: `1px solid ${ampColor}33`,
               "& .MuiChip-label": { px: 0.75 },
@@ -237,7 +237,7 @@ function OutletCard({ result }: { result: TopicOutletResult }) {
               size="small"
               icon={<WarningAmberIcon sx={{ fontSize: "12px !important" }} />}
               sx={{
-                height: 18, fontSize: "0.62rem", fontWeight: 600,
+                height: 22, fontSize: "0.62rem", fontWeight: 600,
                 backgroundColor: "rgba(245,158,11,0.1)", color: "#f59e0b",
                 border: "1px solid rgba(245,158,11,0.2)",
                 "& .MuiChip-label": { pl: 0.25, pr: 0.75 },
@@ -473,7 +473,7 @@ export const TopicRunDetail = ({ topicRunId }: Props) => {
             <Chip
               label="Reuters · BBC · AP · AFP"
               size="small"
-              sx={{ height: 16, fontSize: "0.6rem", backgroundColor: "rgba(16,185,129,0.1)", color: "#10b981", "& .MuiChip-label": { px: 0.75 } }}
+              sx={{ height: 20, fontSize: "0.6rem", backgroundColor: "rgba(16,185,129,0.1)", color: "#10b981", "& .MuiChip-label": { px: 0.75 } }}
             />
             <IconButton size="small" sx={{ p: 0.25, color: "#10b981" }}>
               {baselineExpanded ? <ExpandLessIcon fontSize="small" /> : <ExpandMoreIcon fontSize="small" />}

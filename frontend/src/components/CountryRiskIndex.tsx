@@ -64,8 +64,8 @@ function CountryRow({ item, rank, maxScore }: { item: CountryStatItem; rank: num
               label={getRiskLabel(item.risk_score)}
               size="small"
               sx={{
-                height: 14,
-                fontSize: "0.52rem",
+                height: 18,
+                fontSize: "0.64rem",
                 fontWeight: 800,
                 letterSpacing: "0.04em",
                 backgroundColor: `${color}18`,
@@ -149,8 +149,8 @@ export const CountryRiskIndex = () => {
               label={`${highCount} HIGH`}
               size="small"
               sx={{
-                height: 16,
-                fontSize: "0.55rem",
+                height: 20,
+                fontSize: "0.68rem",
                 fontWeight: 800,
                 backgroundColor: "rgba(239,68,68,0.12)",
                 color: "#ef4444",

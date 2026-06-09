@@ -68,7 +68,7 @@ function ExploitationBadge({ score }: { score: number }) {
         icon={<FlagIcon sx={{ fontSize: 12 }} />}
         label="Exploitation detected"
         sx={{
-          height: 18,
+          height: 22,
           fontSize: "0.6rem",
           fontWeight: 800,
           letterSpacing: "0.02em",
@@ -168,8 +168,8 @@ function EventRow({
           label={event.event_type || "other"}
           size="small"
           sx={{
-            height: 14,
-            fontSize: "0.55rem",
+            height: 18,
+            fontSize: "0.68rem",
             fontWeight: 800,
             letterSpacing: "0.05em",
             textTransform: "uppercase",
@@ -187,8 +187,8 @@ function EventRow({
               label="auto"
               size="small"
               sx={{
-                height: 14,
-                fontSize: "0.55rem",
+                height: 18,
+                fontSize: "0.68rem",
                 fontWeight: 800,
                 backgroundColor: "rgba(250,204,21,0.12)",
                 color: "#facc15",
@@ -290,7 +290,7 @@ function ExploitationDrillIn({
                     icon={<TrendingUpIcon sx={{ fontSize: 12 }} />}
                     label={b.keyword}
                     sx={{
-                      height: 22,
+                      height: 26,
                       fontSize: "0.65rem",
                       fontWeight: 700,
                       backgroundColor: `${zColor}1a`,
@@ -439,7 +439,7 @@ function EventDetailDialog({
                 </Typography>
                 <Box sx={{ display: "flex", gap: 0.5, flexWrap: "wrap", mt: 0.5 }}>
                   {data.keywords.map((kw) => (
-                    <Chip key={kw} label={kw} size="small" variant="outlined" sx={{ height: 20, fontSize: "0.65rem" }} />
+                    <Chip key={kw} label={kw} size="small" variant="outlined" sx={{ height: 24, fontSize: "0.65rem" }} />
                   ))}
                 </Box>
               </Box>
@@ -476,7 +476,7 @@ function EventDetailDialog({
                     <Chip
                       label={a.source_type}
                       size="small"
-                      sx={{ height: 14, fontSize: "0.5rem", fontWeight: 700 }}
+                      sx={{ height: 18, fontSize: "0.62rem", fontWeight: 700 }}
                     />
                     {a.published_at && (
                       <Typography variant="caption" color="text.disabled">
@@ -606,7 +606,7 @@ export const EventClusterPanel = ({
                 label={events.length}
                 size="small"
                 sx={{
-                  height: 16,
+                  height: 20,
                   fontSize: "0.6rem",
                   fontWeight: 700,
                   backgroundColor: "rgba(139,92,246,0.1)",

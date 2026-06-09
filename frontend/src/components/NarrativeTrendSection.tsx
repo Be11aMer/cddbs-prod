@@ -20,12 +20,12 @@ export const NarrativeTrendSection = () => (
     />
     <Grid container spacing={2} sx={{ flexGrow: 1 }}>
       <Grid item xs={12} lg={7}>
-        <Box sx={{ height: { xs: 420, lg: 520 } }}>
+        <Box sx={{ height: { xs: 480, lg: 580 } }}>
           <NarrativeTrendPanel />
         </Box>
       </Grid>
       <Grid item xs={12} lg={5}>
-        <Box sx={{ height: { xs: 420, lg: 520 } }}>
+        <Box sx={{ height: { xs: 480, lg: 580 } }}>
           <CountryRiskIndex />
         </Box>
       </Grid>

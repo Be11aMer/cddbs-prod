@@ -83,8 +83,8 @@ function NarrativeRow({ item, maxMatches }: { item: NarrativeTrendItem; maxMatch
             label={item.category}
             size="small"
             sx={{
-              height: 14,
-              fontSize: "0.55rem",
+              height: 18,
+              fontSize: "0.68rem",
               fontWeight: 700,
               backgroundColor: `${color}18`,
               color: color,
@@ -103,14 +103,14 @@ function NarrativeRow({ item, maxMatches }: { item: NarrativeTrendItem; maxMatch
               <Chip
                 label={`H:${item.confidence_high}`}
                 size="small"
-                sx={{ height: 14, fontSize: "0.52rem", backgroundColor: "rgba(239,68,68,0.12)", color: "#ef4444", "& .MuiChip-label": { px: 0.5 } }}
+                sx={{ height: 18, fontSize: "0.64rem", backgroundColor: "rgba(239,68,68,0.12)", color: "#ef4444", "& .MuiChip-label": { px: 0.5 } }}
               />
             )}
             {item.confidence_medium > 0 && (
               <Chip
                 label={`M:${item.confidence_medium}`}
                 size="small"
-                sx={{ height: 14, fontSize: "0.52rem", backgroundColor: "rgba(245,158,11,0.12)", color: "#f59e0b", "& .MuiChip-label": { px: 0.5 } }}
+                sx={{ height: 18, fontSize: "0.64rem", backgroundColor: "rgba(245,158,11,0.12)", color: "#f59e0b", "& .MuiChip-label": { px: 0.5 } }}
               />
             )}
           </Box>

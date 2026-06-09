@@ -92,7 +92,7 @@ const ConfidenceBadge = ({ level }: { level: string }) => {
                 fontWeight: 700,
                 fontSize: "0.7rem",
                 letterSpacing: "0.05em",
-                height: 22,
+                height: 26,
                 borderRadius: 1,
             }}
         />
@@ -108,7 +108,7 @@ const EvidenceTag = ({ type }: { type: string }) => (
         sx={{
             fontFamily: "monospace",
             fontSize: "0.65rem",
-            height: 18,
+            height: 22,
             borderColor: "rgba(148,163,184,0.3)",
             color: "text.secondary",
             mr: 0.5,
@@ -703,7 +703,7 @@ export const ReportViewDialog = ({ open, onClose, runId }: Props) => {
                                                 label={quality?.rating || (data.articles.length >= 3 ? "High Confidence" : "Limited Data")}
                                                 size="small"
                                                 color={quality?.rating === "Excellent" || quality?.rating === "Good" ? "success" : data.articles.length >= 3 ? "success" : "warning"}
-                                                sx={{ height: 20, fontSize: "0.65rem", fontWeight: 700 }}
+                                                sx={{ height: 24, fontSize: "0.65rem", fontWeight: 700 }}
                                             />
                                         </Stack>
                                         <Typography variant="h6" fontWeight={700} sx={{ mt: 1 }}>{data.articles.length} Articles</Typography>

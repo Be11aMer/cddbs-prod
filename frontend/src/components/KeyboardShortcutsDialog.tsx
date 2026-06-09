@@ -118,7 +118,7 @@ export const KeyboardShortcutsDialog = ({ open, onClose }: Props) => {
                     }}
                 >
                     <Typography variant="caption" color="text.secondary">
-                        <strong>Tip:</strong> Press <Chip label="?" size="small" sx={{ mx: 0.5, height: 20, fontSize: "0.7rem" }} />
+                        <strong>Tip:</strong> Press <Chip label="?" size="small" sx={{ mx: 0.5, height: 24, fontSize: "0.7rem" }} />
                         anytime to view this help dialog.
                     </Typography>
                 </Box>

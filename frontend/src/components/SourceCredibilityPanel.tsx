@@ -188,7 +188,7 @@ export function SourceCredibilityPanel({ scopedEvent, onClearScope }: Props = {}
             <Chip
               label={items.length}
               size="small"
-              sx={{ height: 16, fontSize: "0.6rem", fontWeight: 700, backgroundColor: "rgba(16,185,129,0.1)", color: "#10b981", "& .MuiChip-label": { px: 0.75 } }}
+              sx={{ height: 20, fontSize: "0.6rem", fontWeight: 700, backgroundColor: "rgba(16,185,129,0.1)", color: "#10b981", "& .MuiChip-label": { px: 0.75 } }}
             />
           )}
         </Box>
@@ -202,7 +202,7 @@ export function SourceCredibilityPanel({ scopedEvent, onClearScope }: Props = {}
                 onDelete={onClearScope}
                 deleteIcon={<CloseIcon sx={{ fontSize: 14 }} />}
                 sx={{
-                  height: 22,
+                  height: 26,
                   fontSize: "0.65rem",
                   fontWeight: 700,
                   backgroundColor: "rgba(34,211,238,0.1)",
