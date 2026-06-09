@@ -235,7 +235,7 @@ export const OutletNetworkGraph = ({ scopedEvent, onClearScope }: Props = {}) =>
                 onDelete={onClearScope}
                 deleteIcon={<CloseIcon sx={{ fontSize: 14 }} />}
                 sx={{
-                  height: 22,
+                  height: 26,
                   fontSize: "0.65rem",
                   fontWeight: 700,
                   backgroundColor: "rgba(34,211,238,0.1)",

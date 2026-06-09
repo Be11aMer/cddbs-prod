@@ -30,7 +30,7 @@ const Stat = ({ icon, label, value, color, tooltip }: StatProps) => (
 );
 
 const Sep = () => (
-  <Box sx={{ width: "1px", height: 18, backgroundColor: "rgba(148,163,184,0.15)", display: { xs: "none", sm: "block" } }} />
+  <Box sx={{ width: "1px", height: 22, backgroundColor: "rgba(148,163,184,0.15)", display: { xs: "none", sm: "block" } }} />
 );
 
 interface Props {

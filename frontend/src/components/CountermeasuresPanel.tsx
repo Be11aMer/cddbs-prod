@@ -87,7 +87,7 @@ function ResponseRow({ item, onOpenBriefing }: { item: ResponseItem; onOpenBrief
           icon={meta.icon}
           label={meta.label}
           sx={{
-            height: 18,
+            height: 22,
             fontSize: "0.6rem",
             fontWeight: 700,
             backgroundColor: `${meta.color}1a`,
@@ -99,7 +99,7 @@ function ResponseRow({ item, onOpenBriefing }: { item: ResponseItem; onOpenBrief
           <Chip
             size="small"
             label={item.urgency.toUpperCase()}
-            sx={{ height: 18, fontSize: "0.55rem", fontWeight: 800, backgroundColor: `${urgencyColor}1a`, color: urgencyColor }}
+            sx={{ height: 22, fontSize: "0.68rem", fontWeight: 800, backgroundColor: `${urgencyColor}1a`, color: urgencyColor }}
           />
         )}
         <Tooltip title="Open the source intelligence product">
@@ -208,7 +208,7 @@ export const CountermeasuresPanel = ({ scopedEvent, onClearScope }: Props = {}) 
                 onDelete={onClearScope}
                 deleteIcon={<CloseIcon sx={{ fontSize: 14 }} />}
                 sx={{
-                  height: 22,
+                  height: 26,
                   fontSize: "0.65rem",
                   fontWeight: 700,
                   flexShrink: 0,

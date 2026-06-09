@@ -548,7 +548,7 @@ export const App = () => {
                         </Typography>
                         {showBriefingBadge ? (
                           <Badge badgeContent={threatBriefingCount} color="error" max={99}
-                            sx={{ "& .MuiBadge-badge": { fontSize: "0.55rem", height: 14, minWidth: 14 } }}
+                            sx={{ "& .MuiBadge-badge": { fontSize: "0.68rem", height: 18, minWidth: 14 } }}
                           >
                             <Icon sx={{ fontSize: 18, color: selected ? accent : "text.secondary" }} />
                           </Badge>
@@ -658,7 +658,7 @@ export const App = () => {
                   <Tab
                     label={
                       <Badge badgeContent={threatBriefingCount > 0 ? threatBriefingCount : undefined} color="error" max={99}
-                        sx={{ "& .MuiBadge-badge": { fontSize: "0.55rem", height: 14, minWidth: 14, right: -10, top: 2 } }}
+                        sx={{ "& .MuiBadge-badge": { fontSize: "0.68rem", height: 18, minWidth: 14, right: -10, top: 2 } }}
                       >
                         <Box component="span">Threat Briefings</Box>
                       </Badge>

@@ -24,7 +24,7 @@ export const QualityBadge = ({ quality, compact = false }: QualityBadgeProps) =>
         size="small"
         label="No Score"
         variant="outlined"
-        sx={{ fontSize: "0.65rem", height: 20, opacity: 0.5 }}
+        sx={{ fontSize: "0.65rem", height: 24, opacity: 0.5 }}
       />
     );
   }
@@ -51,7 +51,7 @@ export const QualityBadge = ({ quality, compact = false }: QualityBadgeProps) =>
           variant="outlined"
           sx={{
             fontSize: "0.65rem",
-            height: 20,
+            height: 24,
             fontWeight: 700,
           }}
         />

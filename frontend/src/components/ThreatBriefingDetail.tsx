@@ -89,7 +89,7 @@ function FramingSection({ framing }: { framing: FramingAnalysis }) {
                     <Typography variant="caption" fontWeight={700} sx={{ color: "primary.light" }}>{sf.source_domain}</Typography>
                     <Chip size="small" label={sf.source_type} sx={{ fontSize: "0.6rem", height: 16 }} />
                     {sf.bias_direction && sf.bias_direction !== "neutral" && (
-                      <Chip size="small" label={sf.bias_direction} sx={{ fontSize: "0.6rem", height: 16, color: "#f59e0b", backgroundColor: "#f59e0b22" }} />
+                      <Chip size="small" label={sf.bias_direction} sx={{ fontSize: "0.6rem", height: 20, color: "#f59e0b", backgroundColor: "#f59e0b22" }} />
                     )}
                     <Tooltip title={`Emotional language score: ${(sf.emotional_language_score * 100).toFixed(0)}%`}>
                       <Box sx={{ ml: "auto", fontSize: "0.65rem", color: sf.emotional_language_score > 0.5 ? "#ef4444" : "text.secondary" }}>
@@ -124,7 +124,7 @@ function FramingSection({ framing }: { framing: FramingAnalysis }) {
                     <Typography variant="caption" fontWeight={700} sx={{ color: "text.primary", display: "block" }}>{d.topic}</Typography>
                     <Typography variant="caption" sx={{ color: "text.secondary", display: "block" }}>{d.source_a}</Typography>
                     <Typography variant="caption" sx={{ color: "text.secondary", display: "block" }}>{d.source_b}</Typography>
-                    <Chip size="small" label={d.assessment} sx={{ mt: 0.5, fontSize: "0.6rem", height: 16, color: "#f59e0b", backgroundColor: "#f59e0b22" }} />
+                    <Chip size="small" label={d.assessment} sx={{ mt: 0.5, fontSize: "0.6rem", height: 20, color: "#f59e0b", backgroundColor: "#f59e0b22" }} />
                   </Box>
                 </Box>
               </Box>

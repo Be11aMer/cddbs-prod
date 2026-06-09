@@ -54,7 +54,7 @@ function BurstRow({ burst, onViewEvent }: BurstRowProps) {
             label={`z=${z.toFixed(1)}`}
             size="small"
             sx={{
-              height: 16,
+              height: 20,
               fontSize: "0.6rem",
               fontWeight: 800,
               backgroundColor: `${color}22`,
@@ -183,7 +183,7 @@ export const BurstTimeline = ({ onNavigate }: Props = {}) => {
               label={sortedBursts.length}
               size="small"
               sx={{
-                height: 16,
+                height: 20,
                 fontSize: "0.6rem",
                 fontWeight: 700,
                 backgroundColor: "rgba(239,68,68,0.1)",
@@ -237,7 +237,7 @@ export const BurstTimeline = ({ onNavigate }: Props = {}) => {
               position: "absolute",
               right: 0,
               top: -8,
-              fontSize: "0.5rem",
+              fontSize: "0.62rem",
               color: "rgba(239,68,68,0.6)",
               fontWeight: 700,
             }}

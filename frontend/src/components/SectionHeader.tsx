@@ -44,7 +44,7 @@ export const SectionHeader = ({ icon, title, subtitle, accentColor, badge }: Pro
             label={badge}
             size="small"
             sx={{
-              height: 18,
+              height: 22,
               fontSize: "0.65rem",
               fontWeight: 800,
               backgroundColor: `${accentColor}1a`,
