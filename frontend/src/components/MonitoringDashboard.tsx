@@ -50,7 +50,7 @@ export const MonitoringDashboard = ({ onNavigate, openEventId, onEventOpened }: 
   // used here only to compute the "exploitation flags" count for the ops strip.
   const { data: events } = useQuery({
     queryKey: ["event-clusters"],
-    queryFn: () => fetchEventClusters({ status: "active", limit: 20 }),
+    queryFn: () => fetchEventClusters({ status: "active", limit: 50 }),
     refetchInterval: 30 * 1000,
     staleTime: 15 * 1000,
   });

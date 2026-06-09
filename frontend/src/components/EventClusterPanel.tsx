@@ -510,7 +510,7 @@ export const EventClusterPanel = ({
 
   const { data, isLoading, refetch, isFetching } = useQuery({
     queryKey: ["event-clusters"],
-    queryFn: () => fetchEventClusters({ status: "active", limit: 20 }),
+    queryFn: () => fetchEventClusters({ status: "active", limit: 50 }),
     refetchInterval: 30 * 1000,
     staleTime: 15 * 1000,
   });
