@@ -218,6 +218,7 @@ class EventCluster(Base):
     burst_score = Column(Float, default=0.0)
     narrative_risk_score = Column(Float, default=0.0)
     status = Column(String, default="active")
+    auto_analyzed_at = Column(DateTime, nullable=True)
     created_at = Column(DateTime, default=lambda: datetime.now(UTC))
 
     articles = relationship("RawArticle", back_populates="cluster")

@@ -23,6 +23,7 @@ import TravelExploreIcon from "@mui/icons-material/TravelExplore";
 import GroupsIcon from "@mui/icons-material/Groups";
 import TimelineIcon from "@mui/icons-material/Timeline";
 import ShieldIcon from "@mui/icons-material/Shield";
+import BoltIcon from "@mui/icons-material/Bolt";
 import { useQuery } from "@tanstack/react-query";
 import { useState, useEffect } from "react";
 import {
@@ -179,6 +180,25 @@ function EventRow({
           }}
         />
         <ExploitationBadge score={event.narrative_risk_score} />
+        {event.auto_analyzed_at && (
+          <Tooltip title={`Auto-analyzed at ${new Date(event.auto_analyzed_at).toLocaleString()}`}>
+            <Chip
+              icon={<BoltIcon sx={{ fontSize: "0.6rem !important" }} />}
+              label="auto"
+              size="small"
+              sx={{
+                height: 14,
+                fontSize: "0.55rem",
+                fontWeight: 800,
+                backgroundColor: "rgba(250,204,21,0.12)",
+                color: "#facc15",
+                border: "1px solid rgba(250,204,21,0.3)",
+                "& .MuiChip-label": { px: 0.5 },
+                "& .MuiChip-icon": { color: "#facc15", ml: 0.5 },
+              }}
+            />
+          </Tooltip>
+        )}
         <Typography
           variant="caption"
           color="text.disabled"
