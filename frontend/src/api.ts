@@ -520,8 +520,8 @@ export async function fetchEventMap() {
   return data;
 }
 
-export async function fetchNarrativeBursts() {
-  const { data } = await api.get<NarrativeBurstItem[]>("/events/bursts");
+export async function fetchNarrativeBursts(params?: { limit?: number }) {
+  const { data } = await api.get<NarrativeBurstItem[]>("/events/bursts", { params });
   return data;
 }
 

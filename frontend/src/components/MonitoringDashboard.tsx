@@ -19,6 +19,10 @@ interface Props {
   /** Lets event-detail drill-ins jump straight into a downstream pipeline
    * stage, optionally carrying the event as scope context (real cluster FK). */
   onNavigate?: (view: ViewType, scope?: EventScope) => void;
+  /** When set, EventClusterPanel auto-opens this event's detail dialog —
+   * used when navigating back from a burst row to its originating event. */
+  openEventId?: number | null;
+  onEventOpened?: () => void;
 }
 
 /**
@@ -27,7 +31,7 @@ interface Props {
  * detection, auto-analysis, amplification tracking, narrative trends,
  * countermeasures) exists to answer "what's happening with THESE events."
  */
-export const MonitoringDashboard = ({ onNavigate }: Props) => {
+export const MonitoringDashboard = ({ onNavigate, openEventId, onEventOpened }: Props) => {
   const { data: globalStats, isLoading: statsLoading } = useQuery({
     queryKey: ["global-stats"],
     queryFn: fetchGlobalStats,
@@ -100,7 +104,11 @@ export const MonitoringDashboard = ({ onNavigate }: Props) => {
       <Grid container spacing={2} sx={{ flexGrow: 1 }}>
         <Grid item xs={12} lg={7}>
           <Box sx={{ height: { xs: 420, lg: 480 } }}>
-            <EventClusterPanel onNavigate={onNavigate} />
+            <EventClusterPanel
+              onNavigate={onNavigate}
+              openEventId={openEventId}
+              onEventOpened={onEventOpened}
+            />
           </Box>
         </Grid>
         <Grid item xs={12} lg={5}>

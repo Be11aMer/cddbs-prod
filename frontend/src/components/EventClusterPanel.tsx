@@ -24,7 +24,7 @@ import GroupsIcon from "@mui/icons-material/Groups";
 import TimelineIcon from "@mui/icons-material/Timeline";
 import ShieldIcon from "@mui/icons-material/Shield";
 import { useQuery } from "@tanstack/react-query";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import {
   fetchEventClusters,
   fetchEventDetail,
@@ -484,11 +484,29 @@ function EventDetailDialog({
   );
 }
 
-export const EventClusterPanel = ({ onNavigate }: { onNavigate?: (view: ViewType, scope?: EventScope) => void }) => {
+export const EventClusterPanel = ({
+  onNavigate,
+  openEventId,
+  onEventOpened,
+}: {
+  onNavigate?: (view: ViewType, scope?: EventScope) => void;
+  /** When set, the panel immediately opens the detail dialog for this cluster id.
+   * Used when navigating back from a burst row to its originating event. */
+  openEventId?: number | null;
+  onEventOpened?: () => void;
+}) => {
   const [selectedEvent, setSelectedEvent] = useState<number | null>(null);
   const [sitrepViewId, setSitrepViewId] = useState<number | null>(null);
   const [sitrepDetailOpen, setSitrepDetailOpen] = useState(false);
   const [investigateTopic, setInvestigateTopic] = useState<string | null>(null);
+
+  // Auto-open when navigated here from a burst row (back-link via cluster_id FK).
+  useEffect(() => {
+    if (openEventId != null) {
+      setSelectedEvent(openEventId);
+      onEventOpened?.();
+    }
+  }, [openEventId]);
 
   const { data, isLoading, refetch, isFetching } = useQuery({
     queryKey: ["event-clusters"],
@@ -515,7 +533,7 @@ export const EventClusterPanel = ({ onNavigate }: { onNavigate?: (view: ViewType
   // dedicated backend join exists yet for this, so we correlate on the FK we have).
   const { data: bursts } = useQuery({
     queryKey: ["narrative-bursts-map"],
-    queryFn: fetchNarrativeBursts,
+    queryFn: () => fetchNarrativeBursts(),
     refetchInterval: 60 * 1000,
     staleTime: 30 * 1000,
   });
