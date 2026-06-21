@@ -136,7 +136,7 @@ const StyledInputBase = styled(InputBase)(({ theme }) => ({
   },
 }));
 
-const drawerWidth = 240;
+const drawerWidth = 280;
 const collapsedWidth = 8;
 
 export const App = () => {
