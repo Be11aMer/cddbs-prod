@@ -90,7 +90,7 @@ function BriefingCard({
           size="small"
           label={typeLabel}
           sx={{
-            fontSize: "0.6rem", fontWeight: 700, height: 18,
+            fontSize: "0.6rem", fontWeight: 700, height: 22,
             backgroundColor: `${typeColor}22`, color: typeColor,
           }}
         />

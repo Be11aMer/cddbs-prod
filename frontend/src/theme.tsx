@@ -11,6 +11,10 @@ declare module "@mui/material/styles" {
 
 // Keyframe animations
 const globalStyles = `
+  html {
+    font-size: 18px;
+  }
+
   @keyframes pulse-glow {
     0%, 100% {
       box-shadow: 0 0 15px rgba(59, 130, 246, 0.4);
@@ -91,6 +95,7 @@ export const theme = createTheme({
     },
   },
   typography: {
+    htmlFontSize: 18,
     fontFamily:
       '"Inter", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif',
     h1: {
@@ -126,15 +131,15 @@ export const theme = createTheme({
       lineHeight: 1.5,
     },
     body1: {
-      fontSize: "0.95rem",
+      fontSize: "1rem",
       lineHeight: 1.6,
     },
     body2: {
-      fontSize: "0.875rem",
+      fontSize: "0.9rem",
       lineHeight: 1.5,
     },
     caption: {
-      fontSize: "0.75rem",
+      fontSize: "0.78rem",
       lineHeight: 1.4,
       color: "rgba(148, 163, 184, 0.8)",
     },
@@ -238,13 +243,13 @@ export const theme = createTheme({
       styleOverrides: {
         root: {
           borderBottom: "1px solid rgba(148, 163, 184, 0.15)",
-          fontSize: "0.875rem",
+          fontSize: "0.9rem",
         },
         head: {
           fontWeight: 600,
           color: "rgba(148, 163, 184, 0.9)",
           textTransform: "uppercase",
-          fontSize: "0.75rem",
+          fontSize: "0.78rem",
           letterSpacing: "0.05em",
         },
       },
@@ -342,7 +347,7 @@ export const theme = createTheme({
           backdropFilter: "blur(10px)",
           border: "1px solid rgba(148, 163, 184, 0.2)",
           borderRadius: 6,
-          fontSize: "0.75rem",
+          fontSize: "0.78rem",
         },
       },
     },

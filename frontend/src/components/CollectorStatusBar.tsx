@@ -46,8 +46,8 @@ function CollectorChip({ collector }: { collector: CollectorStatusItem }) {
         label={`${collector.name.toUpperCase()} · ${collector.total_articles_collected}`}
         size="small"
         sx={{
-          height: 18,
-          fontSize: "0.55rem",
+          height: 22,
+          fontSize: "0.68rem",
           fontWeight: 700,
           letterSpacing: "0.03em",
           backgroundColor: hasError

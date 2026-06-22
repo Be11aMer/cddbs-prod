@@ -1,9 +1,16 @@
 import { useEffect, useRef, useState, useCallback } from "react";
-import { Box, Typography, Skeleton, ToggleButtonGroup, ToggleButton } from "@mui/material";
+import { Box, Typography, Skeleton, ToggleButtonGroup, ToggleButton, Chip, Tooltip } from "@mui/material";
 import HubIcon from "@mui/icons-material/Hub";
+import CloseIcon from "@mui/icons-material/Close";
+import RadarIcon from "@mui/icons-material/Radar";
 import { useQuery } from "@tanstack/react-query";
 import { fetchOutletNetwork } from "../api";
 import type { NetworkNode, NetworkEdge } from "../api";
+
+export interface EventScope {
+  id: number;
+  title: string;
+}
 
 interface SimNode extends NetworkNode {
   x: number;
@@ -121,15 +128,22 @@ function credibilityColor(index: number): string {
   return "#ef4444";
 }
 
-export const OutletNetworkGraph = () => {
+interface Props {
+  /** When set, scopes the graph to outlets that actually covered this event
+   * (real RawArticle.cluster_id FK on the backend) instead of the platform-wide view. */
+  scopedEvent?: EventScope | null;
+  onClearScope?: () => void;
+}
+
+export const OutletNetworkGraph = ({ scopedEvent, onClearScope }: Props = {}) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const [dims, setDims] = useState({ width: 0, height: 0 });
   const [hoveredNode, setHoveredNode] = useState<string | null>(null);
   const [days, setDays] = useState<DaysOption>(90);
 
   const { data: graph, isLoading } = useQuery({
-    queryKey: ["outlet-network", days],
-    queryFn: () => fetchOutletNetwork(days),
+    queryKey: scopedEvent ? ["outlet-network", "event", scopedEvent.id] : ["outlet-network", days],
+    queryFn: () => fetchOutletNetwork(days, scopedEvent?.id),
     refetchInterval: 60 * 1000,
     staleTime: 30 * 1000,
   });
@@ -212,18 +226,39 @@ export const OutletNetworkGraph = () => {
           </Typography>
         </Box>
         <Box sx={{ display: "flex", alignItems: "center", gap: 1.5, flexWrap: "wrap" }}>
-          {/* Temporal filter */}
-          <ToggleButtonGroup
-            size="small"
-            exclusive
-            value={days}
-            onChange={(_, v) => { if (v) setDays(v as DaysOption); }}
-            sx={{ "& .MuiToggleButton-root": { py: 0.25, px: 1, fontSize: "0.6rem", fontWeight: 700, border: "1px solid rgba(148,163,184,0.2)", color: "text.secondary", "&.Mui-selected": { backgroundColor: "rgba(139,92,246,0.15)", color: "#8b5cf6", borderColor: "rgba(139,92,246,0.3)" } } }}
-          >
-            {DAYS_OPTIONS.map((d) => (
-              <ToggleButton key={d} value={d}>{d}d</ToggleButton>
-            ))}
-          </ToggleButtonGroup>
+          {scopedEvent ? (
+            <Tooltip title={`Showing only outlets that published about "${scopedEvent.title}" — clear to see the platform-wide network`}>
+              <Chip
+                size="small"
+                icon={<RadarIcon sx={{ fontSize: 12 }} />}
+                label={`Scoped to: ${scopedEvent.title.length > 36 ? scopedEvent.title.slice(0, 35) + "…" : scopedEvent.title}`}
+                onDelete={onClearScope}
+                deleteIcon={<CloseIcon sx={{ fontSize: 14 }} />}
+                sx={{
+                  height: 26,
+                  fontSize: "0.65rem",
+                  fontWeight: 700,
+                  backgroundColor: "rgba(34,211,238,0.1)",
+                  color: "#22d3ee",
+                  border: "1px solid rgba(34,211,238,0.3)",
+                  "& .MuiChip-icon": { color: "#22d3ee" },
+                  "& .MuiChip-deleteIcon": { color: "#22d3ee", "&:hover": { color: "#fff" } },
+                }}
+              />
+            </Tooltip>
+          ) : (
+            <ToggleButtonGroup
+              size="small"
+              exclusive
+              value={days}
+              onChange={(_, v) => { if (v) setDays(v as DaysOption); }}
+              sx={{ "& .MuiToggleButton-root": { py: 0.25, px: 1, fontSize: "0.6rem", fontWeight: 700, border: "1px solid rgba(148,163,184,0.2)", color: "text.secondary", "&.Mui-selected": { backgroundColor: "rgba(139,92,246,0.15)", color: "#8b5cf6", borderColor: "rgba(139,92,246,0.3)" } } }}
+            >
+              {DAYS_OPTIONS.map((d) => (
+                <ToggleButton key={d} value={d}>{d}d</ToggleButton>
+              ))}
+            </ToggleButtonGroup>
+          )}
           {/* Legend */}
           <Box sx={{ display: "flex", gap: 1 }}>
             {[
@@ -252,7 +287,9 @@ export const OutletNetworkGraph = () => {
         ) : !nodes.length ? (
           <Box sx={{ display: "flex", alignItems: "center", justifyContent: "center", height: "100%" }}>
             <Typography variant="body2" color="text.secondary">
-              No network data yet — complete analyses to build the graph
+              {scopedEvent
+                ? `No outlet coverage data yet for "${scopedEvent.title}"`
+                : "No network data yet — complete analyses to build the graph"}
             </Typography>
           </Box>
         ) : (

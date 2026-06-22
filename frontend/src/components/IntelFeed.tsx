@@ -117,8 +117,8 @@ function FeedItemRow({ item }: { item: FeedItem }) {
             label={label}
             size="small"
             sx={{
-              height: 14,
-              fontSize: "0.55rem",
+              height: 18,
+              fontSize: "0.68rem",
               fontWeight: 800,
               letterSpacing: "0.05em",
               backgroundColor: `${color}22`,
@@ -190,8 +190,8 @@ export const IntelFeed = () => {
             label="MULTI-SRC"
             size="small"
             sx={{
-              height: 16,
-              fontSize: "0.55rem",
+              height: 20,
+              fontSize: "0.68rem",
               fontWeight: 700,
               backgroundColor: "rgba(139,92,246,0.1)",
               color: "#8b5cf6",

@@ -362,8 +362,10 @@ export interface NetworkGraphData {
   edges: NetworkEdge[];
 }
 
-export async function fetchOutletNetwork(days = 90) {
-  const { data } = await api.get<NetworkGraphData>("/stats/outlet-network", { params: { days } });
+export async function fetchOutletNetwork(days = 90, clusterId?: number) {
+  const { data } = await api.get<NetworkGraphData>("/stats/outlet-network", {
+    params: clusterId != null ? { cluster_id: clusterId } : { days },
+  });
   return data;
 }
 
@@ -454,6 +456,7 @@ export interface EventClusterItem {
   burst_score: number;
   narrative_risk_score: number;
   status: string;
+  auto_analyzed_at: string | null;
   created_at: string | null;
 }
 
@@ -518,8 +521,8 @@ export async function fetchEventMap() {
   return data;
 }
 
-export async function fetchNarrativeBursts() {
-  const { data } = await api.get<NarrativeBurstItem[]>("/events/bursts");
+export async function fetchNarrativeBursts(params?: { limit?: number }) {
+  const { data } = await api.get<NarrativeBurstItem[]>("/events/bursts", { params });
   return data;
 }
 
@@ -780,6 +783,7 @@ export interface SchedulerJobStatus {
 
 export async function fetchThreatBriefings(params?: {
   briefing_type?: string;
+  cluster_id?: number;
   limit?: number;
   offset?: number;
 }) {
@@ -834,6 +838,7 @@ export interface SourceCredibilityItem {
 export async function fetchSourceCredibility(params?: {
   min_articles?: number;
   trend_direction?: string;
+  cluster_id?: number;
   limit?: number;
 }) {
   const { data } = await api.get<SourceCredibilityItem[]>("/stats/source-credibility", { params });

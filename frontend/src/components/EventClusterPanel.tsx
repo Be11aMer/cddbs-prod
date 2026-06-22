@@ -10,22 +10,36 @@ import {
   DialogTitle,
   DialogContent,
   Link,
+  Button,
 } from "@mui/material";
 import BubbleChartIcon from "@mui/icons-material/BubbleChart";
 import RefreshIcon from "@mui/icons-material/Refresh";
 import OpenInNewIcon from "@mui/icons-material/OpenInNew";
 import CloseIcon from "@mui/icons-material/Close";
 import ArticleIcon from "@mui/icons-material/Article";
+import FlagIcon from "@mui/icons-material/Flag";
+import TrendingUpIcon from "@mui/icons-material/TrendingUp";
+import TravelExploreIcon from "@mui/icons-material/TravelExplore";
+import GroupsIcon from "@mui/icons-material/Groups";
+import TimelineIcon from "@mui/icons-material/Timeline";
+import ShieldIcon from "@mui/icons-material/Shield";
+import BoltIcon from "@mui/icons-material/Bolt";
 import { useQuery } from "@tanstack/react-query";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import {
   fetchEventClusters,
   fetchEventDetail,
   fetchThreatBriefings,
+  fetchNarrativeBursts,
   type EventClusterItem,
   type EventClusterDetail,
+  type NarrativeBurstItem,
 } from "../api";
 import { ThreatBriefingDetail } from "./ThreatBriefingDetail";
+import { NewAnalysisDialog } from "./NewAnalysisDialog";
+import { severityColor, magnitudeSeverityColor, SEVERITY_COLORS } from "../utils/severity";
+import type { ViewType } from "../App";
+import type { EventScope } from "./OutletNetworkGraph";
 
 const EVENT_TYPE_COLORS: Record<string, string> = {
   conflict: "#ef4444",
@@ -38,10 +52,35 @@ const EVENT_TYPE_COLORS: Record<string, string> = {
   other: "#94a3b8",
 };
 
-function getRiskColor(score: number): string {
-  if (score >= 0.7) return "#ef4444";
-  if (score >= 0.4) return "#f59e0b";
-  return "#10b981";
+const getRiskColor = (score: number) => severityColor(score);
+
+// Threshold above which we flag an event as actively exploited by disinformation.
+// Mirrors the existing amber/red risk-score boundaries already used across the dashboard.
+const EXPLOITATION_THRESHOLD = 0.4;
+
+function ExploitationBadge({ score }: { score: number }) {
+  if (score < EXPLOITATION_THRESHOLD) return null;
+  const color = severityColor(score);
+  return (
+    <Tooltip title={`Narrative risk score ${(score * 100).toFixed(0)}% — disinformation signals detected around this event`}>
+      <Chip
+        size="small"
+        icon={<FlagIcon sx={{ fontSize: 12 }} />}
+        label="Exploitation detected"
+        sx={{
+          height: 22,
+          fontSize: "0.6rem",
+          fontWeight: 800,
+          letterSpacing: "0.02em",
+          backgroundColor: `${color}1f`,
+          color,
+          border: `1px solid ${color}55`,
+          "& .MuiChip-icon": { color, ml: 0.5 },
+          "& .MuiChip-label": { px: 0.75 },
+        }}
+      />
+    </Tooltip>
+  );
 }
 
 function EventRow({
@@ -129,8 +168,8 @@ function EventRow({
           label={event.event_type || "other"}
           size="small"
           sx={{
-            height: 14,
-            fontSize: "0.55rem",
+            height: 18,
+            fontSize: "0.68rem",
             fontWeight: 800,
             letterSpacing: "0.05em",
             textTransform: "uppercase",
@@ -140,6 +179,26 @@ function EventRow({
             "& .MuiChip-label": { px: 0.75 },
           }}
         />
+        <ExploitationBadge score={event.narrative_risk_score} />
+        {event.auto_analyzed_at && (
+          <Tooltip title={`Auto-analyzed at ${new Date(event.auto_analyzed_at).toLocaleString()}`}>
+            <Chip
+              icon={<BoltIcon sx={{ fontSize: "0.6rem !important" }} />}
+              label="auto"
+              size="small"
+              sx={{
+                height: 18,
+                fontSize: "0.68rem",
+                fontWeight: 800,
+                backgroundColor: "rgba(250,204,21,0.12)",
+                color: "#facc15",
+                border: "1px solid rgba(250,204,21,0.3)",
+                "& .MuiChip-label": { px: 0.5 },
+                "& .MuiChip-icon": { color: "#facc15", ml: 0.5 },
+              }}
+            />
+          </Tooltip>
+        )}
         <Typography
           variant="caption"
           color="text.disabled"
@@ -184,14 +243,131 @@ function EventRow({
   );
 }
 
+function ExploitationDrillIn({
+  event,
+  bursts,
+  onInvestigate,
+  onNavigate,
+}: {
+  event: EventClusterDetail;
+  bursts: NarrativeBurstItem[];
+  onInvestigate: () => void;
+  onNavigate?: (view: ViewType, scope?: EventScope) => void;
+}) {
+  const exploited = event.narrative_risk_score >= EXPLOITATION_THRESHOLD;
+  if (!exploited && bursts.length === 0) return null;
+
+  const riskColor = severityColor(event.narrative_risk_score);
+
+  return (
+    <Box
+      sx={{
+        mb: 2,
+        p: 1.5,
+        borderRadius: 1.5,
+        border: `1px solid ${riskColor}33`,
+        backgroundColor: `${riskColor}0d`,
+      }}
+    >
+      <Box sx={{ display: "flex", alignItems: "center", gap: 0.75, mb: bursts.length > 0 ? 1 : 0 }}>
+        <FlagIcon sx={{ fontSize: 15, color: riskColor }} />
+        <Typography variant="caption" fontWeight={800} sx={{ color: riskColor, letterSpacing: "0.03em" }}>
+          {exploited ? "Disinformation exploitation detected on this event" : "Narrative activity around this event"}
+        </Typography>
+      </Box>
+      {bursts.length > 0 && (
+        <Box sx={{ display: "flex", flexDirection: "column", gap: 0.5, mb: 1.25 }}>
+          <Typography variant="caption" color="text.secondary" sx={{ fontSize: "0.65rem" }}>
+            Narrative bursts tied to this event ({bursts.length}):
+          </Typography>
+          <Box sx={{ display: "flex", gap: 0.5, flexWrap: "wrap" }}>
+            {bursts.map((b) => {
+              const zColor = magnitudeSeverityColor(b.z_score);
+              return (
+                <Tooltip key={b.id} title={`z-score ${b.z_score?.toFixed(1) ?? "—"} · baseline ${b.baseline_frequency ?? "—"} → current ${b.current_frequency ?? "—"}`}>
+                  <Chip
+                    size="small"
+                    icon={<TrendingUpIcon sx={{ fontSize: 12 }} />}
+                    label={b.keyword}
+                    sx={{
+                      height: 26,
+                      fontSize: "0.65rem",
+                      fontWeight: 700,
+                      backgroundColor: `${zColor}1a`,
+                      color: zColor,
+                      border: `1px solid ${zColor}44`,
+                      "& .MuiChip-icon": { color: zColor },
+                    }}
+                  />
+                </Tooltip>
+              );
+            })}
+          </Box>
+        </Box>
+      )}
+
+      {/* Carry the analyst forward into the next pipeline stages — this is the
+          "what do I do about it" follow-through the dashboard was missing. */}
+      <Box sx={{ display: "flex", gap: 0.75, flexWrap: "wrap" }}>
+        <Button
+          size="small"
+          variant="outlined"
+          startIcon={<TravelExploreIcon sx={{ fontSize: 14 }} />}
+          onClick={onInvestigate}
+          sx={{ fontSize: "0.65rem", textTransform: "none", borderColor: `${riskColor}55`, color: riskColor, "&:hover": { borderColor: riskColor, backgroundColor: `${riskColor}11` } }}
+        >
+          Investigate this narrative
+        </Button>
+        {onNavigate && (
+          <>
+            <Button
+              size="small"
+              variant="text"
+              startIcon={<GroupsIcon sx={{ fontSize: 14 }} />}
+              onClick={() => onNavigate("amplification", { id: event.id, title: event.title || `Event #${event.id}` })}
+              sx={{ fontSize: "0.65rem", textTransform: "none", color: "text.secondary", "&:hover": { color: "#06b6d4", backgroundColor: "rgba(6,182,212,0.08)" } }}
+            >
+              Who's amplifying this? →
+            </Button>
+            <Button
+              size="small"
+              variant="text"
+              startIcon={<TimelineIcon sx={{ fontSize: 14 }} />}
+              onClick={() => onNavigate("trends")}
+              sx={{ fontSize: "0.65rem", textTransform: "none", color: "text.secondary", "&:hover": { color: SEVERITY_COLORS.accent, backgroundColor: "rgba(139,92,246,0.08)" } }}
+            >
+              See narrative trends →
+            </Button>
+            <Button
+              size="small"
+              variant="text"
+              startIcon={<ShieldIcon sx={{ fontSize: 14 }} />}
+              onClick={() => onNavigate("countermeasures", { id: event.id, title: event.title || `Event #${event.id}` })}
+              sx={{ fontSize: "0.65rem", textTransform: "none", color: "text.secondary", "&:hover": { color: SEVERITY_COLORS.good, backgroundColor: "rgba(16,185,129,0.08)" } }}
+            >
+              See recommended response →
+            </Button>
+          </>
+        )}
+      </Box>
+    </Box>
+  );
+}
+
 function EventDetailDialog({
   eventId,
   open,
   onClose,
+  burstsByCluster,
+  onInvestigate,
+  onNavigate,
 }: {
   eventId: number | null;
   open: boolean;
   onClose: () => void;
+  burstsByCluster: Record<number, NarrativeBurstItem[]>;
+  onInvestigate: (event: EventClusterDetail) => void;
+  onNavigate?: (view: ViewType, scope?: EventScope) => void;
 }) {
   const { data, isLoading } = useQuery({
     queryKey: ["event-detail", eventId],
@@ -249,6 +425,13 @@ function EventDetailDialog({
               <Chip label={`${data.source_count} sources`} size="small" variant="outlined" />
             </Box>
 
+            <ExploitationDrillIn
+              event={data}
+              bursts={burstsByCluster[data.id] ?? []}
+              onInvestigate={() => onInvestigate(data)}
+              onNavigate={onNavigate}
+            />
+
             {data.keywords && data.keywords.length > 0 && (
               <Box sx={{ mb: 2 }}>
                 <Typography variant="caption" color="text.secondary" fontWeight={700}>
@@ -256,7 +439,7 @@ function EventDetailDialog({
                 </Typography>
                 <Box sx={{ display: "flex", gap: 0.5, flexWrap: "wrap", mt: 0.5 }}>
                   {data.keywords.map((kw) => (
-                    <Chip key={kw} label={kw} size="small" variant="outlined" sx={{ height: 20, fontSize: "0.65rem" }} />
+                    <Chip key={kw} label={kw} size="small" variant="outlined" sx={{ height: 24, fontSize: "0.65rem" }} />
                   ))}
                 </Box>
               </Box>
@@ -293,7 +476,7 @@ function EventDetailDialog({
                     <Chip
                       label={a.source_type}
                       size="small"
-                      sx={{ height: 14, fontSize: "0.5rem", fontWeight: 700 }}
+                      sx={{ height: 18, fontSize: "0.62rem", fontWeight: 700 }}
                     />
                     {a.published_at && (
                       <Typography variant="caption" color="text.disabled">
@@ -321,14 +504,33 @@ function EventDetailDialog({
   );
 }
 
-export const EventClusterPanel = () => {
+export const EventClusterPanel = ({
+  onNavigate,
+  openEventId,
+  onEventOpened,
+}: {
+  onNavigate?: (view: ViewType, scope?: EventScope) => void;
+  /** When set, the panel immediately opens the detail dialog for this cluster id.
+   * Used when navigating back from a burst row to its originating event. */
+  openEventId?: number | null;
+  onEventOpened?: () => void;
+}) => {
   const [selectedEvent, setSelectedEvent] = useState<number | null>(null);
   const [sitrepViewId, setSitrepViewId] = useState<number | null>(null);
   const [sitrepDetailOpen, setSitrepDetailOpen] = useState(false);
+  const [investigateTopic, setInvestigateTopic] = useState<string | null>(null);
+
+  // Auto-open when navigated here from a burst row (back-link via cluster_id FK).
+  useEffect(() => {
+    if (openEventId != null) {
+      setSelectedEvent(openEventId);
+      onEventOpened?.();
+    }
+  }, [openEventId]);
 
   const { data, isLoading, refetch, isFetching } = useQuery({
     queryKey: ["event-clusters"],
-    queryFn: () => fetchEventClusters({ status: "active", limit: 20 }),
+    queryFn: () => fetchEventClusters({ status: "active", limit: 50 }),
     refetchInterval: 30 * 1000,
     staleTime: 15 * 1000,
   });
@@ -343,6 +545,26 @@ export const EventClusterPanel = () => {
 
   const sitrepByCluster = (sitrepBriefings ?? []).reduce<Record<number, number>>(
     (acc, b) => { if (b.cluster_id != null) acc[b.cluster_id] = b.id; return acc; },
+    {},
+  );
+
+  // Narrative bursts carry a cluster_id FK — join them client-side to surface
+  // "this event is being exploited by THESE specific narrative spikes" (no
+  // dedicated backend join exists yet for this, so we correlate on the FK we have).
+  const { data: bursts } = useQuery({
+    queryKey: ["narrative-bursts-map"],
+    queryFn: () => fetchNarrativeBursts(),
+    refetchInterval: 60 * 1000,
+    staleTime: 30 * 1000,
+  });
+
+  const burstsByCluster = (bursts ?? []).reduce<Record<number, NarrativeBurstItem[]>>(
+    (acc, b) => {
+      if (b.cluster_id != null) {
+        (acc[b.cluster_id] ??= []).push(b);
+      }
+      return acc;
+    },
     {},
   );
 
@@ -384,7 +606,7 @@ export const EventClusterPanel = () => {
                 label={events.length}
                 size="small"
                 sx={{
-                  height: 16,
+                  height: 20,
                   fontSize: "0.6rem",
                   fontWeight: 700,
                   backgroundColor: "rgba(139,92,246,0.1)",
@@ -468,12 +690,25 @@ export const EventClusterPanel = () => {
         eventId={selectedEvent}
         open={selectedEvent !== null}
         onClose={() => setSelectedEvent(null)}
+        burstsByCluster={burstsByCluster}
+        onInvestigate={(event) => {
+          setInvestigateTopic(event.title || (event.keywords ?? [])[0] || "");
+          setSelectedEvent(null);
+        }}
+        onNavigate={onNavigate ? (view, scope) => { onNavigate(view, scope); setSelectedEvent(null); } : undefined}
       />
 
       <ThreatBriefingDetail
         briefingId={sitrepViewId}
         open={sitrepDetailOpen}
         onClose={() => setSitrepDetailOpen(false)}
+      />
+
+      <NewAnalysisDialog
+        open={investigateTopic !== null}
+        initialTopic={investigateTopic ?? undefined}
+        onClose={() => setInvestigateTopic(null)}
+        onCreated={() => setInvestigateTopic(null)}
       />
     </>
   );

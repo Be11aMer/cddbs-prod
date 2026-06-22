@@ -1091,6 +1091,7 @@ class EventClusterResponse(BaseModel):
     burst_score: float = 0.0
     narrative_risk_score: float = 0.0
     status: str = "active"
+    auto_analyzed_at: Optional[datetime] = None
     created_at: Optional[datetime] = None
 
     model_config = {"from_attributes": True}
@@ -1194,10 +1195,14 @@ def get_events_map(db: Session = Depends(get_db)):
 def list_bursts(
     min_zscore: Optional[float] = None,
     active_only: bool = True,
-    limit: int = 50,
+    limit: int = 100,
     db: Session = Depends(get_db),
 ):
-    """List detected narrative bursts (keyword frequency spikes)."""
+    """List detected narrative bursts (keyword frequency spikes).
+
+    Each keyword has at most one active row (upsert semantics in the detector),
+    so the list represents the current live set of spiking topics.
+    """
     query = db.query(NarrativeBurst)
 
     if active_only:
@@ -1396,9 +1401,122 @@ class NetworkGraphResponse(BaseModel):
     edges: List[NetworkEdge]
 
 
+def _build_event_scoped_outlet_network(db: Session, cluster: "EventCluster") -> NetworkGraphResponse:
+    """Build an outlet network scoped to a single event cluster.
+
+    Unlike the global network (which connects outlets via shared narratives
+    across the whole platform), this answers a narrower, honest question:
+    "of the outlets that actually published about THIS event — a real
+    `RawArticle.cluster_id` FK relationship — which of them also amplify the
+    same narratives as each other, and how credible is each one?"
+
+    No fabricated joins: outlet membership comes from `RawArticle.cluster_id`,
+    narrative-sharing comes from those outlets' own `NarrativeMatch` records,
+    and credibility comes from the existing per-domain `SourceCredibility` index.
+    """
+    from collections import defaultdict, Counter
+
+    cred_rows = db.query(SourceCredibility).all()
+    cred_map: dict[str, float] = {row.source_domain: row.reliability_index for row in cred_rows}
+
+    cluster_articles = (
+        db.query(RawArticle)
+        .filter(RawArticle.cluster_id == cluster.id, RawArticle.source_domain.isnot(None))
+        .all()
+    )
+    outlet_article_counts: Counter = Counter(a.source_domain for a in cluster_articles if a.source_domain)
+    scoped_outlets = sorted(outlet_article_counts.keys())
+
+    if not scoped_outlets:
+        event_node_id = f"event:{cluster.id}"
+        return NetworkGraphResponse(
+            nodes=[NetworkNode(
+                id=event_node_id,
+                label=(cluster.title or f"Event #{cluster.id}")[:30],
+                type="event",
+                size=max(1, cluster.article_count // 5),
+                color="#22d3ee",
+            )],
+            edges=[],
+        )
+
+    nodes: list[NetworkNode] = [
+        NetworkNode(
+            id=outlet,
+            label=outlet,
+            type="outlet",
+            size=outlet_article_counts[outlet],
+            credibility=cred_map.get(outlet),
+        )
+        for outlet in scoped_outlets
+    ]
+
+    # Narrative-sharing relationships for these specific outlets, drawn from
+    # their own analysis-run history (real NarrativeMatch records, not inferred).
+    relevant_reports = (
+        db.query(Report)
+        .filter(Report.outlet.in_(scoped_outlets), Report.final_report.isnot(None))
+        .all()
+    )
+    outlet_narratives: dict[str, set[str]] = defaultdict(set)
+    narr_names: dict[str, str] = {}
+    if relevant_reports:
+        report_ids = [r.id for r in relevant_reports]
+        report_outlet = {r.id: r.outlet for r in relevant_reports}
+        matches = db.query(NarrativeMatch).filter(NarrativeMatch.report_id.in_(report_ids)).all()
+        for m in matches:
+            outlet = report_outlet.get(m.report_id)
+            if outlet:
+                outlet_narratives[outlet].add(m.narrative_id)
+            narr_names[m.narrative_id] = m.narrative_name
+
+    edges: list[NetworkEdge] = []
+    for i, a in enumerate(scoped_outlets):
+        for b in scoped_outlets[i + 1:]:
+            shared = outlet_narratives.get(a, set()) & outlet_narratives.get(b, set())
+            if shared:
+                edges.append(NetworkEdge(
+                    source=a,
+                    target=b,
+                    weight=len(shared),
+                    label=f"{len(shared)} shared narratives",
+                ))
+
+    all_narr_ids: Counter = Counter()
+    for narrs in outlet_narratives.values():
+        all_narr_ids.update(narrs)
+    for narr_id, count in all_narr_ids.most_common(10):
+        narr_node_id = f"narr:{narr_id}"
+        nodes.append(NetworkNode(
+            id=narr_node_id,
+            label=narr_names.get(narr_id, narr_id),
+            type="narrative",
+            size=count,
+            color="#f59e0b",
+        ))
+        for outlet in scoped_outlets:
+            if narr_id in outlet_narratives.get(outlet, set()):
+                edges.append(NetworkEdge(source=outlet, target=narr_node_id, weight=1))
+
+    # Anchor node for the event itself, connected to every outlet that covered it.
+    event_node_id = f"event:{cluster.id}"
+    nodes.append(NetworkNode(
+        id=event_node_id,
+        label=(cluster.title or f"Event #{cluster.id}")[:30],
+        type="event",
+        size=max(1, cluster.article_count // 5),
+        color="#22d3ee",
+    ))
+    for outlet in scoped_outlets:
+        edges.append(NetworkEdge(source=event_node_id, target=outlet, weight=1, label="covers"))
+
+    return NetworkGraphResponse(nodes=nodes, edges=edges)
+
+
 @app.get("/stats/outlet-network", response_model=NetworkGraphResponse)
 def get_outlet_network(
     days: int = 90,
+    cluster_id: Optional[int] = None,
     db: Session = Depends(get_db),
 ):
     """Build an outlet relationship network from shared narrative matches.
@@ -1409,10 +1527,20 @@ def get_outlet_network(
     Source Credibility Index when available.
 
     Args:
-        days: lookback window in days (default 90, min 7, max 365)
+        days: lookback window in days (default 90, min 7, max 365). Ignored
+            when `cluster_id` is set.
+        cluster_id: Scope the entire graph to outlets that published about a
+            specific event cluster (real `RawArticle.cluster_id` FK), instead
+            of the platform-wide view. See `_build_event_scoped_outlet_network`.
     """
     from collections import defaultdict, Counter
     from datetime import timedelta
+
+    if cluster_id is not None:
+        cluster = db.query(EventCluster).filter(EventCluster.id == cluster_id).first()
+        if cluster is None:
+            raise HTTPException(status_code=404, detail="Event cluster not found")
+        return _build_event_scoped_outlet_network(db, cluster)
 
     days = max(7, min(365, days))
     cutoff = datetime.now(UTC) - timedelta(days=days)
@@ -1567,6 +1695,7 @@ class SourceCredibilityItem(BaseModel):
 def get_source_credibility(
     min_articles: int = 5,
     trend_direction: Optional[str] = None,
+    cluster_id: Optional[int] = None,
     limit: int = 100,
     db: Session = Depends(get_db),
 ):
@@ -1575,12 +1704,36 @@ def get_source_credibility(
 
     Args:
         min_articles: Filter out domains with fewer than this many articles.
+            Ignored when `cluster_id` is set — for a single-event view, an
+            outlet's *overall* article volume isn't the relevant gate; whether
+            it covered THIS event is.
         trend_direction: Filter by trend — 'improving', 'stable', or 'degrading'.
+        cluster_id: Scope to outlets that published articles about a specific
+            event cluster. `SourceCredibility` has no direct FK to
+            `EventCluster`, so we bridge through `RawArticle.cluster_id` →
+            `RawArticle.source_domain` (a real, indexed relationship — not a
+            fabricated join).
         limit: Max results to return.
     """
-    query = db.query(SourceCredibility).filter(
-        SourceCredibility.total_articles >= min_articles
-    )
+    query = db.query(SourceCredibility)
+
+    if cluster_id is not None:
+        domains = (
+            db.query(RawArticle.source_domain)
+            .filter(
+                RawArticle.cluster_id == cluster_id,
+                RawArticle.source_domain.isnot(None),
+            )
+            .distinct()
+            .all()
+        )
+        domain_set = {d[0] for d in domains}
+        if not domain_set:
+            return []
+        query = query.filter(SourceCredibility.source_domain.in_(domain_set))
+    else:
+        query = query.filter(SourceCredibility.total_articles >= min_articles)
+
     if trend_direction:
         query = query.filter(SourceCredibility.trend_direction == trend_direction)
 
@@ -2178,14 +2331,22 @@ class QuarterlyReportRequest(BaseModel):
 @app.get("/threat-briefings", response_model=List[ThreatBriefingResponse])
 def list_threat_briefings(
     briefing_type: Optional[str] = None,
+    cluster_id: Optional[int] = None,
     limit: int = 50,
     offset: int = 0,
     db: Session = Depends(get_db),
 ):
-    """List auto-generated threat briefings (SitReps, digests, quarterly reports), newest first."""
+    """List auto-generated threat briefings (SitReps, digests, quarterly reports), newest first.
+
+    Args:
+        cluster_id: Restrict to briefings generated for a specific event cluster
+            (SitReps carry a real `cluster_id` FK to `event_clusters`).
+    """
     query = db.query(ThreatBriefing)
     if briefing_type:
         query = query.filter(ThreatBriefing.briefing_type == briefing_type)
+    if cluster_id is not None:
+        query = query.filter(ThreatBriefing.cluster_id == cluster_id)
     briefings = (
         query.order_by(ThreatBriefing.created_at.desc())
         .offset(offset)

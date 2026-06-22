@@ -403,7 +403,7 @@ export const RunsTable = ({ runs, onRefresh, onOpenReport, isLoading }: Props) =
                         size="small"
                         label={`${run.narrative_count} narr.`}
                         variant="outlined"
-                        sx={{ fontSize: "0.6rem", height: 18, ml: 0.5, opacity: 0.7 }}
+                        sx={{ fontSize: "0.6rem", height: 22, ml: 0.5, opacity: 0.7 }}
                       />
                     )}
                   </TableCell>

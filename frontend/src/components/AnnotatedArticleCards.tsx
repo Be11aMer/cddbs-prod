@@ -47,7 +47,7 @@ const PropagandaGauge = ({ score }: { score: number }) => {
       />
       <Typography
         variant="caption"
-        sx={{ fontSize: "0.55rem", fontWeight: 700, color, mt: 0.25, display: "block", textAlign: "right" }}
+        sx={{ fontSize: "0.68rem", fontWeight: 700, color, mt: 0.25, display: "block", textAlign: "right" }}
       >
         {label}
       </Typography>
@@ -166,7 +166,7 @@ const ArticleCard = ({ article }: { article: ArticleSummary }) => {
               label={theme}
               size="small"
               sx={{
-                height: 18,
+                height: 22,
                 fontSize: "0.6rem",
                 fontWeight: 700,
                 backgroundColor: "rgba(245,158,11,0.1)",
@@ -182,7 +182,7 @@ const ArticleCard = ({ article }: { article: ArticleSummary }) => {
               label={actor}
               size="small"
               sx={{
-                height: 18,
+                height: 22,
                 fontSize: "0.6rem",
                 backgroundColor: "rgba(59,130,246,0.08)",
                 color: "#64748b",

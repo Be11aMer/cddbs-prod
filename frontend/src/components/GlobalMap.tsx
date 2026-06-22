@@ -196,7 +196,7 @@ const MapView = memo(({ countryData, eventData, expanded = false }: MapViewProps
                       border: `1px solid ${getRiskColor(hovered.stat.risk_score, 0.4)}`,
                       fontWeight: 700,
                       fontSize: "0.6rem",
-                      height: 18,
+                      height: 22,
                     }}
                   />
                 </Box>
@@ -331,8 +331,8 @@ export const GlobalMap = ({ countryStats }: GlobalMapProps) => {
               label="LIVE"
               size="small"
               sx={{
-                height: 16,
-                fontSize: "0.55rem",
+                height: 20,
+                fontSize: "0.68rem",
                 fontWeight: 800,
                 backgroundColor: "rgba(16, 185, 129, 0.15)",
                 color: "#10b981",

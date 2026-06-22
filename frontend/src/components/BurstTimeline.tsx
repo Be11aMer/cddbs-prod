@@ -1,18 +1,22 @@
-import { Box, Typography, Chip, Tooltip, CircularProgress, IconButton } from "@mui/material";
+import { Box, Typography, Chip, Tooltip, CircularProgress, IconButton, Button } from "@mui/material";
 import TrendingUpIcon from "@mui/icons-material/TrendingUp";
 import RefreshIcon from "@mui/icons-material/Refresh";
 import WarningAmberIcon from "@mui/icons-material/WarningAmber";
+import RadarIcon from "@mui/icons-material/Radar";
 import { useQuery } from "@tanstack/react-query";
 import { fetchNarrativeBursts, type NarrativeBurstItem } from "../api";
+import { magnitudeSeverityColor } from "../utils/severity";
+import type { ViewType } from "../App";
+import type { EventScope } from "./OutletNetworkGraph";
 
-function getZScoreColor(z: number | null): string {
-  if (!z) return "#94a3b8";
-  if (z >= 6) return "#ef4444";
-  if (z >= 4) return "#f59e0b";
-  return "#10b981";
+const getZScoreColor = magnitudeSeverityColor;
+
+interface BurstRowProps {
+  burst: NarrativeBurstItem;
+  onViewEvent?: (scope: EventScope) => void;
 }
 
-function BurstRow({ burst }: { burst: NarrativeBurstItem }) {
+function BurstRow({ burst, onViewEvent }: BurstRowProps) {
   const z = burst.z_score ?? 0;
   const color = getZScoreColor(burst.z_score);
   const barWidth = Math.min((z / 10) * 100, 100);
@@ -45,20 +49,21 @@ function BurstRow({ burst }: { burst: NarrativeBurstItem }) {
             {burst.keyword}
           </Typography>
         </Box>
-        <Chip
-          label={`z=${z.toFixed(1)}`}
-          size="small"
-          sx={{
-            height: 16,
-            fontSize: "0.6rem",
-            fontWeight: 800,
-            backgroundColor: `${color}22`,
-            color,
-            border: `1px solid ${color}44`,
-            "& .MuiChip-label": { px: 0.5 },
-            flexShrink: 0,
-          }}
-        />
+        <Box sx={{ display: "flex", alignItems: "center", gap: 0.5, flexShrink: 0 }}>
+          <Chip
+            label={`z=${z.toFixed(1)}`}
+            size="small"
+            sx={{
+              height: 20,
+              fontSize: "0.6rem",
+              fontWeight: 800,
+              backgroundColor: `${color}22`,
+              color,
+              border: `1px solid ${color}44`,
+              "& .MuiChip-label": { px: 0.5 },
+            }}
+          />
+        </Box>
       </Box>
 
       {/* Z-score bar */}
@@ -82,8 +87,8 @@ function BurstRow({ burst }: { burst: NarrativeBurstItem }) {
         />
       </Box>
 
-      {/* Meta */}
-      <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+      {/* Meta + event drill-back */}
+      <Box sx={{ display: "flex", alignItems: "center", gap: 1, flexWrap: "wrap" }}>
         <Typography variant="caption" color="text.disabled" sx={{ fontSize: "0.6rem" }}>
           {burst.current_frequency ?? 0} articles/hr
         </Typography>
@@ -91,19 +96,45 @@ function BurstRow({ burst }: { burst: NarrativeBurstItem }) {
           baseline: {burst.baseline_frequency ?? 0}/hr
         </Typography>
         {detectedAt && (
-          <Typography variant="caption" color="text.disabled" sx={{ fontSize: "0.6rem", ml: "auto" }}>
+          <Typography variant="caption" color="text.disabled" sx={{ fontSize: "0.6rem" }}>
             {detectedAt.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
           </Typography>
+        )}
+        {burst.cluster_id != null && onViewEvent && (
+          <Tooltip title="Open the event cluster this burst is tied to">
+            <Button
+              size="small"
+              variant="text"
+              startIcon={<RadarIcon sx={{ fontSize: 11 }} />}
+              onClick={() => onViewEvent({ id: burst.cluster_id!, title: burst.keyword })}
+              sx={{
+                ml: "auto",
+                fontSize: "0.6rem",
+                textTransform: "none",
+                py: 0,
+                px: 0.5,
+                minWidth: 0,
+                color: "text.disabled",
+                "&:hover": { color: "#22d3ee", backgroundColor: "rgba(34,211,238,0.08)" },
+              }}
+            >
+              View event →
+            </Button>
+          </Tooltip>
         )}
       </Box>
     </Box>
   );
 }
 
-export const BurstTimeline = () => {
+interface Props {
+  onNavigate?: (view: ViewType, scope?: EventScope) => void;
+}
+
+export const BurstTimeline = ({ onNavigate }: Props = {}) => {
   const { data: bursts, isLoading, refetch, isFetching } = useQuery({
     queryKey: ["narrative-bursts"],
-    queryFn: fetchNarrativeBursts,
+    queryFn: () => fetchNarrativeBursts({ limit: 100 }),
     refetchInterval: 30 * 1000,
     staleTime: 15 * 1000,
   });
@@ -112,6 +143,10 @@ export const BurstTimeline = () => {
   const sortedBursts = [...activeBursts].sort(
     (a, b) => (b.z_score ?? 0) - (a.z_score ?? 0)
   );
+
+  const handleViewEvent = (scope: EventScope) => {
+    onNavigate?.("events", scope);
+  };
 
   return (
     <Box
@@ -148,7 +183,7 @@ export const BurstTimeline = () => {
               label={sortedBursts.length}
               size="small"
               sx={{
-                height: 16,
+                height: 20,
                 fontSize: "0.6rem",
                 fontWeight: 700,
                 backgroundColor: "rgba(239,68,68,0.1)",
@@ -202,7 +237,7 @@ export const BurstTimeline = () => {
               position: "absolute",
               right: 0,
               top: -8,
-              fontSize: "0.5rem",
+              fontSize: "0.62rem",
               color: "rgba(239,68,68,0.6)",
               fontWeight: 700,
             }}
@@ -245,7 +280,11 @@ export const BurstTimeline = () => {
         )}
 
         {sortedBursts.map((burst) => (
-          <BurstRow key={burst.id} burst={burst} />
+          <BurstRow
+            key={burst.id}
+            burst={burst}
+            onViewEvent={burst.cluster_id != null ? handleViewEvent : undefined}
+          />
         ))}
       </Box>
     </Box>
