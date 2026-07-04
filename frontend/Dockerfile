@@ -11,11 +11,9 @@ RUN npm ci
 # Copy source files
 COPY . .
 
-# Declare build-time arg so Render's env var reaches Vite at compile time
-ARG VITE_API_KEY
-ENV VITE_API_KEY=$VITE_API_KEY
-
-# Build the application
+# Build the application. The backend API key is intentionally NOT passed in
+# here — it must never be baked into the client bundle. nginx injects it
+# server-side at runtime instead (see below).
 RUN npm run build
 
 # Production stage
@@ -24,8 +22,16 @@ FROM nginx:alpine
 # Copy built files to nginx
 COPY --from=builder /app/dist /usr/share/nginx/html
 
-# Copy nginx configuration
-COPY nginx.conf /etc/nginx/conf.d/default.conf
+# nginx template processing: the entrypoint runs envsubst over files in
+# /etc/nginx/templates/*.template at startup. NGINX_ENVSUBST_FILTER restricts
+# substitution to CDDBS_API_KEY only, so nginx's own $variables are preserved.
+# CDDBS_API_KEY is supplied as a runtime env var (Render dashboard); empty by
+# default so local builds behave as before.
+ENV CDDBS_API_KEY=""
+ENV NGINX_ENVSUBST_FILTER=CDDBS_API_KEY
+
+# Copy nginx configuration as a template so ${CDDBS_API_KEY} is substituted
+COPY nginx.conf /etc/nginx/templates/default.conf.template
 
 EXPOSE 80
 

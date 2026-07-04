@@ -4,16 +4,13 @@ import axios from "axios";
 // Locally and on Render, falls back to /api (nginx proxy handles it).
 export const API_URL = import.meta.env.VITE_API_URL || "/api";
 
+// NOTE: the backend API key is intentionally NOT sent from the browser.
+// On the Render deployment the nginx proxy (see frontend/nginx.conf) injects
+// the X-API-Key header server-side from the CDDBS_API_KEY env var, so the key
+// never reaches the client bundle. Requests here target /api, which nginx
+// proxies to the backend and augments with the key.
 export const api = axios.create({
   baseURL: API_URL,
-  headers: {
-    // VITE_API_KEY is set in production (Render env var) to match
-    // CDDBS_BOOTSTRAP_API_KEY on the backend. Omitted in local dev
-    // so development works without auth configured.
-    ...(import.meta.env.VITE_API_KEY
-      ? { "X-API-Key": import.meta.env.VITE_API_KEY as string }
-      : {}),
-  },
 });
 
 export async function wakeUpBackend() {
