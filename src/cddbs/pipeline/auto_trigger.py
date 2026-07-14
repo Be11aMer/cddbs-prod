@@ -13,6 +13,7 @@ from datetime import datetime, UTC
 
 from src.cddbs.models import EventCluster, TopicRun
 from src.cddbs.pipeline.sitrep import generate_sitrep
+from src.cddbs.utils.input_sanitizer import sanitize_topic
 
 logger = logging.getLogger(__name__)
 
@@ -81,8 +82,11 @@ def auto_trigger_analysis(session) -> int:
         except Exception as exc:
             logger.error("Auto-trigger: SitRep failed for cluster %d: %s", cluster.id, exc)
 
-        # 2. TopicRun — create row synchronously, execute in daemon thread
-        topic = cluster.title or f"cluster_{cluster.id}"
+        # 2. TopicRun — create row synchronously, execute in daemon thread.
+        # cluster.title is derived from untrusted article text; the manual
+        # /topic-runs endpoint sanitises the topic but this automated path
+        # bypasses it, so sanitise here before it reaches the Gemini prompt.
+        topic = sanitize_topic(cluster.title or f"cluster_{cluster.id}")
         try:
             topic_run = TopicRun(
                 topic=topic,
