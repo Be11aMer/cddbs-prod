@@ -18,6 +18,7 @@ from src.cddbs.config import settings
 from src.cddbs.adapters import TwitterAdapter, TelegramAdapter, BriefingInput
 from src.cddbs.pipeline.prompt_templates import get_social_media_prompt
 from src.cddbs.utils.genai_client import call_gemini
+from src.cddbs.utils.input_sanitizer import sanitize_text
 from src.cddbs.database import SessionLocal
 from src.cddbs import models
 from src.cddbs.quality import score_briefing
@@ -26,12 +27,15 @@ from src.cddbs.narratives import match_narratives_from_report
 
 def _format_briefing_input(briefing_input: BriefingInput) -> tuple[str, str]:
     """Convert normalized BriefingInput to text strings for the prompt."""
+    # Bio, display name and post text are attacker-controlled account content
+    # interpolated into the Gemini prompt — sanitise to defend against embedded
+    # prompt injection (OWASP LLM01). Length caps mirror the analysis pipeline.
     profile = briefing_input.profile
     profile_lines = [
         f"Handle: {profile.handle}",
         f"Platform: {profile.platform}",
-        f"Display Name: {profile.display_name}",
-        f"Bio: {profile.bio}",
+        f"Display Name: {sanitize_text(profile.display_name or '', 200)}",
+        f"Bio: {sanitize_text(profile.bio or '', 2000)}",
         f"Followers: {profile.followers}",
         f"Following: {profile.following}",
         f"Total Posts: {profile.total_posts}",
@@ -46,8 +50,9 @@ def _format_briefing_input(briefing_input: BriefingInput) -> tuple[str, str]:
     posts_lines = []
     for i, post in enumerate(briefing_input.posts[:50], 1):
         posts_lines.append(f"--- Post {i} ---")
+        posts_lines.append("[BEGIN UNTRUSTED POST DATA]")
         posts_lines.append(f"ID: {post.post_id}")
-        posts_lines.append(f"Text: {post.text}")
+        posts_lines.append(f"Text: {sanitize_text(post.text or '', 2000)}")
         posts_lines.append(f"Time: {post.timestamp}")
         posts_lines.append(f"Type: {post.media_type}")
         if post.engagement:
@@ -59,6 +64,7 @@ def _format_briefing_input(briefing_input: BriefingInput) -> tuple[str, str]:
             posts_lines.append(f"URLs: {', '.join(post.urls)}")
         if post.mentions:
             posts_lines.append(f"Mentions: {', '.join(post.mentions)}")
+        posts_lines.append("[END UNTRUSTED POST DATA]")
         posts_lines.append("")
 
     posts_data = "\n".join(posts_lines) if posts_lines else "No posts available."

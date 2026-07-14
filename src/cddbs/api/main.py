@@ -25,7 +25,7 @@ from src.cddbs.models import (
 from src.cddbs.pipeline.orchestrator import run_pipeline
 from src.cddbs.pipeline.topic_pipeline import run_topic_pipeline
 from src.cddbs.narratives import get_all_narratives
-from src.cddbs.webhooks import fire_event, SUPPORTED_EVENTS
+from src.cddbs.webhooks import fire_event, SUPPORTED_EVENTS, validate_webhook_url, WebhookURLError
 from src.cddbs.api.security_headers import SecurityHeadersMiddleware
 from src.cddbs.api.auth import APIKeyMiddleware, bootstrap_api_key
 from src.cddbs.utils.input_sanitizer import (
@@ -2237,7 +2237,9 @@ class WebhookResponse(BaseModel):
 
 
 @app.post("/webhooks", response_model=WebhookResponse)
+@limiter.limit("10/minute")
 def create_webhook(
+    request: Request,
     payload: WebhookCreateRequest,
     db: Session = Depends(get_db),
 ):
@@ -2248,6 +2250,11 @@ def create_webhook(
             status_code=400,
             detail=f"Invalid event types: {invalid}. Supported: {SUPPORTED_EVENTS}",
         )
+    # SSRF guard: reject URLs pointing at private/loopback/metadata addresses.
+    try:
+        validate_webhook_url(payload.url)
+    except WebhookURLError as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
     hook = WebhookConfig(
         url=payload.url,
         events=payload.events,
@@ -2282,7 +2289,8 @@ def delete_webhook(webhook_id: int, db: Session = Depends(get_db)):
 
 
 @app.post("/webhooks/test/{webhook_id}")
-async def test_webhook(webhook_id: int, db: Session = Depends(get_db)):
+@limiter.limit("10/minute")
+async def test_webhook(request: Request, webhook_id: int, db: Session = Depends(get_db)):
     """Send a test pipeline_failure event to a webhook endpoint."""
     hook = db.query(WebhookConfig).filter(WebhookConfig.id == webhook_id).first()
     if not hook:
