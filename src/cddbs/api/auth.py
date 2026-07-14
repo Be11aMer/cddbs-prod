@@ -110,28 +110,51 @@ class APIKeyMiddleware(BaseHTTPMiddleware):
 
 
 def bootstrap_api_key() -> None:
-    """On startup: if CDDBS_BOOTSTRAP_API_KEY is set and no keys exist, insert the hashed record."""
+    """On startup: reconcile the bootstrap API key with CDDBS_BOOTSTRAP_API_KEY.
+
+    Supports rotation. The intended operator workflow is "generate a new key,
+    set CDDBS_BOOTSTRAP_API_KEY in the dashboard, redeploy" — so on startup:
+
+    - If the env var is unset/empty, do nothing (auth left to existing keys).
+    - If an *active* bootstrap key already matches the env var, do nothing
+      (idempotent — no new row, no re-hash churn on every restart).
+    - Otherwise (first-time seed OR the env var changed), deactivate any
+      previous bootstrap keys and insert the new one. The old key stops
+      validating immediately; the row is kept (is_active=False) as an audit
+      trail. Non-bootstrap keys (e.g. named CI keys) are never touched.
+    """
     plaintext = os.getenv("CDDBS_BOOTSTRAP_API_KEY", "").strip()
     if not plaintext:
         return
 
     db = SessionLocal()
     try:
-        existing = db.query(ApiKey).first()
-        if existing:
-            return
+        bootstrap_keys = db.query(ApiKey).filter(ApiKey.name == "bootstrap").all()
 
-        key_hash = _ph.hash(plaintext)
+        # Idempotent: an active bootstrap key already matches → nothing to do.
+        for record in bootstrap_keys:
+            if not record.is_active:
+                continue
+            try:
+                _ph.verify(record.key_hash, plaintext)
+                return
+            except (VerifyMismatchError, VerificationError):
+                continue
+
+        # Rotation (or first-time seed): retire old bootstrap keys, add the new.
+        for record in bootstrap_keys:
+            record.is_active = False
+
         prefix = plaintext[:8]
-        record = ApiKey(
+        db.add(ApiKey(
             name="bootstrap",
             key_prefix=prefix,
-            key_hash=key_hash,
+            key_hash=_ph.hash(plaintext),
             is_active=True,
-        )
-        db.add(record)
+        ))
         db.commit()
-        print(f"INFO: Bootstrap API key created (prefix={prefix}...)")
+        rotated = any(k.name == "bootstrap" for k in bootstrap_keys)
+        print(f"INFO: Bootstrap API key {'rotated' if rotated else 'created'} (prefix={prefix}...)")
     except Exception as e:
         db.rollback()
         raise e
