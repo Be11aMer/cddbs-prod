@@ -3,9 +3,12 @@ from __future__ import annotations
 
 import hashlib
 import hmac
+import ipaddress
 import json
+import socket
 from datetime import datetime, UTC
 from typing import Optional
+from urllib.parse import urlparse
 
 
 SUPPORTED_EVENTS = [
@@ -14,6 +17,53 @@ SUPPORTED_EVENTS = [
     "collector_failure",
     "batch_completed",
 ]
+
+
+class WebhookURLError(ValueError):
+    """Raised when a webhook URL is rejected by the SSRF guard."""
+
+
+def validate_webhook_url(url: str) -> None:
+    """Reject webhook URLs that could drive server-side request forgery.
+
+    The server POSTs to operator-supplied webhook URLs, so an unvalidated URL
+    is an SSRF primitive (e.g. cloud metadata at 169.254.169.254, or internal
+    services). Allow only http/https to publicly-routable hosts; reject every
+    address a hostname resolves to that is private, loopback, link-local,
+    reserved, multicast, or unspecified. Called both at registration and
+    immediately before delivery (so DNS rebinding can't slip past).
+
+    Raises WebhookURLError if the URL is not allowed.
+    """
+    if not url or not isinstance(url, str):
+        raise WebhookURLError("Webhook URL is required")
+
+    parsed = urlparse(url.strip())
+    if parsed.scheme not in ("http", "https"):
+        raise WebhookURLError("Webhook URL must use http or https")
+    host = parsed.hostname
+    if not host:
+        raise WebhookURLError("Webhook URL must include a host")
+
+    port = parsed.port or (443 if parsed.scheme == "https" else 80)
+    try:
+        infos = socket.getaddrinfo(host, port, proto=socket.IPPROTO_TCP)
+    except socket.gaierror as exc:
+        raise WebhookURLError(f"Webhook host does not resolve: {host}") from exc
+
+    for info in infos:
+        ip = ipaddress.ip_address(info[4][0])
+        if (
+            ip.is_private
+            or ip.is_loopback
+            or ip.is_link_local
+            or ip.is_reserved
+            or ip.is_multicast
+            or ip.is_unspecified
+        ):
+            raise WebhookURLError(
+                f"Webhook host {host} resolves to a disallowed address ({ip})"
+            )
 
 
 def sign_payload(payload: str, secret: str) -> str:
@@ -40,6 +90,14 @@ async def deliver_webhook(
         "timestamp": datetime.now(UTC).isoformat(),
         "data": payload,
     })
+
+    # SSRF guard at the egress point — re-validate here (not just at
+    # registration) so DNS rebinding between registration and delivery is caught.
+    try:
+        validate_webhook_url(url)
+    except WebhookURLError as exc:
+        print(f"Webhook delivery to {url} blocked by SSRF guard: {exc}")
+        return False
 
     headers = {"Content-Type": "application/json"}
     if secret:

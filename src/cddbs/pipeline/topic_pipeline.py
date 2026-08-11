@@ -20,7 +20,7 @@ import requests
 from src.cddbs.database import SessionLocal
 from src.cddbs.config import settings
 from src.cddbs import models
-from src.cddbs.utils.genai_client import call_gemini
+from src.cddbs.utils.genai_client import call_gemini, is_gemini_error
 from src.cddbs.pipeline.topic_prompt_templates import get_baseline_prompt, get_comparative_prompt
 from src.cddbs.pipeline.output_validator import validate_topic_comparative
 from src.cddbs.pipeline.technique_taxonomy import normalize_techniques
@@ -259,23 +259,35 @@ def run_topic_pipeline(
                 or f"Neutral wire-service coverage of '{topic}'. Reference articles analyzed: {len(baseline_articles)}."
             )
 
-            new_baseline = models.TopicBaseline(
-                topic=topic,
-                topic_key=topic_key,
-                baseline_summary=baseline_summary,
-                baseline_raw=baseline_raw,
-                reference_article_count=len(baseline_articles),
-                model_version=settings.GEMINI_MODEL,
-            )
-            session.add(new_baseline)
-            session.flush()  # get new_baseline.id
+            # --- Failed-baseline cache guard (N-5) ---
+            # call_gemini() returns a sentinel string instead of raising. Caching
+            # that would pin every future run of this topic to a broken baseline,
+            # because TopicBaseline is only invalidated manually. Let the run
+            # continue on the fallback summary, but never persist the failure.
+            if is_gemini_error(baseline_raw):
+                logger.error(
+                    f"Baseline Gemini call failed — not caching topic_run_id={topic_run_id} "
+                    f"topic_key={topic_key}: {baseline_raw}"
+                )
+                topic_run.baseline_id = None
+            else:
+                new_baseline = models.TopicBaseline(
+                    topic=topic,
+                    topic_key=topic_key,
+                    baseline_summary=baseline_summary,
+                    baseline_raw=baseline_raw,
+                    reference_article_count=len(baseline_articles),
+                    model_version=settings.GEMINI_MODEL,
+                )
+                session.add(new_baseline)
+                session.flush()  # get new_baseline.id
+                topic_run.baseline_id = new_baseline.id
+                logger.info(f"Baseline generated and cached topic_run_id={topic_run_id} topic_baseline_id={new_baseline.id} summary_length={len(baseline_summary)}")
 
-            topic_run.baseline_id = new_baseline.id
             topic_run.baseline_summary = baseline_summary
             topic_run.baseline_raw = baseline_raw
             topic_run.status = "running"
             session.commit()
-            logger.info(f"Baseline generated and cached topic_run_id={topic_run_id} topic_baseline_id={new_baseline.id} summary_length={len(baseline_summary)}")
 
         # ------------------------------------------------------------------
         # Step 3 — Discover outlets

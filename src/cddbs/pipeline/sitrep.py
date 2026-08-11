@@ -15,8 +15,16 @@ from datetime import datetime, UTC
 from src.cddbs.config import settings
 from src.cddbs.models import EventCluster, RawArticle, ThreatBriefing
 from src.cddbs.utils.genai_client import call_gemini
+from src.cddbs.utils.input_sanitizer import sanitize_text
 
 logger = logging.getLogger(__name__)
+
+# Article/cluster fields below originate from RSS/GDELT feeds (untrusted) and
+# are interpolated into the Gemini prompt — sanitise before interpolation and
+# structurally fence article bodies to defend against prompt injection (LLM01).
+_MAX_ARTICLE_TITLE_LENGTH = 500
+_MAX_ARTICLE_CONTENT_LENGTH = 300
+_MAX_META_FIELD_LENGTH = 200
 
 
 def _build_sitrep_prompt(cluster: EventCluster, articles: list[RawArticle]) -> str:
@@ -35,18 +43,22 @@ def _build_sitrep_prompt(cluster: EventCluster, articles: list[RawArticle]) -> s
     articles_text = ""
     for i, a in enumerate(articles[:20], 1):  # cap at 20 articles
         published = a.published_at.strftime("%Y-%m-%d %H:%M") if a.published_at else "unknown"
+        safe_title = sanitize_text(a.title or "", _MAX_ARTICLE_TITLE_LENGTH)
+        safe_source = sanitize_text(a.source_name or "", _MAX_META_FIELD_LENGTH)
         articles_text += (
             f"--- Article {i} ---\n"
-            f"Title: {a.title}\n"
-            f"Source: {a.source_name} ({a.source_domain})\n"
+            "[BEGIN UNTRUSTED ARTICLE DATA]\n"
+            f"Title: {safe_title}\n"
+            f"Source: {safe_source} ({a.source_domain})\n"
             f"Source Type: {a.source_type}\n"
             f"Country: {a.country or 'unknown'}\n"
             f"Published: {published}\n"
             f"Language: {a.language or 'unknown'}\n"
         )
         if a.content:
-            articles_text += f"Content: {a.content[:300]}\n"
-        articles_text += "\n"
+            safe_content = sanitize_text(a.content, _MAX_ARTICLE_CONTENT_LENGTH)
+            articles_text += f"Content: {safe_content}\n"
+        articles_text += "[END UNTRUSTED ARTICLE DATA]\n\n"
 
     # Determine if cross-source framing analysis applies
     unique_sources = len(sources)
@@ -84,14 +96,19 @@ def _build_sitrep_prompt(cluster: EventCluster, articles: list[RawArticle]) -> s
     else:
         framing_section = '"framing_analysis": null,'
 
+    # Cluster title/keywords/countries are derived from untrusted article text.
+    safe_event = sanitize_text(cluster.title or "Unknown event", _MAX_META_FIELD_LENGTH)
+    safe_keywords = sanitize_text(", ".join(cluster.keywords or []), _MAX_META_FIELD_LENGTH)
+    safe_countries = sanitize_text(", ".join(cluster.countries or []), _MAX_META_FIELD_LENGTH)
+
     return f"""You are a threat intelligence analyst for a Cyber Disinformation Detection system.
 
 Analyze the following event cluster and produce a situational report (SitRep).
 
-Event: {cluster.title or "Unknown event"}
+Event: {safe_event}
 Event Type: {cluster.event_type or "other"}
-Countries: {", ".join(cluster.countries or [])}
-Keywords: {", ".join(cluster.keywords or [])}
+Countries: {safe_countries}
+Keywords: {safe_keywords}
 Articles: {len(articles)} from {unique_sources} distinct sources
 Risk Score: {cluster.narrative_risk_score:.2f}
 First Seen: {cluster.first_seen}

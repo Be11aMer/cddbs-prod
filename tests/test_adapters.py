@@ -90,12 +90,65 @@ class TestTwitterAdapter:
         assert not post.is_amplification
 
     def test_normalize_retweet(self, adapter, raw_twitter_tweet):
+        # X API v2 referenced_tweets entries carry only {type, id} — the author
+        # is resolved through the expansions side-loaded into `includes`.
         raw_twitter_tweet["referenced_tweets"] = [
-            {"type": "retweeted", "author_username": "SputnikInt"}
+            {"type": "retweeted", "id": "999"}
         ]
-        post = adapter.normalize_post(raw_twitter_tweet)
+        context = adapter.build_context({
+            "includes": {
+                "tweets": [{"id": "999", "author_id": "42", "text": "original"}],
+                "users": [{"id": "42", "username": "SputnikInt"}],
+            }
+        })
+        post = adapter.normalize_post(raw_twitter_tweet, context)
         assert post.is_amplification is True
         assert post.amplification_source == "SputnikInt"
+
+    def test_normalize_retweet_without_expansions_has_no_source(self, adapter, raw_twitter_tweet):
+        """Still flagged as amplification, but the handle is simply unknown."""
+        raw_twitter_tweet["referenced_tweets"] = [{"type": "retweeted", "id": "999"}]
+        post = adapter.normalize_post(raw_twitter_tweet)
+        assert post.is_amplification is True
+        assert post.amplification_source == ""
+
+    def test_normalize_quote_resolves_source(self, adapter, raw_twitter_tweet):
+        raw_twitter_tweet["referenced_tweets"] = [{"type": "quoted", "id": "555"}]
+        context = adapter.build_context({
+            "includes": {
+                "tweets": [{"id": "555", "author_id": "7"}],
+                "users": [{"id": "7", "username": "rt_russian"}],
+            }
+        })
+        post = adapter.normalize_post(raw_twitter_tweet, context)
+        assert post.is_amplification is True
+        assert post.amplification_source == "rt_russian"
+
+    def test_normalize_reply_is_not_amplification(self, adapter, raw_twitter_tweet):
+        raw_twitter_tweet["referenced_tweets"] = [{"type": "replied_to", "id": "111"}]
+        post = adapter.normalize_post(raw_twitter_tweet)
+        assert post.is_amplification is False
+        assert post.amplification_source == ""
+
+    def test_normalize_end_to_end_resolves_amplification(self, adapter, raw_twitter_profile):
+        """normalize() must thread `includes` through to each post."""
+        raw_data = {
+            "profile": raw_twitter_profile,
+            "posts": [
+                {
+                    "id": "1",
+                    "text": "RT the original",
+                    "created_at": "2026-02-10T12:00:00Z",
+                    "referenced_tweets": [{"type": "retweeted", "id": "999"}],
+                }
+            ],
+            "includes": {
+                "tweets": [{"id": "999", "author_id": "42"}],
+                "users": [{"id": "42", "username": "SputnikInt"}],
+            },
+        }
+        briefing = adapter.normalize(raw_data)
+        assert briefing.posts[0].amplification_source == "SputnikInt"
 
     def test_normalize_extracts_urls(self, adapter, raw_twitter_tweet):
         post = adapter.normalize_post(raw_twitter_tweet)

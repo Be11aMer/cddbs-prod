@@ -26,10 +26,18 @@ class Settings:
     # Leave empty to hit GDELT directly (likely blocked on shared IPs).
     GDELT_PROXY_URL = os.getenv("GDELT_PROXY_URL", "")
 
-    # Twitter/X API v2 credentials
+    # Twitter/X API v2 credentials.
+    # Only the app-only Bearer token is used — the collection path reads public
+    # accounts via GET /2/users/by/username and GET /2/users/:id/tweets, both of
+    # which accept App-Only Authentication. OAuth 1.0a (consumer key / access
+    # token) would only be needed to act on behalf of a user.
     TWITTER_BEARER_TOKEN = os.getenv("TWITTER_BEARER_TOKEN", "")
-    TWITTER_API_KEY = os.getenv("TWITTER_API_KEY", "")
-    TWITTER_API_SECRET = os.getenv("TWITTER_API_SECRET", "")
+
+    # Posts fetched per social-media run. X bills per post read under the
+    # pay-per-use model that became the default in Feb 2026, so this is the main
+    # cost lever: each run costs roughly (X_MAX_POSTS x post-read rate) plus one
+    # user read. Clamped to the API's 5-100 range at the call site.
+    X_MAX_POSTS = int(os.getenv("X_MAX_POSTS", "25"))
 
     # Telegram Bot API credentials
     TELEGRAM_BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN", "")

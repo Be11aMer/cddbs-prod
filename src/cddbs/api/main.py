@@ -25,7 +25,7 @@ from src.cddbs.models import (
 from src.cddbs.pipeline.orchestrator import run_pipeline
 from src.cddbs.pipeline.topic_pipeline import run_topic_pipeline
 from src.cddbs.narratives import get_all_narratives
-from src.cddbs.webhooks import fire_event, SUPPORTED_EVENTS
+from src.cddbs.webhooks import fire_event, SUPPORTED_EVENTS, validate_webhook_url, WebhookURLError
 from src.cddbs.api.security_headers import SecurityHeadersMiddleware
 from src.cddbs.api.auth import APIKeyMiddleware, bootstrap_api_key
 from src.cddbs.utils.input_sanitizer import (
@@ -621,7 +621,12 @@ class FeedbackResponse(BaseModel):
 
 
 @app.post("/feedback", response_model=FeedbackResponse)
-def submit_feedback(payload: FeedbackCreateRequest, db: Session = Depends(get_db)):
+@limiter.limit("10/minute")
+def submit_feedback(
+    request: Request,
+    payload: FeedbackCreateRequest,
+    db: Session = Depends(get_db),
+):
     """Submit tester feedback (early-stage quality gate)."""
     fb = Feedback(
         tester_name=payload.tester_name,
@@ -1746,7 +1751,8 @@ def get_source_credibility(
 
 
 @app.post("/stats/source-credibility/refresh")
-async def refresh_source_credibility(background_tasks: BackgroundTasks):
+@limiter.limit("2/minute")
+async def refresh_source_credibility(request: Request, background_tasks: BackgroundTasks):
     """Manually trigger a Source Credibility Index recomputation.
 
     Runs in the background; returns immediately.
@@ -1784,7 +1790,10 @@ class SocialMediaStatusResponse(BaseModel):
 
 
 @app.post("/social-media/analyze", response_model=SocialMediaStatusResponse)
-@limiter.limit("5/minute")
+# Each run bills X per post read (pay-per-use). 5/minute was set when X reads
+# were free; at current rates that ceiling allows a substantial hourly spend
+# from a single caller, so this endpoint is held tighter than the others.
+@limiter.limit("1/minute")
 def create_social_media_run(
     request: Request,
     payload: SocialMediaRunRequest,
@@ -1881,13 +1890,22 @@ def _run_social_media_job(
         )
 
     except Exception as exc:
+        logger.error(
+            "social media job failed report_id=%s platform=%s handle=%s: %s",
+            report_id, platform, handle, exc,
+        )
         report = db.query(Report).filter(Report.id == report_id).first()
         if report:
+            report.analysis_status = "failed"
             report.data = {
                 "platform": platform,
                 "handle": handle,
                 "status": "failed",
+                "analysis_status": "failed",
                 "analysis_date": datetime.now(UTC).isoformat(),
+                # Carries the X API classification (cause=...,
+                # credentials_accepted=...) so the reason is visible via the
+                # API, not only in the service logs.
                 "errors": [str(exc)],
             }
             db.add(report)
@@ -2237,7 +2255,9 @@ class WebhookResponse(BaseModel):
 
 
 @app.post("/webhooks", response_model=WebhookResponse)
+@limiter.limit("10/minute")
 def create_webhook(
+    request: Request,
     payload: WebhookCreateRequest,
     db: Session = Depends(get_db),
 ):
@@ -2248,6 +2268,11 @@ def create_webhook(
             status_code=400,
             detail=f"Invalid event types: {invalid}. Supported: {SUPPORTED_EVENTS}",
         )
+    # SSRF guard: reject URLs pointing at private/loopback/metadata addresses.
+    try:
+        validate_webhook_url(payload.url)
+    except WebhookURLError as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
     hook = WebhookConfig(
         url=payload.url,
         events=payload.events,
@@ -2282,7 +2307,8 @@ def delete_webhook(webhook_id: int, db: Session = Depends(get_db)):
 
 
 @app.post("/webhooks/test/{webhook_id}")
-async def test_webhook(webhook_id: int, db: Session = Depends(get_db)):
+@limiter.limit("10/minute")
+async def test_webhook(request: Request, webhook_id: int, db: Session = Depends(get_db)):
     """Send a test pipeline_failure event to a webhook endpoint."""
     hook = db.query(WebhookConfig).filter(WebhookConfig.id == webhook_id).first()
     if not hook:
@@ -2432,8 +2458,10 @@ def get_threat_briefing(briefing_id: int, db: Session = Depends(get_db)):
 
 
 @app.post("/threat-briefings/quarterly", response_model=ThreatBriefingDetailResponse)
+@limiter.limit("2/minute")
 def trigger_quarterly_report(
-    request: QuarterlyReportRequest,
+    request: Request,
+    payload: QuarterlyReportRequest,
     background_tasks: BackgroundTasks,
     db: Session = Depends(get_db),
 ):
@@ -2445,11 +2473,11 @@ def trigger_quarterly_report(
     import calendar
     from datetime import timezone
 
-    start_month = (request.quarter - 1) * 3 + 1
+    start_month = (payload.quarter - 1) * 3 + 1
     end_month = start_month + 2
-    _, last_day = calendar.monthrange(request.year, end_month)
-    period_start = datetime(request.year, start_month, 1, tzinfo=timezone.utc)
-    period_end = datetime(request.year, end_month, last_day, 23, 59, 59, tzinfo=timezone.utc)
+    _, last_day = calendar.monthrange(payload.year, end_month)
+    period_start = datetime(payload.year, start_month, 1, tzinfo=timezone.utc)
+    period_end = datetime(payload.year, end_month, last_day, 23, 59, 59, tzinfo=timezone.utc)
 
     existing = (
         db.query(ThreatBriefing)
@@ -2481,7 +2509,7 @@ def trigger_quarterly_report(
     # Create a placeholder so the frontend can poll
     placeholder = ThreatBriefing(
         briefing_type="quarterly_report",
-        title=f"CDDBS Quarterly Threat Assessment — Q{request.quarter} {request.year} (generating...)",
+        title=f"CDDBS Quarterly Threat Assessment — Q{payload.quarter} {payload.year} (generating...)",
         executive_summary=None,
         articles_analyzed=0,
         sources_compared=0,
@@ -2510,7 +2538,7 @@ def trigger_quarterly_report(
         finally:
             session.close()
 
-    background_tasks.add_task(_generate, request.year, request.quarter, briefing_id)
+    background_tasks.add_task(_generate, payload.year, payload.quarter, briefing_id)
 
     return ThreatBriefingDetailResponse(
         id=placeholder.id,
