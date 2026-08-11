@@ -44,6 +44,8 @@ Backend → Cloudflare Worker (GDELT proxy)    ← already live
 | `DATABASE_URL` | Neon connection string *(from Neon dashboard → Connection string)* |
 | `GOOGLE_API_KEY` | Your Google Gemini API key |
 | `SERPAPI_KEY` | Your SerpAPI key |
+| `TWITTER_BEARER_TOKEN` | X API v2 **Bearer token** (app-only). Optional — omit to disable X analysis |
+| `X_MAX_POSTS` | Posts fetched per X run. Default `25` |
 | `GDELT_PROXY_URL` | `https://gdelt-proxy.<your-account>.workers.dev` |
 | `ALLOWED_ORIGINS` | `https://cddbs-frontend.<your-account>.workers.dev` |
 | `PYTHONPATH` | `/app` |

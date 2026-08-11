@@ -118,7 +118,7 @@ def _raise_for_x_api(resp: httpx.Response, context: str) -> None:
     raise XAPIError(f"{context}: X API returned {resp.status_code}. {detail}")
 
 
-async def fetch_twitter_data(handle: str, max_posts: int = 50) -> dict:
+async def fetch_twitter_data(handle: str, max_posts: int | None = None) -> dict:
     """Fetch an X account profile and recent posts via X API v2.
 
     Uses the public read endpoints (user lookup + user posts timeline), which
@@ -129,6 +129,9 @@ async def fetch_twitter_data(handle: str, max_posts: int = 50) -> dict:
     bearer = settings.TWITTER_BEARER_TOKEN
     if not bearer:
         raise ValueError("TWITTER_BEARER_TOKEN not configured")
+
+    if max_posts is None:
+        max_posts = settings.X_MAX_POSTS
 
     clean_handle = handle.lstrip("@")
     headers = {"Authorization": f"Bearer {bearer}"}

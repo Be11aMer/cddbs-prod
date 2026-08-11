@@ -1790,7 +1790,10 @@ class SocialMediaStatusResponse(BaseModel):
 
 
 @app.post("/social-media/analyze", response_model=SocialMediaStatusResponse)
-@limiter.limit("5/minute")
+# Each run bills X per post read (pay-per-use). 5/minute was set when X reads
+# were free; at current rates that ceiling allows a substantial hourly spend
+# from a single caller, so this endpoint is held tighter than the others.
+@limiter.limit("1/minute")
 def create_social_media_run(
     request: Request,
     payload: SocialMediaRunRequest,

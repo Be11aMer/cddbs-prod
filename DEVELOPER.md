@@ -200,9 +200,8 @@ All configuration is read from environment variables via `python-dotenv`.
 | `DB_POOL_SIZE` | `5` | SQLAlchemy connection pool size |
 | `DB_MAX_OVERFLOW` | `10` | SQLAlchemy max overflow connections |
 | `GDELT_PROXY_URL` | (none) | Cloudflare Worker URL to proxy GDELT requests (bypasses datacenter IP blocks) |
-| `TWITTER_BEARER_TOKEN` | (none) | Twitter API v2 bearer token |
-| `TWITTER_API_KEY` | (none) | Twitter API consumer key |
-| `TWITTER_API_SECRET` | (none) | Twitter API consumer secret |
+| `TWITTER_BEARER_TOKEN` | (none) | X API v2 app-only Bearer token. The only X credential used — the pipeline reads public accounts, so no OAuth 1.0a keys are required |
+| `X_MAX_POSTS` | `25` | Posts fetched per X run (clamped to the API's 5–100). X bills per post read, so this is the cost lever |
 | `TELEGRAM_BOT_TOKEN` | (none) | Telegram Bot API token |
 
 ### 4.2 `database.py` — Database Engine
