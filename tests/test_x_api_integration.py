@@ -135,8 +135,7 @@ def test_fetch_uses_canonical_x_host(x_token):
     assert all("api.x.com" in str(r.url) for r in captured.values())
 
 
-def test_fetch_clamps_max_results_to_api_range(x_token):
-    transport, captured = _mock_transport()
+def _fetch_with_max_posts(transport, max_posts):
     real_client = httpx.AsyncClient
 
     def factory(*args, **kwargs):
@@ -144,10 +143,43 @@ def test_fetch_clamps_max_results_to_api_range(x_token):
         return real_client(*args, **kwargs)
 
     with patch("src.cddbs.pipeline.social_media_pipeline.httpx.AsyncClient", factory):
-        asyncio.run(fetch_twitter_data("@rt_com", max_posts=500))
+        asyncio.run(fetch_twitter_data("@rt_com", max_posts=max_posts))
+
+
+@pytest.mark.parametrize(
+    "requested,expected",
+    [(500, "100"), (1, "5"), (30, "30")],
+)
+def test_fetch_clamps_max_results_to_api_range(x_token, requested, expected):
+    """The API accepts 5-100; anything outside that is a 400 from X."""
+    transport, captured = _mock_transport()
+    _fetch_with_max_posts(transport, requested)
 
     timeline_req = next(r for p, r in captured.items() if "tweets" in p)
-    assert timeline_req.url.params["max_results"] == "100"
+    assert timeline_req.url.params["max_results"] == expected
+
+
+def test_fetch_defaults_to_configured_post_budget(x_token, monkeypatch):
+    """X bills per post read, so the default must come from X_MAX_POSTS."""
+    from src.cddbs.pipeline import social_media_pipeline
+    monkeypatch.setattr(social_media_pipeline.settings, "X_MAX_POSTS", 25)
+
+    transport, captured = _mock_transport()
+    _run_fetch(transport)
+
+    timeline_req = next(r for p, r in captured.items() if "tweets" in p)
+    assert timeline_req.url.params["max_results"] == "25"
+
+
+def test_explicit_max_posts_overrides_the_configured_default(x_token, monkeypatch):
+    from src.cddbs.pipeline import social_media_pipeline
+    monkeypatch.setattr(social_media_pipeline.settings, "X_MAX_POSTS", 25)
+
+    transport, captured = _mock_transport()
+    _fetch_with_max_posts(transport, 60)
+
+    timeline_req = next(r for p, r in captured.items() if "tweets" in p)
+    assert timeline_req.url.params["max_results"] == "60"
 
 
 @pytest.mark.parametrize(

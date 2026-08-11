@@ -18,6 +18,15 @@ services:
         value: "2"  # Reduced for Render free tier
       - key: DB_MAX_OVERFLOW
         value: "3"  # Limited burst capacity
+      # X (Twitter) collection. App-only Bearer token — no OAuth 1.0a keys are
+      # needed, the pipeline only reads public accounts. sync:false keeps the
+      # secret out of git: Render prompts for the value and stores it on the
+      # service. Leave unset to disable X analysis (/api-status reports it).
+      - key: TWITTER_BEARER_TOKEN
+        sync: false
+      # Posts fetched per run. X bills per post read, so this is the cost lever.
+      - key: X_MAX_POSTS
+        value: "25"
 
   # Frontend UI Service (with Nginx Proxy)
   - type: web
