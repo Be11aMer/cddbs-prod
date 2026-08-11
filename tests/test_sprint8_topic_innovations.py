@@ -14,7 +14,7 @@ from unittest.mock import patch, MagicMock
 
 from src.cddbs.api.main import app
 from src.cddbs.database import SessionLocal
-from src.cddbs.models import TopicRun, TopicOutletResult
+from src.cddbs.models import TopicRun, TopicOutletResult, TopicBaseline
 from src.cddbs.pipeline.topic_pipeline import run_topic_pipeline
 from conftest import PYTEST_CLIENT_KEY
 
@@ -46,9 +46,19 @@ def topic_run(db: Session):
     db.commit()
     db.refresh(run)
     yield run
+    # A test that drives run_topic_pipeline also populates the TopicBaseline
+    # cache (M-2). Left behind, the next run reuses it, skips the baseline
+    # Gemini call and shifts the mock_gemini.side_effect list — so these tests
+    # would only pass on the first run against a persistent test database.
+    # The run holds an FK to the baseline, so drop the run first.
+    db.refresh(run)
+    baseline_id = run.baseline_id
     db.query(TopicOutletResult).filter_by(topic_run_id=run.id).delete()
     db.delete(run)
     db.commit()
+    if baseline_id is not None:
+        db.query(TopicBaseline).filter_by(id=baseline_id).delete()
+        db.commit()
 
 
 @pytest.fixture

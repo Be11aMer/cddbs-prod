@@ -4,7 +4,7 @@ from src.cddbs.config import settings
 from src.cddbs.database import SessionLocal
 from src.cddbs.pipeline.fetch import fetch_articles
 from src.cddbs import models
-from src.cddbs.utils.genai_client import call_gemini
+from src.cddbs.utils.genai_client import call_gemini, is_gemini_error
 from src.cddbs.pipeline.prompt_templates import get_consolidated_prompt
 from src.cddbs.quality import score_briefing
 from src.cddbs.narratives import match_narratives_from_report
@@ -109,6 +109,42 @@ def run_pipeline(
             report = models.Report(outlet=outlet, country=country)
             session.add(report)
             session.flush() # Get report id
+
+        # --- Gemini failure detection (C-3) ---
+        # call_gemini() returns a sentinel string instead of raising, so without
+        # this check the sentinel was persisted as `final_report` with status
+        # "completed" — a failed run was indistinguishable from a real briefing.
+        # Bail before article persistence, quality scoring and narrative matching,
+        # all of which would otherwise run against the error string.
+        if is_gemini_error(raw_response):
+            logger.error(
+                f"Gemini call failed report_id={report.id} outlet={outlet} country={country}: {raw_response}"
+            )
+            report.analysis_status = "failed"
+            report.final_report = None
+            report.raw_response = raw_response
+            report.data = {
+                **(report.data or {}),
+                "articles_analyzed": len(articles),
+                "url": url or (report.data or {}).get("url"),
+                "status": "failed",
+                "analysis_date": datetime.now(UTC).isoformat(),
+                "analysis_status": "failed",
+                "error": raw_response,
+            }
+            if url and not out.url:
+                out.url = url
+            session.commit()
+            session.refresh(report)
+            return {
+                "report_id": report.id,
+                "outlet": outlet,
+                "country": country,
+                "articles": articles,
+                "final_report": None,
+                "raw_response": raw_response,
+                "quality_score": None,
+            }
 
         # --- Output validation (H-2) ---
         validation = validate_analysis_output(payload)
