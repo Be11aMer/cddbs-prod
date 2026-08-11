@@ -1890,13 +1890,22 @@ def _run_social_media_job(
         )
 
     except Exception as exc:
+        logger.error(
+            "social media job failed report_id=%s platform=%s handle=%s: %s",
+            report_id, platform, handle, exc,
+        )
         report = db.query(Report).filter(Report.id == report_id).first()
         if report:
+            report.analysis_status = "failed"
             report.data = {
                 "platform": platform,
                 "handle": handle,
                 "status": "failed",
+                "analysis_status": "failed",
                 "analysis_date": datetime.now(UTC).isoformat(),
+                # Carries the X API classification (cause=...,
+                # credentials_accepted=...) so the reason is visible via the
+                # API, not only in the service logs.
                 "errors": [str(exc)],
             }
             db.add(report)

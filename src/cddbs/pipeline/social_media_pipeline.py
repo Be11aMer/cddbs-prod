@@ -23,6 +23,9 @@ from src.cddbs.database import SessionLocal
 from src.cddbs import models
 from src.cddbs.quality import score_briefing
 from src.cddbs.narratives import match_narratives_from_report
+from src.cddbs.utils.logger import get_logger
+
+logger = get_logger(__name__)
 
 
 def _format_briefing_input(briefing_input: BriefingInput) -> tuple[str, str]:
@@ -78,44 +81,132 @@ class XAPIError(RuntimeError):
     """An X API call failed in a way the operator needs to act on."""
 
 
-def _raise_for_x_api(resp: httpx.Response, context: str) -> None:
-    """Translate X API failures into messages that say what to do about them.
-
-    X bills per read and returns 429 both for the short rate-limit window and
-    for an exhausted monthly post cap, so a bare status code leaves the operator
-    guessing which one they hit.
-    """
-    if resp.status_code == 200:
-        return
-
-    detail = ""
+def _parse_x_error_body(resp: httpx.Response) -> dict:
+    """X returns a problem-details JSON object; fall back to raw text."""
     try:
         body = resp.json()
-        detail = body.get("detail") or body.get("title") or str(body)[:300]
     except Exception:
-        detail = (resp.text or "")[:300]
+        return {"detail": (resp.text or "")[:300]}
+    if not isinstance(body, dict):
+        return {"detail": str(body)[:300]}
+    return body
 
-    if resp.status_code == 401:
-        raise XAPIError(
-            f"{context}: X API rejected the credentials (401). "
-            f"Check TWITTER_BEARER_TOKEN is a valid app Bearer token. {detail}"
-        )
-    if resp.status_code == 403:
-        raise XAPIError(
-            f"{context}: X API forbade the request (403). The project's access "
-            f"tier likely does not include this endpoint. {detail}"
-        )
-    if resp.status_code == 429:
-        reset = resp.headers.get("x-rate-limit-reset", "")
-        remaining = resp.headers.get("x-user-limit-24hour-remaining", "")
-        raise XAPIError(
-            f"{context}: X API rate limit or monthly post cap hit (429). "
-            f"reset={reset or 'unknown'} 24h_remaining={remaining or 'unknown'}. {detail}"
-        )
-    if resp.status_code == 404:
-        raise XAPIError(f"{context}: not found (404). {detail}")
 
-    raise XAPIError(f"{context}: X API returned {resp.status_code}. {detail}")
+def _classify_x_failure(status: int, body: dict) -> tuple[str, bool, str]:
+    """Classify an X API failure as (cause, credentials_accepted, what_to_do).
+
+    The `credentials_accepted` flag is the operationally important part. X
+    authenticates the Bearer token *before* it evaluates entitlement or quota,
+    so anything other than 401 means the token itself was accepted and the
+    request was refused for a billing/permission/quota reason instead. Without
+    that distinction an unfunded account looks identical to a bad token in the
+    logs.
+    """
+    reason = (body.get("reason") or "").lower()
+    title = (body.get("title") or "").lower()
+
+    if status == 401:
+        return (
+            "credentials",
+            False,
+            "TWITTER_BEARER_TOKEN is missing, malformed, or revoked. "
+            "Regenerate it in the X developer console and update Render.",
+        )
+    if status == 402:
+        return (
+            "billing",
+            True,
+            "X reports the account cannot be billed. Add credits in the X "
+            "developer console (Billing -> Credits).",
+        )
+    if status == 403:
+        if "not-enrolled" in reason or "client forbidden" in title:
+            return (
+                "entitlement",
+                True,
+                "The token is valid but the app is not entitled to this "
+                "endpoint. On pay-per-use this is what an unfunded account "
+                "returns — add credits in the X developer console. Otherwise "
+                "check the app is attached to a project with API access.",
+            )
+        return (
+            "forbidden",
+            True,
+            "The token is valid but X refused this specific request. Check the "
+            "app's access level covers the user-lookup and timeline endpoints.",
+        )
+    if status == 429:
+        if "usagecap" in title.replace(" ", "") or "usage cap" in title:
+            return (
+                "usage_cap",
+                True,
+                "The monthly post-read cap is exhausted. Raise the cap or wait "
+                "for the period to reset; lower X_MAX_POSTS to slow burn.",
+            )
+        return (
+            "rate_limit",
+            True,
+            "Short rate-limit window hit. Retry after the reset time below.",
+        )
+    if status == 404:
+        return ("not_found", True, "The account does not exist or is suspended.")
+
+    return ("unknown", status != 401, "Unexpected status — see the detail below.")
+
+
+def _raise_for_x_api(resp: httpx.Response, context: str) -> None:
+    """Log a diagnosable record of an X API failure, then raise.
+
+    The log deliberately separates "did X accept our credentials" from "did X
+    let this request through", because the common failure while bringing the
+    integration up is an unfunded pay-per-use account — which is a billing
+    problem, not an auth problem, and is otherwise indistinguishable in logs.
+    """
+    if resp.status_code == 200:
+        logger.info("x_api call=%s status=200 x_auth=OK", context)
+        return
+
+    body = _parse_x_error_body(resp)
+    detail = body.get("detail") or body.get("title") or ""
+    cause, credentials_accepted, guidance = _classify_x_failure(resp.status_code, body)
+    reset = resp.headers.get("x-rate-limit-reset", "")
+    remaining = resp.headers.get("x-user-limit-24hour-remaining", "")
+
+    logger.error(
+        "x_api call=%s status=%s cause=%s x_auth=%s "
+        "title=%r reason=%r required_enrollment=%r "
+        "rate_limit_reset=%r cap_remaining=%r detail=%r",
+        context,
+        resp.status_code,
+        cause,
+        "OK" if credentials_accepted else "FAILED",
+        body.get("title", ""),
+        body.get("reason", ""),
+        body.get("required_enrollment", ""),
+        reset,
+        remaining,
+        str(detail)[:300],
+    )
+    if credentials_accepted:
+        logger.error(
+            "x_api call=%s VERDICT: the Bearer token authenticated successfully "
+            "— X refused this request for '%s', not for bad credentials. %s",
+            context,
+            cause,
+            guidance,
+        )
+    else:
+        logger.error(
+            "x_api call=%s VERDICT: X rejected the credentials themselves. %s",
+            context,
+            guidance,
+        )
+
+    raise XAPIError(
+        f"{context}: X API returned {resp.status_code} (cause={cause}, "
+        f"credentials_accepted={credentials_accepted}). {guidance} "
+        f"detail={str(detail)[:300]}"
+    )
 
 
 async def fetch_twitter_data(handle: str, max_posts: int | None = None) -> dict:
@@ -363,7 +454,7 @@ def run_social_media_pipeline(
             )
             session.add(briefing)
         except Exception as e:
-            print(f"Quality scoring failed (non-fatal): {e}")
+            logger.warning("Quality scoring failed (non-fatal) report_id=%s: %s", report.id, e)
 
         # Narrative matching
         try:
@@ -382,7 +473,7 @@ def run_social_media_pipeline(
                     match_count=nm.get("match_count", 0),
                 ))
         except Exception as e:
-            print(f"Narrative matching failed (non-fatal): {e}")
+            logger.warning("Narrative matching failed (non-fatal) report_id=%s: %s", report.id, e)
 
         session.commit()
         session.refresh(report)

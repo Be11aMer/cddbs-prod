@@ -7,6 +7,7 @@ finished briefing.
 """
 import asyncio
 import json
+import logging
 from unittest.mock import patch
 
 import httpx
@@ -183,33 +184,109 @@ def test_explicit_max_posts_overrides_the_configured_default(x_token, monkeypatc
 
 
 @pytest.mark.parametrize(
-    "status,expected",
+    "status,body,expected_cause",
     [
-        (401, "credentials"),
-        (403, "access tier"),
-        (404, "not found"),
+        (401, {"detail": "Unauthorized"}, "credentials"),
+        (402, {"detail": "Payment Required"}, "billing"),
+        (403, {"title": "Client Forbidden", "reason": "client-not-enrolled"}, "entitlement"),
+        (403, {"detail": "Forbidden"}, "forbidden"),
+        (429, {"title": "UsageCapExceeded", "period": "Monthly"}, "usage_cap"),
+        (429, {"detail": "Too Many Requests"}, "rate_limit"),
+        (404, {"detail": "Not Found"}, "not_found"),
+        (500, {"detail": "boom"}, "unknown"),
     ],
 )
-def test_fetch_translates_api_errors(x_token, status, expected):
+def test_fetch_classifies_api_failures(x_token, status, body, expected_cause):
+    transport, _ = _mock_transport(profile_status=status, profile_body=body)
+    with pytest.raises(XAPIError) as exc:
+        _run_fetch(transport)
+    assert f"cause={expected_cause}" in str(exc.value)
+
+
+@pytest.mark.parametrize(
+    "status,body,credentials_accepted",
+    [
+        # Only a 401 means the token itself was rejected. Everything else is
+        # X refusing an authenticated request.
+        (401, {"detail": "Unauthorized"}, False),
+        (402, {"detail": "Payment Required"}, True),
+        (403, {"title": "Client Forbidden", "reason": "client-not-enrolled"}, True),
+        (429, {"title": "UsageCapExceeded"}, True),
+    ],
+)
+def test_failure_states_whether_credentials_were_accepted(
+    x_token, status, body, credentials_accepted
+):
+    transport, _ = _mock_transport(profile_status=status, profile_body=body)
+    with pytest.raises(XAPIError) as exc:
+        _run_fetch(transport)
+    assert f"credentials_accepted={credentials_accepted}" in str(exc.value)
+
+
+def test_unfunded_pay_per_use_account_is_reported_as_billing_not_auth(x_token, caplog):
+    """The exact case of a valid token on an account with no credits.
+
+    Pay-per-use apps without credits return 403 client-not-enrolled. The logs
+    must say the token authenticated, so this is not mistaken for a bad token.
+    """
     transport, _ = _mock_transport(
-        profile_status=status, profile_body={"detail": "denied"}
+        profile_status=403,
+        profile_body={
+            "title": "Client Forbidden",
+            "reason": "client-not-enrolled",
+            "required_enrollment": "Appropriate Level of API Access",
+            "detail": "When authenticating requests to the X API v2 endpoints...",
+        },
     )
-    with pytest.raises(XAPIError, match=expected):
+    with caplog.at_level(logging.ERROR):
+        with pytest.raises(XAPIError):
+            _run_fetch(transport)
+
+    log = caplog.text
+    assert "x_auth=OK" in log
+    assert "cause=entitlement" in log
+    assert "authenticated successfully" in log
+    assert "credits" in log
+    # Must not imply the token is wrong
+    assert "x_auth=FAILED" not in log
+
+
+def test_bad_token_is_reported_as_an_auth_failure(x_token, caplog):
+    transport, _ = _mock_transport(
+        profile_status=401, profile_body={"detail": "Unauthorized"}
+    )
+    with caplog.at_level(logging.ERROR):
+        with pytest.raises(XAPIError):
+            _run_fetch(transport)
+
+    log = caplog.text
+    assert "x_auth=FAILED" in log
+    assert "rejected the credentials" in log
+    assert "x_auth=OK" not in log
+
+
+def test_successful_call_logs_auth_ok(x_token, caplog):
+    """Gives a positive signal that credentials work, not just failures."""
+    transport, _ = _mock_transport()
+    with caplog.at_level(logging.INFO):
         _run_fetch(transport)
 
+    assert "x_auth=OK" in caplog.text
+    assert "status=200" in caplog.text
 
-def test_fetch_reports_rate_limit_with_reset_header(x_token):
+
+def test_fetch_reports_rate_limit_with_reset_header(x_token, caplog):
     transport, _ = _mock_transport(
         profile_status=429,
         profile_body={"detail": "Too Many Requests"},
         headers={"x-rate-limit-reset": "1770000000"},
     )
-    with pytest.raises(XAPIError) as exc:
-        _run_fetch(transport)
+    with caplog.at_level(logging.ERROR):
+        with pytest.raises(XAPIError) as exc:
+            _run_fetch(transport)
 
-    message = str(exc.value)
-    assert "429" in message
-    assert "1770000000" in message
+    assert "cause=rate_limit" in str(exc.value)
+    assert "1770000000" in caplog.text
 
 
 def test_fetch_raises_when_user_missing(x_token):
