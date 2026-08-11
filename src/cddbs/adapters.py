@@ -62,13 +62,22 @@ class PlatformAdapter:
     def normalize_profile(self, raw_profile: dict) -> ProfileData:
         raise NotImplementedError
 
-    def normalize_post(self, raw_post: dict) -> PostData:
+    def normalize_post(self, raw_post: dict, context: dict | None = None) -> PostData:
         raise NotImplementedError
+
+    def build_context(self, raw_data: dict) -> dict:
+        """Per-payload lookup tables shared by every normalize_post() call.
+
+        Platforms that return side-loaded objects (X API v2 `includes`) use this
+        to resolve references that the post object itself only holds an ID for.
+        """
+        return {}
 
     def normalize(self, raw_data: dict) -> BriefingInput:
         profile = self.normalize_profile(raw_data.get("profile", {}))
+        context = self.build_context(raw_data)
         posts = [
-            self.normalize_post(p) for p in raw_data.get("posts", [])
+            self.normalize_post(p, context) for p in raw_data.get("posts", [])
         ]
         return BriefingInput(
             profile=profile,
@@ -102,16 +111,44 @@ class TwitterAdapter(PlatformAdapter):
             },
         )
 
-    def normalize_post(self, raw_post: dict) -> PostData:
+    def build_context(self, raw_data: dict) -> dict:
+        """Index the `includes` block returned by the expansions we request."""
+        includes = raw_data.get("includes") or {}
+        return {
+            "users_by_id": {
+                u.get("id"): u.get("username", "")
+                for u in includes.get("users", [])
+                if u.get("id")
+            },
+            "tweets_by_id": {
+                t.get("id"): t
+                for t in includes.get("tweets", [])
+                if t.get("id")
+            },
+        }
+
+    def normalize_post(self, raw_post: dict, context: dict | None = None) -> PostData:
         public_metrics = raw_post.get("public_metrics", {})
         ref_tweets = raw_post.get("referenced_tweets", [])
 
         is_retweet = any(r.get("type") == "retweeted" for r in ref_tweets)
         is_quote = any(r.get("type") == "quoted" for r in ref_tweets)
 
+        # A referenced_tweets entry carries only {"type", "id"} — never the
+        # author. Resolving the handle needs the referenced tweet (includes.tweets,
+        # for its author_id) and then that author (includes.users), both of which
+        # arrive only because fetch_twitter_data requests the matching expansions.
         amplification_source = ""
-        if is_retweet and ref_tweets:
-            amplification_source = ref_tweets[0].get("author_username", "")
+        reference = next(
+            (r for r in ref_tweets if r.get("type") in ("retweeted", "quoted")),
+            None,
+        )
+        if reference and context:
+            referenced_tweet = context.get("tweets_by_id", {}).get(reference.get("id"))
+            if referenced_tweet:
+                amplification_source = context.get("users_by_id", {}).get(
+                    referenced_tweet.get("author_id"), ""
+                )
 
         urls = []
         for url_obj in raw_post.get("entities", {}).get("urls", []):
@@ -177,7 +214,7 @@ class TelegramAdapter(PlatformAdapter):
             },
         )
 
-    def normalize_post(self, raw_post: dict) -> PostData:
+    def normalize_post(self, raw_post: dict, context: dict | None = None) -> PostData:
         is_forward = raw_post.get("forward_from_chat") is not None or \
                      raw_post.get("forward_from") is not None
         amplification_source = ""

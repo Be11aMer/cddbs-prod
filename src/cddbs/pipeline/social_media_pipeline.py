@@ -17,7 +17,7 @@ import httpx
 from src.cddbs.config import settings
 from src.cddbs.adapters import TwitterAdapter, TelegramAdapter, BriefingInput
 from src.cddbs.pipeline.prompt_templates import get_social_media_prompt
-from src.cddbs.utils.genai_client import call_gemini
+from src.cddbs.utils.genai_client import call_gemini, is_gemini_error
 from src.cddbs.utils.input_sanitizer import sanitize_text
 from src.cddbs.database import SessionLocal
 from src.cddbs import models
@@ -71,8 +71,61 @@ def _format_briefing_input(briefing_input: BriefingInput) -> tuple[str, str]:
     return profile_data, posts_data
 
 
-async def fetch_twitter_data(handle: str) -> dict:
-    """Fetch Twitter user profile and recent tweets via Twitter API v2."""
+X_API_BASE = "https://api.x.com/2"
+
+
+class XAPIError(RuntimeError):
+    """An X API call failed in a way the operator needs to act on."""
+
+
+def _raise_for_x_api(resp: httpx.Response, context: str) -> None:
+    """Translate X API failures into messages that say what to do about them.
+
+    X bills per read and returns 429 both for the short rate-limit window and
+    for an exhausted monthly post cap, so a bare status code leaves the operator
+    guessing which one they hit.
+    """
+    if resp.status_code == 200:
+        return
+
+    detail = ""
+    try:
+        body = resp.json()
+        detail = body.get("detail") or body.get("title") or str(body)[:300]
+    except Exception:
+        detail = (resp.text or "")[:300]
+
+    if resp.status_code == 401:
+        raise XAPIError(
+            f"{context}: X API rejected the credentials (401). "
+            f"Check TWITTER_BEARER_TOKEN is a valid app Bearer token. {detail}"
+        )
+    if resp.status_code == 403:
+        raise XAPIError(
+            f"{context}: X API forbade the request (403). The project's access "
+            f"tier likely does not include this endpoint. {detail}"
+        )
+    if resp.status_code == 429:
+        reset = resp.headers.get("x-rate-limit-reset", "")
+        remaining = resp.headers.get("x-user-limit-24hour-remaining", "")
+        raise XAPIError(
+            f"{context}: X API rate limit or monthly post cap hit (429). "
+            f"reset={reset or 'unknown'} 24h_remaining={remaining or 'unknown'}. {detail}"
+        )
+    if resp.status_code == 404:
+        raise XAPIError(f"{context}: not found (404). {detail}")
+
+    raise XAPIError(f"{context}: X API returned {resp.status_code}. {detail}")
+
+
+async def fetch_twitter_data(handle: str, max_posts: int = 50) -> dict:
+    """Fetch an X account profile and recent posts via X API v2.
+
+    Uses the public read endpoints (user lookup + user posts timeline), which
+    work for any public account. Requests the `referenced_tweets` expansions so
+    retweet/quote sources can be attributed — without them the API returns only
+    a bare reference ID and amplification analysis is impossible.
+    """
     bearer = settings.TWITTER_BEARER_TOKEN
     if not bearer:
         raise ValueError("TWITTER_BEARER_TOKEN not configured")
@@ -83,35 +136,44 @@ async def fetch_twitter_data(handle: str) -> dict:
     async with httpx.AsyncClient(timeout=30) as client:
         # Get user profile
         user_resp = await client.get(
-            f"https://api.twitter.com/2/users/by/username/{clean_handle}",
+            f"{X_API_BASE}/users/by/username/{clean_handle}",
             headers=headers,
             params={
-                "user.fields": "created_at,description,public_metrics,verified,profile_image_url"
+                "user.fields": "created_at,description,public_metrics,verified,verified_type,profile_image_url"
             },
         )
-        user_resp.raise_for_status()
+        _raise_for_x_api(user_resp, f"user lookup for @{clean_handle}")
         user_data = user_resp.json().get("data", {})
         user_id = user_data.get("id")
 
         if not user_id:
-            raise ValueError(f"Twitter user @{clean_handle} not found")
+            raise ValueError(f"X user @{clean_handle} not found")
 
-        # Get recent tweets
+        # Get recent posts. max_results must be 5-100 per the API.
         tweets_resp = await client.get(
-            f"https://api.twitter.com/2/users/{user_id}/tweets",
+            f"{X_API_BASE}/users/{user_id}/tweets",
             headers=headers,
             params={
-                "max_results": 50,
+                "max_results": max(5, min(max_posts, 100)),
                 "tweet.fields": "created_at,public_metrics,entities,referenced_tweets,lang,attachments",
+                # Resolves referenced_tweets ({type,id}) to an author handle:
+                # referenced_tweets.id -> includes.tweets[].author_id
+                # referenced_tweets.id.author_id -> includes.users[].username
+                "expansions": "referenced_tweets.id,referenced_tweets.id.author_id",
+                "user.fields": "username",
             },
         )
-        tweets_resp.raise_for_status()
-        tweets = tweets_resp.json().get("data", [])
+        _raise_for_x_api(tweets_resp, f"posts timeline for @{clean_handle}")
+        tweets_body = tweets_resp.json()
+        tweets = tweets_body.get("data", [])
 
     return {
         "profile": user_data,
         "posts": tweets,
-        "data_source": "twitter_api_v2",
+        # Side-loaded objects for the expansions above; TwitterAdapter indexes
+        # these in build_context() to attribute amplification.
+        "includes": tweets_body.get("includes", {}),
+        "data_source": "x_api_v2",
         "collection_period": {
             "end": datetime.now(UTC).isoformat(),
         },
@@ -198,6 +260,50 @@ def run_social_media_pipeline(
     # Call Gemini
     raw_response = call_gemini(prompt, api_key=google_api_key)
 
+    # --- Gemini failure detection (C-3, same defect as orchestrator.py) ---
+    # call_gemini() returns a sentinel string instead of raising, so without this
+    # the error text was stored as `final_report` with status "completed".
+    if is_gemini_error(raw_response):
+        session = SessionLocal()
+        try:
+            report = None
+            if report_id:
+                report = session.query(models.Report).filter(
+                    models.Report.id == report_id
+                ).first()
+            if not report:
+                report = models.Report(outlet=handle, country="")
+                session.add(report)
+                session.flush()
+
+            report.analysis_status = "failed"
+            report.final_report = None
+            report.raw_response = raw_response
+            report.data = {
+                "platform": platform,
+                "handle": handle,
+                "articles_analyzed": len(briefing_input.posts),
+                "status": "failed",
+                "analysis_status": "failed",
+                "analysis_date": datetime.now(UTC).isoformat(),
+                "error": raw_response,
+            }
+            session.commit()
+            session.refresh(report)
+            return {
+                "report_id": report.id,
+                "platform": platform,
+                "handle": handle,
+                "final_report": None,
+                "raw_response": raw_response,
+                "structured_briefing": None,
+            }
+        except Exception:
+            session.rollback()
+            raise
+        finally:
+            session.close()
+
     # Parse JSON from response
     try:
         json_match = re.search(r'```(?:json)?\s*(\{.*?\})\s*```', raw_response, re.DOTALL)
@@ -227,6 +333,7 @@ def run_social_media_pipeline(
             session.add(report)
             session.flush()
 
+        report.analysis_status = "completed"
         report.final_report = final_report
         report.raw_response = raw_response
         report.data = {
@@ -235,6 +342,7 @@ def run_social_media_pipeline(
             "articles_analyzed": len(briefing_input.posts),
             "parsing_successful": "structured_briefing" in payload,
             "status": "completed",
+            "analysis_status": "completed",
             "analysis_date": datetime.now(UTC).isoformat(),
             "structured_briefing": payload.get("structured_briefing"),
         }
