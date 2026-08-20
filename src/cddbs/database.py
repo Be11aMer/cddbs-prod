@@ -37,6 +37,11 @@ _MIGRATIONS = [
     "ALTER TABLE topic_runs ADD COLUMN IF NOT EXISTS baseline_id INTEGER REFERENCES topic_baselines(id)",
     # Auto-analysis trigger: idempotency key stamped when a cluster fires SitRep+TopicRun
     "ALTER TABLE event_clusters ADD COLUMN IF NOT EXISTS auto_analyzed_at TIMESTAMP",
+    # Article-level auto-analysis: urgency label drives both the Intel Feed badge
+    # and the trigger; auto_analyzed_at stops an article firing more than once.
+    "ALTER TABLE raw_articles ADD COLUMN IF NOT EXISTS urgency_label VARCHAR(32)",
+    "ALTER TABLE raw_articles ADD COLUMN IF NOT EXISTS auto_analyzed_at TIMESTAMP",
+    "CREATE INDEX IF NOT EXISTS ix_raw_articles_urgency_label ON raw_articles (urgency_label)",
 ]
 
 def init_db():
@@ -45,10 +50,15 @@ def init_db():
 
 def _run_migrations():
     """Apply additive schema migrations that create_all cannot handle."""
-    with engine.begin() as conn:
-        for stmt in _MIGRATIONS:
-            try:
+    for stmt in _MIGRATIONS:
+        # One transaction per statement. PostgreSQL aborts the whole
+        # transaction on a failed statement, so sharing a single one meant the
+        # first failure poisoned it and every later migration failed with
+        # "current transaction is aborted" — the per-statement try/except below
+        # logged them as skipped but they could no longer succeed.
+        try:
+            with engine.begin() as conn:
                 conn.execute(text(stmt))
-            except Exception as exc:
-                # Log but don't crash — table may not exist yet (create_all handles it)
-                print(f"Migration skipped ({exc}): {stmt}")
+        except Exception as exc:
+            # Log but don't crash — table may not exist yet (create_all handles it)
+            print(f"Migration skipped ({exc}): {stmt}")

@@ -196,6 +196,12 @@ class RawArticle(Base):
     cluster_id = Column(Integer, ForeignKey("event_clusters.id"), nullable=True)
     is_duplicate = Column(Boolean, default=False)
     duplicate_of = Column(Integer, ForeignKey("raw_articles.id"), nullable=True)
+    # Urgency label (BREAKING / DISINFO / INTEL / NEWS) assigned by
+    # pipeline/article_labeling.py. Drives both the Intel Feed badge and the
+    # auto-analysis trigger, so both act on the same value.
+    urgency_label = Column(String(32), index=True, nullable=True)
+    # Set when this article fired an auto analysis run, so it fires only once.
+    auto_analyzed_at = Column(DateTime, nullable=True)
     created_at = Column(DateTime, default=lambda: datetime.now(UTC))
 
     cluster = relationship("EventCluster", back_populates="articles")

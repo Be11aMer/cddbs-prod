@@ -5,6 +5,29 @@ import OpenInNewIcon from "@mui/icons-material/OpenInNew";
 import { useQuery } from "@tanstack/react-query";
 import { fetchMonitoringFeed, type FeedItem } from "../api";
 
+const LABEL_COLORS: Record<string, string> = {
+  BREAKING: "#ef4444",
+  DISINFO: "#f59e0b",
+  INTEL: "#3b82f6",
+  NEWS: "#94a3b8",
+};
+
+/**
+ * Prefer the label the backend assigned — it is the value the auto-analysis
+ * trigger acted on, so showing anything else would let the badge disagree with
+ * what was actually analysed. Falls back to the local heuristic for rows
+ * collected before server-side labelling existed.
+ */
+function getUrgency(item: FeedItem): { color: string; label: string } {
+  if (item.urgency_label) {
+    return {
+      color: LABEL_COLORS[item.urgency_label] ?? LABEL_COLORS.NEWS,
+      label: item.urgency_label,
+    };
+  }
+  return getUrgencyColor(item.title);
+}
+
 function getUrgencyColor(title: string): { color: string; label: string } {
   const t = title.toLowerCase();
   if (
@@ -45,7 +68,7 @@ function formatTimeAgo(dateStr: string): string {
 }
 
 function FeedItemRow({ item }: { item: FeedItem }) {
-  const { color, label } = getUrgencyColor(item.title);
+  const { color, label } = getUrgency(item);
 
   return (
     <Box
