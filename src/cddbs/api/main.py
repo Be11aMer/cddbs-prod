@@ -700,6 +700,13 @@ class FeedItem(BaseModel):
     source_country: Optional[str]
     published: str
     language: str
+    # Urgency label assigned server-side (BREAKING / DISINFO / INTEL / NEWS).
+    # The Intel Feed renders this rather than recomputing it, so the badge and
+    # the auto-analysis trigger always agree. Null for rows collected before
+    # labelling existed; the frontend falls back to its local heuristic.
+    urgency_label: Optional[str] = None
+    # True once this article has fired an auto analysis run.
+    auto_analyzed: bool = False
 
 
 class MonitoringFeedResponse(BaseModel):
@@ -882,6 +889,8 @@ def get_monitoring_feed(
             source_country=a.country,
             published=published,
             language=a.language or "en",
+            urgency_label=a.urgency_label,
+            auto_analyzed=a.auto_analyzed_at is not None,
         ))
 
     source_label = f"Multi-source ({source_type})" if source_type else "Multi-source (RSS + GDELT)"

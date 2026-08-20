@@ -1,0 +1,34 @@
+{
+  "_comment": "Auto-analysis trigger rules. Edit this file to change which labels fire which analysis, without touching code. Loaded by src/cddbs/pipeline/article_labeling.py; a redeploy picks up changes. The caps and the kill switch can also be overridden by environment variables (see config.py) so they can be changed from the Render dashboard without a deploy.",
+
+  "enabled": true,
+
+  "_comment_labels": "Keyword -> label map for single articles from RSS/GDELT. A label matches if any of its keywords appears in the lowercased article title. This is the backend's copy of what the Intel Feed badge shows; the frontend reads the stored label so the two cannot drift.",
+  "article_labels": {
+    "BREAKING": ["attack", "missile", "war", "crisis", "emergency", "explosion", "killed", "bomb"],
+    "DISINFO": ["disinformation", "propaganda", "fake", "misinformation", "manipulation", "interference"],
+    "INTEL": ["election", "cyber", "hack", "intelligence", "espionage", "sanction"]
+  },
+
+  "_comment_priority": "First match wins, so order matters. An article about a 'missile attack during the election' is BREAKING, not INTEL.",
+  "article_label_priority": ["BREAKING", "DISINFO", "INTEL"],
+  "default_article_label": "NEWS",
+
+  "_comment_article_triggers": "Which article labels fire an analysis run on the article's source outlet. Add labels to `labels` to widen this later, e.g. [\"BREAKING\", \"DISINFO\"].",
+  "article_triggers": {
+    "labels": ["BREAKING"],
+    "min_title_length": 20,
+    "max_per_cycle": 3,
+    "outlet_cooldown_hours": 24,
+    "num_articles": 5
+  },
+
+  "_comment_cluster_triggers": "Which event cluster types fire a SitRep + topic run. event_type is assigned by pipeline/event_clustering.py; the available types are conflict, protest, diplomacy, disaster, cyber, info_warfare, economic and other.",
+  "cluster_triggers": {
+    "event_types": ["info_warfare", "cyber", "conflict"],
+    "min_articles": 3,
+    "max_per_cycle": 5,
+    "num_outlets": 5,
+    "date_filter": "m"
+  }
+}

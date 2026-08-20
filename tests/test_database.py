@@ -72,3 +72,34 @@ def test_database_transaction(db_session):
     found = db_session.query(Outlet).filter(Outlet.name == "TestOutlet").first()
     assert found is None
 
+
+
+def test_failed_migration_does_not_skip_the_rest():
+    """One bad migration must not silently disable every migration after it.
+
+    PostgreSQL aborts the surrounding transaction on a failed statement, so
+    running all migrations in one transaction meant the first failure caused
+    every later one to fail with "current transaction is aborted" — logged as
+    "skipped" while actually being unrecoverable. Each statement therefore gets
+    its own transaction.
+    """
+    from sqlalchemy import inspect, text
+    from src.cddbs import database
+
+    marker = "migration_isolation_probe"
+    with database.engine.begin() as conn:
+        conn.execute(text(f"DROP TABLE IF EXISTS {marker}"))
+
+    original = database._MIGRATIONS
+    database._MIGRATIONS = [
+        "ALTER TABLE table_that_does_not_exist ADD COLUMN IF NOT EXISTS x INT",
+        f"CREATE TABLE IF NOT EXISTS {marker} (id INT)",
+    ]
+    try:
+        database._run_migrations()
+        # The statement after the failing one must still have been applied.
+        assert inspect(database.engine).has_table(marker)
+    finally:
+        database._MIGRATIONS = original
+        with database.engine.begin() as conn:
+            conn.execute(text(f"DROP TABLE IF EXISTS {marker}"))

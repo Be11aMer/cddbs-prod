@@ -104,10 +104,24 @@ class CollectorManager:
             if updated:
                 print(f"CollectorManager: updated {updated} cluster risk scores")
 
-            from src.cddbs.pipeline.auto_trigger import auto_trigger_analysis
+            # Label new articles before the triggers run — the article path
+            # filters on urgency_label, so an unlabelled row is invisible to it.
+            from src.cddbs.pipeline.article_labeling import label_articles
+            labelled = label_articles(session)
+            if labelled:
+                print(f"CollectorManager: labelled {labelled} article(s)")
+
+            from src.cddbs.pipeline.auto_trigger import (
+                auto_trigger_analysis,
+                auto_trigger_articles,
+            )
             triggered = auto_trigger_analysis(session)
             if triggered:
                 print(f"CollectorManager: auto-triggered analysis on {triggered} cluster(s)")
+
+            article_runs = auto_trigger_articles(session)
+            if article_runs:
+                print(f"CollectorManager: auto-triggered {article_runs} article analysis run(s)")
 
         except Exception as exc:
             print(f"CollectorManager: processing error: {exc}")

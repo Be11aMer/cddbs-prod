@@ -344,6 +344,40 @@ Background article ingestion running every 180 seconds via `CollectorManager`.
 - **`event_clustering.py`** — TF-IDF vectorization + cosine similarity clustering
 - **`burst_detection.py`** — Keyword frequency z-score spike detection (rolling 24h baseline vs. last 1h)
 - **`narrative_risk.py`** — Per-cluster risk scoring based on narrative keyword overlap
+- **`article_labeling.py`** — Assigns an urgency label (BREAKING / DISINFO / INTEL / NEWS) to each collected article, and loads the auto-analysis rules
+- **`auto_trigger.py`** — Fires analysis automatically off those labels (see below)
+
+#### Auto-analysis triggers
+
+Two independent paths run at the end of every collector cycle
+(`CollectorManager._run_processing()`):
+
+| Path | Condition | Fires |
+|---|---|---|
+| Article | `raw_articles.urgency_label` in `article_triggers.labels` (default `BREAKING`) | An **analysis run** on the article's source outlet |
+| Cluster | `event_clusters.event_type` in `cluster_triggers.event_types` (default `info_warfare`, `cyber`, `conflict`) | A **SitRep + topic run** |
+
+Both are configured in **`src/cddbs/data/auto_analysis_rules.json`** — no code
+change is needed to add a label or an event type. It lives under `src/` because
+the Dockerfile copies only `src/` and the repo-root `data/` directory is
+gitignored; a file placed there would never reach the container.
+
+`urgency_label` is assigned server-side and returned by `/monitoring/feed`, so
+the Intel Feed badge and the trigger act on the same value. The frontend keeps a
+local heuristic only as a fallback for rows collected before labelling existed.
+
+Every fire costs one SerpAPI call plus one Gemini call and runs unattended, so
+both paths are bounded:
+
+- `max_per_cycle` — hard ceiling per collector cycle (article: 3, cluster: 5)
+- `outlet_cooldown_hours` — article path skips an outlet analysed within the
+  window, by this trigger *or* by hand (default 24h)
+- one run per outlet per cycle — breaking stories cluster heavily by publisher
+- `auto_analyzed_at` — stamped on the row so nothing fires twice
+- `enabled: false` — kill switch for both paths
+
+If the rules file is missing or malformed, labelling still works but **nothing
+auto-fires** — the failure mode is "does nothing", never "spends unbounded".
 
 ---
 

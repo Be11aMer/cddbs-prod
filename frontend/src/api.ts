@@ -305,6 +305,14 @@ export interface FeedItem {
   source_country: string | null;
   published: string;
   language: string;
+  /**
+   * Urgency label assigned server-side. This is the same value the
+   * auto-analysis trigger acts on, so the badge cannot disagree with what was
+   * actually analysed. Null for rows collected before labelling existed.
+   */
+  urgency_label?: string | null;
+  /** True once this article has fired an auto analysis run. */
+  auto_analyzed?: boolean;
 }
 
 export interface MonitoringFeedResponse {
