@@ -77,9 +77,15 @@ def _verify_key_against_db(db, api_key: str) -> bool:
 
 
 class APIKeyMiddleware(BaseHTTPMiddleware):
-    """Enforce X-API-Key authentication on all non-exempt endpoints."""
+    """Enforce X-API-Key authentication on all non-exempt endpoints.
+
+    Set CDDBS_API_KEY_ENABLED=false to bypass auth entirely (local dev).
+    """
 
     async def dispatch(self, request: Request, call_next):
+        if os.getenv("CDDBS_API_KEY_ENABLED", "true").lower() not in ("true", "1", "yes"):
+            return await call_next(request)
+
         if request.url.path in _EXEMPT_PATHS:
             return await call_next(request)
 
@@ -110,28 +116,35 @@ class APIKeyMiddleware(BaseHTTPMiddleware):
 
 
 def bootstrap_api_key() -> None:
-    """On startup: if CDDBS_BOOTSTRAP_API_KEY is set and no keys exist, insert the hashed record."""
+    """On startup: upsert the bootstrap API key from CDDBS_BOOTSTRAP_API_KEY.
+
+    Always updates the stored hash so that rotating the env var takes effect on
+    the next restart — avoids stale-hash 401s when the key is changed locally.
+    """
     plaintext = os.getenv("CDDBS_BOOTSTRAP_API_KEY", "").strip()
     if not plaintext:
         return
 
     db = SessionLocal()
     try:
-        existing = db.query(ApiKey).first()
-        if existing:
-            return
-
         key_hash = _ph.hash(plaintext)
         prefix = plaintext[:8]
-        record = ApiKey(
-            name="bootstrap",
-            key_prefix=prefix,
-            key_hash=key_hash,
-            is_active=True,
-        )
-        db.add(record)
-        db.commit()
-        print(f"INFO: Bootstrap API key created (prefix={prefix}...)")
+        existing = db.query(ApiKey).filter(ApiKey.name == "bootstrap").first()
+        if existing:
+            existing.key_hash = key_hash
+            existing.is_active = True
+            db.commit()
+            print(f"INFO: Bootstrap API key refreshed (prefix={prefix}...)")
+        else:
+            record = ApiKey(
+                name="bootstrap",
+                key_prefix=prefix,
+                key_hash=key_hash,
+                is_active=True,
+            )
+            db.add(record)
+            db.commit()
+            print(f"INFO: Bootstrap API key created (prefix={prefix}...)")
     except Exception as e:
         db.rollback()
         raise e

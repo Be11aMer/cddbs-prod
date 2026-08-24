@@ -29,6 +29,10 @@ services:
       dockerfile: Dockerfile
     ports:
       - "5173:80"
+    environment:
+      BACKEND_URL: "http://web:8000"
+      BACKEND_HOST: "web"
+      CDDBS_API_KEY: "${CDDBS_BOOTSTRAP_API_KEY}"
     depends_on:
       - web
 
