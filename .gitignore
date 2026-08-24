@@ -144,3 +144,6 @@ cover/
 *.mo
 *.pot
 CLAUDE.md
+
+# Claude Code audit log (session-local, never committed)
+/.claude/audit.jsonl
