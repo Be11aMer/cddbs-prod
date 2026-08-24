@@ -145,5 +145,5 @@ cover/
 *.pot
 CLAUDE.md
 
-# Claude Code audit log (session-local, never committed)
-/.claude/audit.jsonl
+# Claude Code local config (agents, commands, hooks — kept local only)
+/.claude/
