@@ -327,6 +327,39 @@ def check_developer_sections(report: DriftReport) -> None:
         )
 
 # ---------------------------------------------------------------------------
+# 8. DEVELOPER.md Required Content — Sprint 10 auth section and key terms
+# ---------------------------------------------------------------------------
+
+REQUIRED_DEV_CONTENT = [
+    ("## 18.", "Section 18 (Sprint 10 auth) is missing from DEVELOPER.md"),
+    ("CDDBS_API_KEY_ENABLED", "CDDBS_API_KEY_ENABLED not documented in DEVELOPER.md"),
+    ("X-API-Key", "X-API-Key header not documented in DEVELOPER.md"),
+    ("APIKeyMiddleware", "APIKeyMiddleware not documented in DEVELOPER.md"),
+    ("CDDBS_BOOTSTRAP_API_KEY", "Bootstrap key env var not documented in DEVELOPER.md"),
+]
+
+
+def check_developer_required_content(report: DriftReport) -> None:
+    dev_text = read_text(DEVELOPER)
+    for needle, msg in REQUIRED_DEV_CONTENT:
+        if needle not in dev_text:
+            report.error(f"[DEVELOPER.md] {msg}")
+
+# ---------------------------------------------------------------------------
+# 9. Backlog file existence check
+# ---------------------------------------------------------------------------
+
+BACKLOG = REPO / "docs" / "BACKLOG.md"
+
+
+def check_backlog_exists(report: DriftReport) -> None:
+    if not BACKLOG.is_file():
+        report.error(
+            "docs/BACKLOG.md is missing — create it using the backlog template "
+            "(see CLAUDE.md Backlog Protocol section)."
+        )
+
+# ---------------------------------------------------------------------------
 # Main
 # ---------------------------------------------------------------------------
 
@@ -347,26 +380,32 @@ def main() -> int:
 
     print("=== CDDBS Documentation Drift Check ===\n")
 
-    print("[1/7] Checking API endpoints ...")
+    print("[1/9] Checking API endpoints ...")
     check_api_endpoints(report)
 
-    print("[2/7] Checking database models ...")
+    print("[2/9] Checking database models ...")
     check_db_models(report)
 
-    print("[3/7] Checking environment variables ...")
+    print("[3/9] Checking environment variables ...")
     check_env_vars(report)
 
-    print("[4/7] Checking frontend components ...")
+    print("[4/9] Checking frontend components ...")
     check_frontend_components(report)
 
-    print("[5/7] Checking Python dependencies ...")
+    print("[5/9] Checking Python dependencies ...")
     check_dependencies(report)
 
-    print("[6/7] Checking README.md sections ...")
+    print("[6/9] Checking README.md sections ...")
     check_readme_sections(report)
 
-    print("[7/7] Checking DEVELOPER.md sections ...")
+    print("[7/9] Checking DEVELOPER.md sections ...")
     check_developer_sections(report)
+
+    print("[8/9] Checking DEVELOPER.md required content (Sprint 10 auth) ...")
+    check_developer_required_content(report)
+
+    print("[9/9] Checking docs/BACKLOG.md exists ...")
+    check_backlog_exists(report)
 
     return report.print_summary()
 

@@ -1,7 +1,7 @@
 # CDDBS Developer Documentation
 
-> **Version:** 0.9.0 (pre-release)
-> **Last updated:** 2026-03-28
+> **Version:** 0.10.0
+> **Last updated:** 2026-08-24
 
 This is the central developer reference for the **Cyber Disinformation Detection Briefing System (CDDBS)**. It covers architecture, every module, every API endpoint, data models, pipeline flows, configuration, deployment, testing, and contribution guidelines. **This document must be updated whenever the application changes.**
 
@@ -23,6 +23,10 @@ This is the central developer reference for the **Cyber Disinformation Detection
 12. [CI/CD](#12-cicd)
 13. [Branching Strategy](#13-branching-strategy)
 14. [Contributor Guide](#14-contributor-guide)
+15. [Sprint 8: Topic Mode Innovations, Supply Chain Security & AI Disclosure](#15-sprint-8-topic-mode-innovations-supply-chain-security--ai-disclosure)
+16. [Sprint 9: AI Trust, Information Security & Compliance Automation](#16-sprint-9-ai-trust-information-security--compliance-automation)
+17. [Intelligence Feed Extensions — Phase 4A + SitRep + Threat Digest](#17-intelligence-feed-extensions--phase-4a--sitrep--threat-digest)
+18. [Sprint 10: API Key Authentication](#18-sprint-10-api-key-authentication)
 
 ---
 
@@ -1531,6 +1535,98 @@ Do not implement 4B or 4C until sufficient data has accumulated.
 | `frontend/src/components/CollectorStatusBar.tsx` | Collector health indicators |
 | `frontend/src/components/AnnotatedArticleCards.tsx` | Per-article analysis cards |
 | `TODO_PHASE4_NETWORK_ML.md` | Phase 4B/4C roadmap (deferred) |
+
+---
+
+---
+
+## 18. Sprint 10: API Key Authentication
+
+Sprint 10 closes audit finding C-1 (all endpoints were unauthenticated). Authentication is implemented as FastAPI middleware — not as REST endpoints — and is fully controlled by a feature toggle.
+
+### 18.1 Feature Toggle
+
+| Variable | Default | Behaviour |
+|---|---|---|
+| `CDDBS_API_KEY_ENABLED` | `true` | `false` disables auth entirely — all routes are open (local dev) |
+| `CDDBS_BOOTSTRAP_API_KEY` | — | If set, upserts a key named `"bootstrap"` in the DB on every startup |
+
+Setting `CDDBS_API_KEY_ENABLED=false` bypasses the middleware completely. No DB reads are made. This is the recommended local development setting.
+
+### 18.2 Middleware: `APIKeyMiddleware`
+
+**File**: `src/cddbs/api/auth.py`
+
+The middleware is added to the FastAPI app via `app.add_middleware(APIKeyMiddleware)`. On every request:
+
+1. If `CDDBS_API_KEY_ENABLED` is not `true`/`1`/`yes` → pass through
+2. If the request path is in the exempt set → pass through
+3. Read key from `X-API-Key` header, falling back to `Authorization: Bearer <key>`
+4. If no key supplied → `401 {"detail": "Authentication required. Provide X-API-Key header."}`
+5. Check in-memory 5-minute cache (keyed by `sha256(plaintext_key)`)
+6. On cache miss: query `ApiKey` table for all active records, verify with Argon2id
+7. On match: update `last_used_at`, populate cache, pass through
+8. On no match → `401 {"detail": "Invalid or inactive API key."}`
+
+**Exempt paths** (always public regardless of toggle):
+```
+/health  /  /docs  /openapi.json  /redoc
+```
+
+**Hashing parameters** (OWASP recommended for interactive logins):
+- Algorithm: Argon2id
+- `time_cost=2`, `memory_cost=65536` (64 MiB), `parallelism=2`, `hash_len=32`, `salt_len=16`
+
+**Cache design**: stores `sha256(plaintext_key) → expiry` in process memory. Prevents Argon2 execution (slow by design) on every request. TTL: 5 minutes. Cache is per-process — resets on restart or Render instance replacement.
+
+### 18.3 Key Lifecycle
+
+**Bootstrap key** — set `CDDBS_BOOTSTRAP_API_KEY=<plaintext>` in Render environment. On startup, `bootstrap_api_key()` (called from the FastAPI lifespan) upserts a record named `"bootstrap"` with the current hash. Rotating the env var and restarting the service immediately invalidates the old key.
+
+**DB table**: `api_keys`
+
+| Column | Type | Notes |
+|---|---|---|
+| `id` | Integer PK | Auto-increment |
+| `name` | String | Human-readable label (e.g., `"bootstrap"`, `"ci-test"`) |
+| `key_prefix` | String(8) | First 8 chars of plaintext — for identification only, never the full key |
+| `key_hash` | Text | Argon2id hash of plaintext key — plaintext never stored |
+| `is_active` | Boolean | `false` = soft-delete / revoke |
+| `last_used_at` | DateTime | Updated on each successful verification |
+| `created_at` | DateTime | Auto-set on insert |
+
+Revoking a key: set `is_active=False` directly in the DB (no REST endpoint exists for this — use a DB console or a one-off script).
+
+### 18.4 Frontend Integration
+
+The frontend reads the `VITE_API_KEY` environment variable at build time and attaches it as `X-API-Key` on every API request. Set this in Render's environment settings for the `cddbs-frontend` service.
+
+For local dev, leave `CDDBS_API_KEY_ENABLED=false` on the backend — no frontend key configuration needed.
+
+### 18.5 Testing
+
+**File**: `tests/test_sprint10_auth.py`
+
+Test key: `PYTEST_CLIENT_KEY = "cddbs-ci-test-key-sprint10"` (defined in `conftest.py`). The test DB fixture seeds an active `ApiKey` record with this key's Argon2id hash.
+
+Two `TestClient` instances are used:
+- `_no_auth_client` — no headers (tests 401 behaviour)
+- `_auth_client` — `X-API-Key: cddbs-ci-test-key-sprint10` (tests 200 behaviour)
+
+Re-audit checklist (C-1):
+- `GET /health` → 200 without key (exempt path)
+- `GET /` → 200 without key (exempt path)
+- `GET /analysis-runs` without key → 401
+- `GET /analysis-runs` with wrong key → 401
+- `GET /analysis-runs` with correct key → non-401
+- `Authorization: Bearer <key>` also accepted
+
+### 18.6 Known Limitations (deferred to Sprint 11)
+
+- No REST endpoint for key provisioning or revocation — managed via DB console or `CDDBS_BOOTSTRAP_API_KEY`
+- No key expiry — keys are valid until `is_active` is manually set to `False`
+- Single-process cache — cache is not shared across Render instances if horizontal scaling is ever used
+- The design is intentionally minimal (Sprint 10 closes C-1; Sprint 11 will replace with WebAuthn passkeys)
 
 ---
 
