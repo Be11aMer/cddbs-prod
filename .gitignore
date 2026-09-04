@@ -144,3 +144,6 @@ cover/
 *.mo
 *.pot
 CLAUDE.md
+
+# Claude Code local config (agents, commands, hooks — kept local only)
+/.claude/
