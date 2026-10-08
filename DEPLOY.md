@@ -52,8 +52,9 @@ Backend → Cloudflare Worker (GDELT proxy)    ← already live
 | `DB_POOL_SIZE` | `2` |
 | `DB_MAX_OVERFLOW` | `3` |
 
-> **Neon note:** Neon shows `postgres://` — `config.py` rewrites it to
-> `postgresql://` automatically. Paste the connection string as-is.
+> **Neon note:** Neon shows `postgres://` / `postgresql://` — `config.py` rewrites
+> it to `postgresql+psycopg2://` automatically. Paste the connection string as-is
+> (keep `?sslmode=require`).
 
 5. Click **Deploy**. Koyeb assigns a URL like:
    `https://cddbs-prod-<hash>.koyeb.app`
