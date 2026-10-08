@@ -105,7 +105,8 @@ cddbs-prod/
 ├── docker-compose.yml           # PostgreSQL + web + frontend
 ├── Dockerfile                   # Python 3.11 slim backend image
 ├── Makefile                     # build, up, test shortcuts
-├── requirements.txt             # Python dependencies
+├── requirements.txt             # Python runtime dependencies (pinned)
+├── requirements-dev.txt         # Test / CI tooling (includes requirements.txt)
 ├── CHANGELOG.md                 # Release notes
 ├── DEVELOPER.md                 # This file
 │
@@ -1007,7 +1008,8 @@ Services:
 ### 10.2 Docker (Production)
 
 The `Dockerfile` builds a Python 3.11 slim image:
-- Installs `requirements.txt`
+- Installs `requirements.txt` (runtime deps only, pinned to exact versions); `docker-compose` passes `INSTALL_DEV=true` to also install `requirements-dev.txt` (pytest, pip-audit, cyclonedx-bom)
+- Runs as a non-root `app` user
 - Sets `PYTHONPATH=/app`
 - Runs `uvicorn src.cddbs.api.main:app --host 0.0.0.0 --port 8000`
 - Includes `--timeout-keep-alive 75` and `--timeout-graceful-shutdown 30` for long-running analysis requests
@@ -1179,8 +1181,8 @@ cp .env.example .env  # edit with your API keys
 # Start with Docker
 docker-compose up --build
 
-# Or run locally
-pip install -r requirements.txt
+# Or run locally (requirements-dev.txt = runtime deps + pytest/pip-audit)
+pip install -r requirements-dev.txt
 export DATABASE_URL=postgresql+psycopg2://admin:admin@localhost:5432/cddbs
 uvicorn src.cddbs.api.main:app --reload --port 8000
 

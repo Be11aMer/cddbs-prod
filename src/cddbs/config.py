@@ -2,19 +2,30 @@ import os
 from dotenv import load_dotenv
 load_dotenv()
 
+
+def normalize_db_url(url: str) -> str:
+    """Pin driver-less Postgres URLs to psycopg2.
+
+    Render/Neon/Fly hand out ``postgres://`` or ``postgresql://`` URLs. SQLAlchemy
+    rejects the former, and since 2.1 resolves the latter to psycopg (v3), which
+    is not installed — only psycopg2-binary is.
+    """
+    for prefix in ("postgres://", "postgresql://"):
+        if url.startswith(prefix):
+            return "postgresql+psycopg2://" + url[len(prefix):]
+    return url
+
+
 class Settings:
     SERPAPI_KEY = os.getenv("SERPAPI_KEY")
     GOOGLE_API_KEY = os.getenv("GOOGLE_API_KEY")
     GEMINI_MODEL = os.getenv("GEMINI_MODEL", "gemini-2.5-flash")
     ARTICLE_LIMIT = int(os.getenv("ARTICLE_LIMIT", 3))
     
-    _db_url = os.getenv("DATABASE_URL", "postgresql+psycopg2://admin:admin@db:5432/cddbs")
-    # Render uses postgres:// but SQLAlchemy needs postgresql://
-    if _db_url and _db_url.startswith("postgres://"):
-        DATABASE_URL = _db_url.replace("postgres://", "postgresql://", 1)
-    else:
-        DATABASE_URL = _db_url
-        
+    DATABASE_URL = normalize_db_url(
+        os.getenv("DATABASE_URL", "postgresql+psycopg2://admin:admin@db:5432/cddbs")
+    )
+
     ALLOWED_ORIGINS = os.getenv("ALLOWED_ORIGINS", "https://cddbs-frontend.projectsfiae.workers.dev,https://cddbs-frontend.onrender.com,http://localhost:5173").split(",")
     
     # Database pooling settings
