@@ -32,5 +32,8 @@
     "@vitejs/plugin-react-swc": "^3.7.1",
     "typescript": "^5.6.3",
     "vite": "^6.3.5"
+  },
+  "overrides": {
+    "d3-color": "^3.1.0"
   }
 }
