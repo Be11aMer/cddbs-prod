@@ -1,18 +1,16 @@
-fastapi
-uvicorn[standard]
-sqlalchemy
-psycopg2-binary
-alembic
-python-dotenv
-requests
-pytest
-httpx
-google-genai
-pytest-cov
-slowapi>=0.1.9
-argon2-cffi>=23.1.0
-feedparser>=6.0
-scikit-learn>=1.4
-# CI / supply chain security (not imported at runtime)
-cyclonedx-bom>=4.0
-pip-audit>=2.7
+# Runtime dependencies for the API image. Pinned to exact versions so Render
+# rebuilds are reproducible — an unpinned rebuild silently pulls new major
+# releases. Bump deliberately, run the test suite, then commit.
+fastapi==0.143.0
+uvicorn[standard]==0.54.0
+sqlalchemy==2.1.4
+psycopg2-binary==2.9.13
+alembic==1.20.0
+python-dotenv==1.2.4
+requests==2.34.2
+httpx==0.28.1
+google-genai==2.29.0
+slowapi==0.1.10
+argon2-cffi==25.1.0
+feedparser==6.0.14
+scikit-learn==1.9.1
