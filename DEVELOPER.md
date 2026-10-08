@@ -984,7 +984,7 @@ ARTICLE_LIMIT=3
 
 ### 9.2 Render Deployment
 
-The project includes `render.yaml` for Render deployments. Set environment variables in the Render dashboard.
+The project includes `render.yaml` for Render deployments. Set environment variables in the Render dashboard. `DATABASE_URL` is `sync: false` — paste the Neon connection string on the `cddbs-api` service (the Render-managed free database is no longer used).
 
 ---
 
